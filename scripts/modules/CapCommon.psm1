@@ -34,6 +34,33 @@ function Write-CapLog {
     Write-Host "[$ts] [$Level] $Message" -ForegroundColor $color
 }
 
+function Open-CapBrowser {
+<#
+.SYNOPSIS
+    Best-effort, cross-platform "open this URL in the default browser". Never
+    throws: if no opener is available the caller can still copy the URL from the
+    terminal.
+#>
+    param([Parameter(Mandatory)][string]$Url)
+    try {
+        if ($IsWindows) {
+            Start-Process $Url | Out-Null
+        }
+        elseif ($IsMacOS) {
+            & '/usr/bin/open' $Url 2>$null
+        }
+        elseif ($IsLinux) {
+            if (Get-Command xdg-open -ErrorAction SilentlyContinue) { & xdg-open $Url 2>$null }
+        }
+        else {
+            Start-Process $Url | Out-Null
+        }
+    }
+    catch {
+        Write-CapLog "Could not auto-open the browser ($($_.Exception.Message)). Copy the URL above." 'WARN'
+    }
+}
+
 function Connect-CapGraph {
 <#
 .SYNOPSIS
@@ -55,11 +82,19 @@ function Connect-CapGraph {
 
 .PARAMETER ClientSecret
     Client secret (SecureString) for app-based auth. Certificate is preferred.
+
+.PARAMETER UseWebBrowser
+    Interactive sign-in only. Use the classic system-browser (authorization code)
+    flow instead of the default device-code flow. The device-code flow prints a
+    copy/paste sign-in URL and code in the terminal AND auto-opens the browser.
 #>
     [CmdletBinding(DefaultParameterSetName = 'Interactive')]
     param(
         [Parameter(ParameterSetName = 'Interactive')]
         [string[]]$Scopes = @('Policy.Read.All'),
+
+        [Parameter(ParameterSetName = 'Interactive')]
+        [switch]$UseWebBrowser,
 
         [Parameter(Mandatory, ParameterSetName = 'AppCert')]
         [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
@@ -94,7 +129,18 @@ function Connect-CapGraph {
         }
         default {
             Write-CapLog "Connecting to Graph (interactive) scopes: $($Scopes -join ', ')" 'INFO'
-            Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction Stop
+            if ($UseWebBrowser) {
+                Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction Stop
+            }
+            else {
+                # Device-code flow: prints a copy/paste sign-in URL + code in the
+                # terminal, and we also auto-open the browser to that page.
+                $deviceUrl = 'https://microsoft.com/devicelogin'
+                Write-CapLog "Device-code sign-in. Sign-in URL (copy/paste if the browser does not open): $deviceUrl" 'INFO'
+                Write-CapLog "The one-time code is printed below; enter it on that page." 'INFO'
+                Open-CapBrowser -Url $deviceUrl
+                Connect-MgGraph -Scopes $Scopes -UseDeviceAuthentication -NoWelcome -ErrorAction Stop
+            }
         }
     }
 

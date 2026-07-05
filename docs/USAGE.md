@@ -24,13 +24,18 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1
 
 You'll be prompted to sign in and consent to read-only `Policy.Read.All` **and
 `Directory.Read.All`** (the latter is used to turn GUIDs into display names).
-Output lands in a timestamped folder under `output/`.
+By default sign-in uses the **device-code flow**: the terminal prints a
+copy/paste sign-in URL (`https://microsoft.com/devicelogin`) and a one-time code,
+and the browser is opened automatically. Add `-UseWebBrowser` for the classic
+system-browser (SSO) flow instead. Output lands in a timestamped folder under
+`output/`.
 
 ### Useful switches
 
 | Switch | Effect |
 |--------|--------|
 | `-SkipResolveNames` | Do **not** resolve names; show GUIDs and request only `Policy.Read.All`. |
+| `-UseWebBrowser` | Use the classic system-browser sign-in instead of the default device-code flow. |
 | `-Delta` | Compare against the most recent previous snapshot. |
 | `-BaselinePath <folder>` | Use a specific snapshot as the delta baseline. |
 | `-Redact` | Replace tenant id and object GUIDs with stable pseudonyms (safe to share). |

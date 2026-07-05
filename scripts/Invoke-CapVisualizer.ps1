@@ -27,6 +27,12 @@
 .PARAMETER Scopes
     Delegated scopes for interactive sign-in. Default: Policy.Read.All.
 
+.PARAMETER UseWebBrowser
+    Interactive sign-in only. Use the classic system-browser flow instead of the
+    default device-code flow. By default the tool uses device-code sign-in, which
+    prints a copy/paste sign-in URL and one-time code in the terminal and also
+    auto-opens the browser.
+
 .PARAMETER SkipResolveNames
     By default the tool resolves object GUIDs (users, groups, roles, apps) to
     display names, which needs the read-only Directory.Read.All scope in addition
@@ -67,6 +73,9 @@ param(
 
     [Parameter(ParameterSetName = 'Interactive')]
     [string[]]$Scopes = @('Policy.Read.All'),
+
+    [Parameter(ParameterSetName = 'Interactive')]
+    [switch]$UseWebBrowser,
 
     [Parameter(Mandatory, ParameterSetName = 'AppCert')]
     [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
@@ -140,7 +149,7 @@ try {
         default     {
             $connectScopes = @($Scopes)
             if ($resolveNames -and $connectScopes -notcontains 'Directory.Read.All') { $connectScopes += 'Directory.Read.All' }
-            Connect-CapGraph -Scopes $connectScopes | Out-Null
+            Connect-CapGraph -Scopes $connectScopes -UseWebBrowser:$UseWebBrowser | Out-Null
         }
     }
 
