@@ -23,6 +23,70 @@ function _Get {
     if ($p) { return $p.Value } else { return $null }
 }
 
+# --- Friendly enum-label maps (mirror the Entra portal wording) -------------
+$script:CapPlatformLabels = @{
+    all = 'All'; android = 'Android'; iOS = 'iOS'; linux = 'Linux'
+    macOS = 'macOS'; windows = 'Windows'; windowsPhone = 'Windows Phone'
+}
+$script:CapClientAppLabels = @{
+    all = 'All clients'; browser = 'Browser'
+    mobileAppsAndDesktopClients = 'Mobile apps and desktop clients'
+    exchangeActiveSync = 'Exchange ActiveSync clients'
+    easSupported = 'Exchange ActiveSync clients'
+    other = 'Other legacy clients'
+}
+$script:CapRiskLabels = @{
+    high = 'High'; medium = 'Medium'; low = 'Low'; none = 'No risk'; hidden = 'Hidden'
+}
+$script:CapUserActionLabels = @{
+    'urn:user:registersecurityinfo' = 'Register security information'
+    'urn:user:registerdevice'       = 'Register or join devices'
+}
+$script:CapGuestTypeLabels = @{
+    internalGuest         = 'Local guest users'
+    b2bCollaborationGuest = 'B2B collaboration guest users'
+    b2bCollaborationMember= 'B2B collaboration member users'
+    b2bDirectConnectUser  = 'B2B direct connect users'
+    otherExternalUser     = 'Other external users'
+    serviceProvider       = 'Service provider users'
+}
+$script:CapGrantLabels = @{
+    mfa                  = 'Require multifactor authentication'
+    compliantDevice      = 'Require device to be marked as compliant'
+    domainJoinedDevice   = 'Require Microsoft Entra hybrid joined device'
+    approvedApplication  = 'Require approved client app'
+    compliantApplication = 'Require app protection policy'
+    passwordChange       = 'Require password change'
+    block                = 'Block access'
+}
+$script:CapCasLabels = @{
+    monitorOnly     = 'Monitor only'
+    blockDownloads  = 'Block downloads'
+    mcasConfigured  = 'Use custom policy'
+    unknownFutureValue = 'Custom policy'
+}
+$script:CapCaeLabels = @{
+    disabled          = 'Disabled'
+    strictEnforcement = 'Strictly enforce location policies'
+    strictLocation    = 'Strictly enforce location policies'
+}
+$script:CapPersistentBrowserLabels = @{ always = 'Always persistent'; never = 'Never persistent' }
+
+function _Label { param($map, $value) if ($null -eq $value) { return $null }; $k = "$value"; if ($map.ContainsKey($k)) { return $map[$k] } else { return $k } }
+function _Labels { param($map, $values) @(@($values) | Where-Object { $_ } | ForEach-Object { _Label $map $_ }) }
+
+function _SignInFrequencyLabel {
+    param($sf)
+    if (-not $sf) { return $null }
+    $fi = _Get $sf 'frequencyInterval'
+    if ("$fi" -eq 'everyTime') { return 'Every time' }
+    $val = _Get $sf 'value'
+    $type = "$(_Get $sf 'type')"
+    if ($null -eq $val -or '' -eq "$val") { return $null }
+    $unit = switch ($type) { 'days' { 'day' } 'hours' { 'hour' } default { $type } }
+    if ("$val" -eq '1') { return "$val $unit" } else { return "$val ${unit}s" }
+}
+
 function ConvertTo-CapFriendlyPolicy {
 <#
 .SYNOPSIS
@@ -86,25 +150,49 @@ function ConvertTo-CapFriendlyPolicy {
     if ($grant) { $grantControls = @(_Get $grant 'builtInControls') }
     $authStrengthObj = _Get $grant 'authenticationStrength'
     $authStrength = if ($authStrengthObj) { _Get $authStrengthObj 'displayName' } else { $null }
+    $customAuthFactors = @(_Get $grant 'customAuthenticationFactors')
+    $grantLabels = @($grantControls | Where-Object { $_ } | ForEach-Object { _Label $script:CapGrantLabels $_ })
 
+    # --- Session controls (structured, friendly) ---
     $sessionSummary = @()
     if ($sess) {
-        $sf = _Get $sess 'signInFrequency'
-        if ($sf -and (_Get $sf 'isEnabled')) { $sessionSummary += "SignInFrequency=$(_Get $sf 'value') $(_Get $sf 'type')" }
-        $pb = _Get $sess 'persistentBrowser'
-        if ($pb -and (_Get $pb 'isEnabled')) { $sessionSummary += "PersistentBrowser=$(_Get $pb 'mode')" }
-        $cas = _Get $sess 'cloudAppSecurity'
-        if ($cas -and (_Get $cas 'isEnabled')) { $sessionSummary += "CloudAppSecurity=$(_Get $cas 'cloudAppSecurityType')" }
         $aer = _Get $sess 'applicationEnforcedRestrictions'
-        if ($aer -and (_Get $aer 'isEnabled')) { $sessionSummary += 'AppEnforcedRestrictions' }
+        if ($aer -and (_Get $aer 'isEnabled')) { $sessionSummary += 'App enforced restrictions: On' }
+        $cas = _Get $sess 'cloudAppSecurity'
+        if ($cas -and (_Get $cas 'isEnabled')) { $sessionSummary += "Conditional Access App Control: $(_Label $script:CapCasLabels (_Get $cas 'cloudAppSecurityType'))" }
+        $sf = _Get $sess 'signInFrequency'
+        if ($sf -and (_Get $sf 'isEnabled')) { $sfl = _SignInFrequencyLabel $sf; if ($sfl) { $sessionSummary += "Sign-in frequency: $sfl" } }
+        $pb = _Get $sess 'persistentBrowser'
+        if ($pb -and (_Get $pb 'isEnabled')) { $sessionSummary += "Persistent browser: $(_Label $script:CapPersistentBrowserLabels (_Get $pb 'mode'))" }
         $cae = _Get $sess 'continuousAccessEvaluation'
-        if ($cae -and (_Get $cae 'mode')) { $sessionSummary += "CAE=$(_Get $cae 'mode')" }
+        if ($cae -and (_Get $cae 'mode')) { $sessionSummary += "Continuous access evaluation: $(_Label $script:CapCaeLabels (_Get $cae 'mode'))" }
+        if ((_Get $sess 'disableResilienceDefaults') -eq $true) { $sessionSummary += 'Disable resilience defaults: On' }
+        $ssis = _Get $sess 'secureSignInSession'
+        if ($ssis -and (_Get $ssis 'isEnabled')) { $sessionSummary += 'Token protection (secure sign-in session): On' }
     }
 
+    # --- Filters ---
     $deviceFilter = $null
     $devices = _Get $c 'devices'
     $df = _Get $devices 'deviceFilter'
-    if ($df) { $deviceFilter = "$(_Get $df 'mode'): $(_Get $df 'rule')" }
+    if ($df) { $deviceFilter = "$(if ((_Get $df 'mode') -eq 'exclude') {'Exclude when'} else {'Include when'}) $(_Get $df 'rule')" }
+    $appFilter = $null
+    $af = _Get $apps 'applicationFilter'
+    if ($af) { $appFilter = "$(if ((_Get $af 'mode') -eq 'exclude') {'Exclude when'} else {'Include when'}) $(_Get $af 'rule')" }
+
+    # --- Workload identities (service principals) ---
+    $clientApps = _Get $c 'clientApplications'
+    $inclSp = Names (_Get $clientApps 'includeServicePrincipals')
+    $exclSp = Names (_Get $clientApps 'excludeServicePrincipals')
+    $isWorkloadIdentity = [bool](@($inclSp).Count -or @($exclSp).Count)
+
+    # --- Guest / external user types ---
+    $inclGuest = _Get $users 'includeGuestsOrExternalUsers'
+    $exclGuest = _Get $users 'excludeGuestsOrExternalUsers'
+    $inclGuestTypes = @()
+    $exclGuestTypes = @()
+    if ($inclGuest) { $inclGuestTypes = _Labels $script:CapGuestTypeLabels (("$(_Get $inclGuest 'guestOrExternalUserTypes')") -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+    if ($exclGuest) { $exclGuestTypes = _Labels $script:CapGuestTypeLabels (("$(_Get $exclGuest 'guestOrExternalUserTypes')") -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
 
     return [ordered]@{
         id                    = _Get $Policy 'id'
@@ -112,34 +200,44 @@ function ConvertTo-CapFriendlyPolicy {
         state                 = _Get $Policy 'state'
         createdDateTime       = _Get $Policy 'createdDateTime'
         modifiedDateTime      = _Get $Policy 'modifiedDateTime'
+        portalLink            = "https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/PolicyBlade/policyId/$(_Get $Policy 'id')"
 
+        isWorkloadIdentity    = $isWorkloadIdentity
         includeUsers          = Names (_Get $users 'includeUsers')
         excludeUsers          = Names (_Get $users 'excludeUsers')
         includeGroups         = Names (_Get $users 'includeGroups')
         excludeGroups         = Names (_Get $users 'excludeGroups')
         includeRoles          = Names (_Get $users 'includeRoles')
         excludeRoles          = Names (_Get $users 'excludeRoles')
-        includeGuestsExternal = _Get $users 'includeGuestsOrExternalUsers'
-        excludeGuestsExternal = _Get $users 'excludeGuestsOrExternalUsers'
+        includeGuestsExternal = [bool]$inclGuest
+        excludeGuestsExternal = [bool]$exclGuest
+        includeGuestTypes     = $inclGuestTypes
+        excludeGuestTypes     = $exclGuestTypes
+        includeServicePrincipals = $inclSp
+        excludeServicePrincipals = $exclSp
 
         includeApplications   = Apps (_Get $apps 'includeApplications')
         excludeApplications   = Apps (_Get $apps 'excludeApplications')
-        includeUserActions    = @(_Get $apps 'includeUserActions')
-        authenticationContext = @(_Get $apps 'includeAuthenticationContextClassReferences')
+        applicationFilter     = $appFilter
+        includeUserActions    = _Labels $script:CapUserActionLabels (_Get $apps 'includeUserActions')
+        authenticationContext = @(_Get $apps 'includeAuthenticationContextClassReferences' | ForEach-Object { if ($NameMap.ContainsKey("$_")) { $NameMap["$_"] } else { "$_" } })
 
-        clientAppTypes        = @(_Get $c 'clientAppTypes')
-        includePlatforms      = @(_Get $platforms 'includePlatforms')
-        excludePlatforms      = @(_Get $platforms 'excludePlatforms')
+        clientAppTypes        = _Labels $script:CapClientAppLabels (_Get $c 'clientAppTypes')
+        includePlatforms      = _Labels $script:CapPlatformLabels (_Get $platforms 'includePlatforms')
+        excludePlatforms      = _Labels $script:CapPlatformLabels (_Get $platforms 'excludePlatforms')
         includeLocations      = Locs (_Get $locations 'includeLocations')
         excludeLocations      = Locs (_Get $locations 'excludeLocations')
-        signInRiskLevels      = @(_Get $c 'signInRiskLevels')
-        userRiskLevels        = @(_Get $c 'userRiskLevels')
+        signInRiskLevels      = _Labels $script:CapRiskLabels (_Get $c 'signInRiskLevels')
+        userRiskLevels        = _Labels $script:CapRiskLabels (_Get $c 'userRiskLevels')
+        servicePrincipalRiskLevels = _Labels $script:CapRiskLabels (_Get $c 'servicePrincipalRiskLevels')
         deviceFilter          = $deviceFilter
 
         grantOperator         = _Get $grant 'operator'
         grantControls         = $grantControls
+        grantControlLabels    = $grantLabels
+        customAuthenticationFactors = $customAuthFactors
         authenticationStrength = $authStrength
-        termsOfUse            = @(_Get $grant 'termsOfUse')
+        termsOfUse            = @(_Get $grant 'termsOfUse' | ForEach-Object { if ($NameMap.ContainsKey("$_")) { $NameMap["$_"] } else { "$_" } })
         isBlock               = [bool]($grantControls -contains 'block')
         requiresMfa           = [bool]($grantControls -contains 'mfa' -or $authStrength)
         sessionControls       = $sessionSummary
@@ -161,8 +259,14 @@ function ConvertTo-CapCsvRow {
         ExcludeGroups      = _Join $Friendly.excludeGroups
         IncludeRoles       = _Join $Friendly.includeRoles
         ExcludeRoles       = _Join $Friendly.excludeRoles
+        IncludeGuestTypes  = _Join $Friendly.includeGuestTypes
+        ExcludeGuestTypes  = _Join $Friendly.excludeGuestTypes
+        WorkloadIdentity   = $Friendly.isWorkloadIdentity
+        IncludeServicePrincipals = _Join $Friendly.includeServicePrincipals
+        ExcludeServicePrincipals = _Join $Friendly.excludeServicePrincipals
         IncludeApps        = _Join $Friendly.includeApplications
         ExcludeApps        = _Join $Friendly.excludeApplications
+        AppFilter          = $Friendly.applicationFilter
         UserActions        = _Join $Friendly.includeUserActions
         AuthContext        = _Join $Friendly.authenticationContext
         ClientAppTypes     = _Join $Friendly.clientAppTypes
@@ -172,9 +276,11 @@ function ConvertTo-CapCsvRow {
         ExcludeLocations   = _Join $Friendly.excludeLocations
         SignInRisk         = _Join $Friendly.signInRiskLevels
         UserRisk           = _Join $Friendly.userRiskLevels
+        ServicePrincipalRisk = _Join $Friendly.servicePrincipalRiskLevels
         DeviceFilter       = $Friendly.deviceFilter
         GrantOperator      = $Friendly.grantOperator
-        GrantControls      = _Join $Friendly.grantControls
+        GrantControls      = _Join $Friendly.grantControlLabels
+        CustomAuthFactors  = _Join $Friendly.customAuthenticationFactors
         AuthStrength       = $Friendly.authenticationStrength
         TermsOfUse         = _Join $Friendly.termsOfUse
         IsBlock            = $Friendly.isBlock
@@ -238,9 +344,13 @@ function New-CapSummary {
         [Parameter(Mandatory)]$FriendlyPolicies,
         [Parameter(Mandatory)]$Findings
     )
-    $byState = $FriendlyPolicies | Group-Object state | ForEach-Object { @{ $_.Name = $_.Count } }
     $stateMap = [ordered]@{}
-    foreach ($h in $byState) { foreach ($k in $h.Keys) { $stateMap[$k] = $h[$k] } }
+    foreach ($p in $FriendlyPolicies) {
+        $st = $p.state
+        if ([string]::IsNullOrEmpty($st)) { $st = 'unknown' }
+        if ($stateMap.Contains($st)) { $stateMap[$st] = $stateMap[$st] + 1 }
+        else { $stateMap[$st] = 1 }
+    }
 
     return [ordered]@{
         tenantId        = $Export.metadata.tenantId

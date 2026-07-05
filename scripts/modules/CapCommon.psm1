@@ -238,9 +238,6 @@ function ConvertTo-CapHashtable {
             $InputObject -is [datetime] -or $InputObject -is [bool]) {
             return $InputObject
         }
-        if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
-            return @($InputObject | ForEach-Object { ConvertTo-CapHashtable -InputObject $_ -StripODataAnnotations:$StripODataAnnotations })
-        }
         if ($InputObject -is [System.Collections.IDictionary]) {
             $ht = [ordered]@{}
             foreach ($k in $InputObject.Keys) {
@@ -248,6 +245,9 @@ function ConvertTo-CapHashtable {
                 $ht["$k"] = ConvertTo-CapHashtable -InputObject $InputObject[$k] -StripODataAnnotations:$StripODataAnnotations
             }
             return $ht
+        }
+        if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+            return @($InputObject | ForEach-Object { ConvertTo-CapHashtable -InputObject $_ -StripODataAnnotations:$StripODataAnnotations })
         }
         if ($InputObject.PSObject) {
             $ht = [ordered]@{}
@@ -402,11 +402,19 @@ function Get-CapWellKnownAppMap {
         '00000005-0000-0ff1-ce00-000000000000' = 'Microsoft Yammer'
         '00000006-0000-0ff1-ce00-000000000000' = 'Microsoft Office 365 Portal'
         '00000007-0000-0ff1-ce00-000000000000' = 'Microsoft Exchange Online Protection'
+        '00000009-0000-0000-c000-000000000000' = 'Power BI Service'
         '0000000c-0000-0000-c000-000000000000' = 'Microsoft App Access Panel'
         '797f4846-ba00-4fd7-ba43-dac1f8f63013' = 'Windows Azure Service Management API'
         'c44b4083-3bb0-49c1-b47d-974e53cbdf3c' = 'Microsoft Azure Portal'
-        '05a65629-4c1b-48c1-a78b-804c4abdd4af' = 'Microsoft Azure CLI'
+        '04b07795-8ddb-461a-bbee-02f9e1bf7b46' = 'Microsoft Azure CLI'
+        '05a65629-4c1b-48c1-a78b-804c4abdd4af' = 'Microsoft Azure CLI (legacy)'
         '1950a258-227b-4e31-a9cf-717495945fc2' = 'Microsoft Azure PowerShell'
+        '1fec8e78-bce4-4aaf-ab1b-5451cc387264' = 'Microsoft Teams'
+        'd3590ed6-52b3-4102-aeff-aad2292ab01c' = 'Microsoft Office'
+        '871c010f-5e61-4fb1-83ac-98610a7e9110' = 'Microsoft Power BI'
+        '00000007-0000-0000-c000-000000000000' = 'Microsoft Dataverse'
+        '3090ab82-f1c1-4cdf-af2c-5d7a6f3e2cc7' = 'Microsoft Defender for Cloud Apps'
+        '74bcdadc-2fdc-4bb3-8459-76d06952a0e9' = 'Microsoft Intune Web Company Portal'
         '89bee1f7-5e6e-4d8a-9f3d-ecd601259da7' = 'Office 365 (portal.office.com)'
     }
 }

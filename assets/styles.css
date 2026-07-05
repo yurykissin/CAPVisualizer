@@ -73,6 +73,11 @@ h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spa
 .flowcol.controls { border-color: var(--accent); }
 .flowcol.block { border-color: var(--block); }
 .arrow { align-self: center; color: var(--muted); font-size: 20px; }
+.ie { margin-bottom: 10px; }
+.ie-h { display: block; font-weight: 600; font-size: 12px; margin-bottom: 4px; color: var(--text); }
+.kv { display: flex; gap: 8px; margin: 3px 0; font-size: 12px; line-height: 1.35; }
+.kv .k { flex: 0 0 40%; color: var(--muted); }
+.kv .v { flex: 1 1 60%; word-break: break-word; }
 table { border-collapse: collapse; width: 100%; font-size: 12px; }
 th, td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
 th { background: var(--panel2); position: sticky; top: 0; }

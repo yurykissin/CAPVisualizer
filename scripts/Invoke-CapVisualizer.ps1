@@ -39,6 +39,13 @@
     to Policy.Read.All. Use -SkipResolveNames to keep the minimal
     Policy.Read.All-only footprint (output will then show GUIDs).
 
+.PARAMETER FromJson
+    Fully-offline render mode. Instead of connecting to Graph, load policies from
+    an existing JSON file (a CAPVisualizer export.json, a snapshot folder, a raw
+    Graph { value: [...] } response, or a bare array of policy objects) and
+    produce the same reports + HTML. No permissions and no network are used.
+    Names show as GUIDs unless the JSON embeds a nameMap.
+
 .PARAMETER Redact
     Replace tenant id and object GUIDs with stable pseudonyms so the output can be
     shared externally.
@@ -91,6 +98,9 @@ param(
     [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
     [System.Security.SecureString]$ClientSecret,
 
+    [Parameter(Mandatory, ParameterSetName = 'FromJson')]
+    [string]$FromJson,
+
     [switch]$SkipResolveNames,
     [switch]$Redact,
     [switch]$Delta,
@@ -142,19 +152,32 @@ function Protect-CapObject {
 }
 
 try {
-    # --- Connect ---
-    switch ($PSCmdlet.ParameterSetName) {
-        'AppCert'   { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint | Out-Null }
-        'AppSecret' { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -ClientSecret $ClientSecret | Out-Null }
-        default     {
-            $connectScopes = @($Scopes)
-            if ($resolveNames -and $connectScopes -notcontains 'Directory.Read.All') { $connectScopes += 'Directory.Read.All' }
-            Connect-CapGraph -Scopes $connectScopes -UseWebBrowser:$UseWebBrowser | Out-Null
-        }
-    }
+    $offline = $PSCmdlet.ParameterSetName -eq 'FromJson'
 
-    # --- Export ---
-    $export = Get-CapExport
+    if ($offline) {
+        # --- Offline render: load from JSON, no Graph connection, no network ---
+        if ($resolveNames -and -not $SkipResolveNames.IsPresent) {
+            # Cannot resolve live in offline mode; rely only on any embedded nameMap.
+            $resolveNames = $false
+        }
+        Write-CapLog "Offline render mode (-FromJson). No Graph connection will be made." 'INFO'
+        $export = Import-CapExportJson -Path $FromJson
+    }
+    else {
+        # --- Connect ---
+        switch ($PSCmdlet.ParameterSetName) {
+            'AppCert'   { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint | Out-Null }
+            'AppSecret' { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -ClientSecret $ClientSecret | Out-Null }
+            default     {
+                $connectScopes = @($Scopes)
+                if ($resolveNames -and $connectScopes -notcontains 'Directory.Read.All') { $connectScopes += 'Directory.Read.All' }
+                Connect-CapGraph -Scopes $connectScopes -UseWebBrowser:$UseWebBrowser | Out-Null
+            }
+        }
+
+        # --- Export ---
+        $export = Get-CapExport
+    }
 
     # --- Name / location maps ---
     $locationMap = @{}
@@ -164,13 +187,16 @@ try {
     foreach ($k in $locationMap.Keys) { $nameMap[$k] = $locationMap[$k] }
     # Authentication context references (id -> displayName).
     foreach ($ac in $export.authenticationContexts) { $acId = if ($ac -is [System.Collections.IDictionary]) { $ac['id'] } else { $ac.id }; $acName = if ($ac -is [System.Collections.IDictionary]) { $ac['displayName'] } else { $ac.displayName }; if ($acId) { $nameMap[$acId] = $acName } }
+    # Any name map embedded in an offline JSON export.
+    if ($export.Contains('nameMap') -and $export['nameMap']) { foreach ($k in $export['nameMap'].Keys) { $nameMap["$k"] = $export['nameMap'][$k] } }
+    # Well-known first-party app ids are always safe to resolve (static, offline).
+    (Get-CapWellKnownAppMap).GetEnumerator() | ForEach-Object { if (-not $nameMap.ContainsKey($_.Key)) { $nameMap[$_.Key] = $_.Value } }
 
-    if ($resolveNames) {
+    if ($resolveNames -and -not $offline) {
         Write-CapLog "Resolving object names (users/groups, roles, apps) via Directory.Read.All..." 'INFO'
         $refs = Get-CapReferences -Export $export
         if (@($refs.UserGroupIds).Count)    { (Get-CapDirectoryNameMap -Ids $refs.UserGroupIds).GetEnumerator()      | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
         if (@($refs.RoleTemplateIds).Count) { (Get-CapRoleTemplateMap).GetEnumerator()                                | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
-        (Get-CapWellKnownAppMap).GetEnumerator() | ForEach-Object { if (-not $nameMap.ContainsKey($_.Key)) { $nameMap[$_.Key] = $_.Value } }
         if (@($refs.AppIds).Count)          { (Get-CapServicePrincipalMap -AppIds $refs.AppIds).GetEnumerator()       | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
         Write-CapLog "Resolved $($nameMap.Count) names (users/groups: $(@($refs.UserGroupIds).Count), roles: $(@($refs.RoleTemplateIds).Count), apps: $(@($refs.AppIds).Count))." 'OK'
     }
@@ -191,6 +217,9 @@ try {
     }
 
     # --- Write raw + report ---
+    # Embed the resolved name map so a later -FromJson render stays fully offline
+    # and still shows display names (unless redacting, which strips GUIDs anyway).
+    if (-not $Redact -and $nameMap.Count) { $export['nameMap'] = $nameMap }
     Save-CapJson -InputObject $export   -Path (Join-Path $snapshot 'raw/export.json')
     Save-CapJson -InputObject $friendly -Path (Join-Path $snapshot 'report/policies.json')
     Save-CapJson -InputObject $summary  -Path (Join-Path $snapshot 'report/summary.json')
@@ -240,6 +269,7 @@ try {
         generatedUtc = $summary.generatedUtc
         tenantId     = $summary.tenantId
         resolveNames = [bool]$resolveNames
+        offline      = [bool]$offline
         redacted     = [bool]$Redact
         files        = @($files | ForEach-Object {
             [ordered]@{ path = ($_.FullName.Substring($snapshot.Length + 1) -replace '\\', '/'); sha256 = (Get-CapFileSha256 -Path $_.FullName); bytes = $_.Length }
@@ -250,6 +280,6 @@ try {
     Write-CapLog "Done. Open: $(Join-Path $snapshot 'visual/index.html')" 'OK'
 }
 finally {
-    try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch { }
+    if ($PSCmdlet.ParameterSetName -ne 'FromJson') { try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch { } }
     if (-not $NoTranscript) { try { Stop-Transcript | Out-Null } catch { } }
 }

@@ -36,6 +36,7 @@ system-browser (SSO) flow instead. Output lands in a timestamped folder under
 |--------|--------|
 | `-SkipResolveNames` | Do **not** resolve names; show GUIDs and request only `Policy.Read.All`. |
 | `-UseWebBrowser` | Use the classic system-browser sign-in instead of the default device-code flow. |
+| `-FromJson <path>` | Offline render mode: build reports + HTML from an existing JSON file, no sign-in, no network. |
 | `-Delta` | Compare against the most recent previous snapshot. |
 | `-BaselinePath <folder>` | Use a specific snapshot as the delta baseline. |
 | `-Redact` | Replace tenant id and object GUIDs with stable pseudonyms (safe to share). |
@@ -48,6 +49,32 @@ Example (minimal permissions, GUIDs only):
 ```bash
 pwsh ./scripts/Invoke-CapVisualizer.ps1 -SkipResolveNames -Delta
 ```
+
+## 2b. Render from existing JSON (fully offline, zero permissions)
+
+If you (or a colleague) cannot grant Graph consent, you can still generate the
+full report and HTML from a JSON file you already have - no sign-in, no network:
+
+```bash
+pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./path/to/policies.json
+```
+
+`-FromJson` accepts any of:
+
+- A **CAPVisualizer** `export.json` (or a whole snapshot folder). If it was
+  produced with name resolution, the embedded `nameMap` is reused so names still
+  show - completely offline.
+- A **raw Microsoft Graph** response, either a `{ "value": [ ... ] }` object or a
+  bare array of policy objects. For example, export it yourself with:
+
+  ```powershell
+  (Invoke-MgGraphRequest GET 'v1.0/identity/conditionalAccess/policies').value |
+    ConvertTo-Json -Depth 30 | Out-File policies.json
+  ```
+
+  Names will show as GUIDs (except well-known Microsoft apps) unless the JSON
+  carries a `nameMap`. Everything else - conditions, controls, session controls,
+  CSV/JSON reports and the interactive HTML - is produced exactly as in a live run.
 
 ## 3. Run unattended (app registration)
 

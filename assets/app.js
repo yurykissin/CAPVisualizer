@@ -45,46 +45,101 @@
 
   function controlPills(p) {
     var out = [];
-    if (p.isBlock) out.push('<span class="pill block">BLOCK</span>');
-    arr(p.grantControls).forEach(function (c) {
-      if (c === "block") return;
-      var cls = (c === "mfa") ? "pill mfa" : "pill";
-      out.push('<span class="' + cls + '">' + esc(c) + "</span>");
+    if (p.isBlock) out.push('<span class="pill block">Block access</span>');
+    var labels = arr(p.grantControlLabels);
+    if (!labels.length) labels = arr(p.grantControls);
+    labels.forEach(function (c) {
+      if (c === "block" || c === "Block access") return;
+      var isMfa = /mfa|multifactor/i.test(c);
+      out.push('<span class="' + (isMfa ? "pill mfa" : "pill") + '">' + esc(c) + "</span>");
     });
-    if (p.authenticationStrength) out.push('<span class="pill mfa">strength: ' + esc(p.authenticationStrength) + "</span>");
+    if (p.authenticationStrength) out.push('<span class="pill mfa">Strength: ' + esc(p.authenticationStrength) + "</span>");
+    arr(p.customAuthenticationFactors).forEach(function (c) { out.push('<span class="pill">Custom: ' + esc(c) + "</span>"); });
     if (!out.length) out.push('<span class="muted">none</span>');
     return out.join(" ");
   }
 
+  // Build "Include / Exclude" sub-blocks with labelled rows.
+  function incExc(includeRows, excludeRows) {
+    function block(label, rows) {
+      var body = rows.filter(function (r) { return r; }).join("");
+      if (!body) return "";
+      return "<div class=\"ie\"><span class=\"ie-h\">" + label + "</span>" + body + "</div>";
+    }
+    var out = "";
+    out += block("&#10003; Include", includeRows);
+    out += block("&#128683; Exclude", excludeRows);
+    if (!out) out = '<span class="muted">Not configured</span>';
+    return out;
+  }
+  function row(label, v) {
+    var a = arr(v).filter(function (x) { return x !== null && x !== undefined && x !== ""; });
+    if (!a.length) return "";
+    return "<div class=\"kv\"><span class=\"k\">" + label + "</span><span class=\"v\">" + a.map(esc).join("<br>") + "</span></div>";
+  }
+  function flag(label, on) { return on ? "<div class=\"kv\"><span class=\"k\">" + label + "</span><span class=\"v\">Yes</span></div>" : ""; }
+
   function renderDetail(p) {
     var blockCls = p.isBlock ? " block" : "";
+    var usersTitle = p.isWorkloadIdentity ? "Workload identities" : "Users";
+
+    var userInc = [
+      row("Users", p.includeUsers),
+      row("Groups", p.includeGroups),
+      row("Directory roles", p.includeRoles),
+      flag("Guests / external users", p.includeGuestsExternal),
+      row("Guest/external types", p.includeGuestTypes),
+      row("Service principals", p.includeServicePrincipals)
+    ];
+    var userExc = [
+      row("Users", p.excludeUsers),
+      row("Groups", p.excludeGroups),
+      row("Directory roles", p.excludeRoles),
+      flag("Guests / external users", p.excludeGuestsExternal),
+      row("Guest/external types", p.excludeGuestTypes),
+      row("Service principals", p.excludeServicePrincipals)
+    ];
+
+    var appInc = [
+      row("Cloud apps", p.includeApplications),
+      row("User actions", p.includeUserActions),
+      row("Authentication context", p.authenticationContext),
+      (p.applicationFilter ? row("App filter", p.applicationFilter) : "")
+    ];
+    var appExc = [ row("Cloud apps", p.excludeApplications) ];
+
+    var conditions = [
+      row("Client apps", p.clientAppTypes),
+      row("Device platforms (include)", p.includePlatforms),
+      row("Device platforms (exclude)", p.excludePlatforms),
+      row("Locations (include)", p.includeLocations),
+      row("Locations (exclude)", p.excludeLocations),
+      row("Sign-in risk", p.signInRiskLevels),
+      row("User risk", p.userRiskLevels),
+      row("Service principal risk", p.servicePrincipalRiskLevels),
+      (p.deviceFilter ? row("Filter for devices", p.deviceFilter) : "")
+    ].join("");
+    if (!conditions) conditions = '<span class="muted">Not configured</span>';
+
+    var controls = "<div class=\"kv\"><span class=\"k\">Grant (" + esc(p.grantOperator || "-") + ")</span><span class=\"v\">" + controlPills(p) + "</span></div>";
+    controls += row("Terms of use", p.termsOfUse);
+    var sess = arr(p.sessionControls);
+    controls += sess.length ? "<div class=\"kv\"><span class=\"k\">Session</span><span class=\"v\">" + sess.map(esc).join("<br>") + "</span></div>" : "";
+
+    var link = p.portalLink ? ' &nbsp;·&nbsp; <a href="' + esc(p.portalLink) + '" target="_blank" rel="noopener">open in Entra portal &#8599;</a>' : "";
+
     var html = "" +
       '<h2>' + esc(p.displayName) + ' <span class="pill ' + (p.state === "enabled" ? "ok" : "") + '">' + esc(stateLabel(p.state)) + "</span></h2>" +
       '<div class="muted" style="margin-bottom:12px">id: <code>' + esc(p.id) + "</code>" +
-      (p.modifiedDateTime ? " &nbsp;·&nbsp; modified: " + esc(p.modifiedDateTime) : "") + "</div>" +
+      (p.modifiedDateTime ? " &nbsp;·&nbsp; modified: " + esc(p.modifiedDateTime) : "") + link + "</div>" +
       '<div class="flow">' +
-        '<div class="flowcol"><h3>Users</h3>' +
-          "<b>Include</b>" + list(arr(p.includeUsers).concat(arr(p.includeGroups), arr(p.includeRoles))) +
-          "<br><b>Exclude</b>" + list(arr(p.excludeUsers).concat(arr(p.excludeGroups), arr(p.excludeRoles))) + "</div>" +
+        '<div class="flowcol"><h3>' + usersTitle + "</h3>" + incExc(userInc, userExc) + "</div>" +
         '<div class="arrow">&rarr;</div>' +
-        '<div class="flowcol"><h3>Target resources</h3>' +
-          "<b>Include apps</b>" + list(p.includeApplications) +
-          "<br><b>Exclude apps</b>" + list(p.excludeApplications) +
-          (arr(p.includeUserActions).length ? "<br><b>User actions</b>" + list(p.includeUserActions) : "") + "</div>" +
+        '<div class="flowcol"><h3>Target resources</h3>' + incExc(appInc, appExc) + "</div>" +
         '<div class="arrow">&rarr;</div>' +
-        '<div class="flowcol"><h3>Conditions</h3>' +
-          "<b>Client apps</b>" + list(p.clientAppTypes) +
-          "<br><b>Platforms</b>" + list(p.includePlatforms) +
-          "<br><b>Locations</b>" + list(p.includeLocations) +
-          (arr(p.excludeLocations).length ? " (excl: " + list(p.excludeLocations) + ")" : "") +
-          "<br><b>Sign-in risk</b>" + list(p.signInRiskLevels) +
-          "<br><b>User risk</b>" + list(p.userRiskLevels) +
-          (p.deviceFilter ? "<br><b>Device filter</b><br>" + esc(p.deviceFilter) : "") + "</div>" +
+        '<div class="flowcol"><h3>Conditions</h3>' + conditions + "</div>" +
         '<div class="arrow">&rArr;</div>' +
-        '<div class="flowcol controls' + blockCls + '"><h3>Access controls</h3>' +
-          "<b>Grant (" + esc(p.grantOperator || "-") + ")</b><br>" + controlPills(p) +
-          (arr(p.sessionControls).length ? "<br><br><b>Session</b>" + list(p.sessionControls) : "") +
-          (arr(p.termsOfUse).length ? "<br><b>Terms of use</b>" + list(p.termsOfUse) : "") + "</div>" +
+        '<div class="flowcol controls' + blockCls + '"><h3>Access controls</h3>' + controls + "</div>" +
       "</div>";
     el("detail").innerHTML = html;
   }

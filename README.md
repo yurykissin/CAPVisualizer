@@ -11,7 +11,11 @@ produces:
   and session controls, blocks, hygiene findings).
 - A **self-contained offline HTML** visualization - each policy individually and
   an overview of all of them - that opens in any browser with **no internet**.
+  Every assignment, condition, grant and session control is shown with the same
+  friendly wording as the Entra portal.
 - **Delta reports** so periodic runs show exactly what changed since last time.
+- An **offline render mode** (`-FromJson`) that rebuilds the full report + HTML
+  from an existing JSON export - **no sign-in, no permissions, no network**.
 
 > [!IMPORTANT]
 > CAPVisualizer is **read-only** and runs **entirely locally**. It makes **no
@@ -43,7 +47,9 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1
 
 Names are resolved by default; add `-Delta` to compare against your previous
 run, or `-SkipResolveNames` for the minimal `Policy.Read.All`-only footprint.
-Full options in [docs/USAGE.md](docs/USAGE.md).
+No consent to spare? Render from a JSON file you already have with
+`-FromJson ./policies.json` (fully offline). Full options in
+[docs/USAGE.md](docs/USAGE.md).
 
 ## Lowest-privilege by design
 
