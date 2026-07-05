@@ -1,0 +1,87 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.43.8.12551",
+      "templateHash": "14818058274706445250"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for the Automation Account."
+      }
+    },
+    "automationAccountName": {
+      "type": "string",
+      "defaultValue": "capvisualizer-auto",
+      "metadata": {
+        "description": "Name of the Automation Account to create."
+      }
+    },
+    "scheduleName": {
+      "type": "string",
+      "defaultValue": "CAPVisualizer-Daily",
+      "metadata": {
+        "description": "Name of the daily schedule."
+      }
+    },
+    "scheduleStart": {
+      "type": "string",
+      "defaultValue": "2026-01-01T03:00:00+00:00",
+      "metadata": {
+        "description": "Daily run time (ISO 8601, must be in the future at deploy time)."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Automation/automationAccounts",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('automationAccountName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "sku": {
+          "name": "Free"
+        },
+        "publicNetworkAccess": true
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/schedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', parameters('automationAccountName'), parameters('scheduleName'))]",
+      "properties": {
+        "description": "Daily read-only Conditional Access export (CAPVisualizer).",
+        "startTime": "[parameters('scheduleStart')]",
+        "frequency": "Day",
+        "interval": 1,
+        "timeZone": "UTC"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "automationAccountName": {
+      "type": "string",
+      "value": "[parameters('automationAccountName')]"
+    },
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName')), '2023-11-01', 'full').identity.principalId]"
+    },
+    "nextSteps": {
+      "type": "string",
+      "value": "Grant the printed principalId the Graph app role Policy.Read.All, import Microsoft.Graph.Authentication, and link a runbook to the schedule. See arm/README.md."
+    }
+  }
+}
