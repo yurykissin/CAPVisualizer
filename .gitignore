@@ -1,5 +1,5 @@
 # Run outputs (may contain sensitive tenant configuration)
-output/
+output/*
 !output/.gitkeep
 
 # Secrets / local config
