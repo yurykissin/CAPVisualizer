@@ -36,17 +36,40 @@ function ConvertTo-CapFriendlyPolicy {
         [hashtable]$LocationMap = @{}
     )
 
-    function Names($ids) {
+    function _Resolve($ids, $kind) {
         if (-not $ids) { return @() }
-        return @($ids | ForEach-Object { if ($NameMap.ContainsKey($_)) { $NameMap[$_] } else { $_ } })
+        return @($ids | ForEach-Object {
+            $v = "$_"
+            $special = $null
+            if ($kind -eq 'user') {
+                switch ($v) {
+                    'All'                   { $special = 'All users' }
+                    'None'                  { $special = 'None' }
+                    'GuestsOrExternalUsers' { $special = 'Guests or external users' }
+                }
+            }
+            elseif ($kind -eq 'app') {
+                switch ($v) {
+                    'All'                   { $special = 'All cloud apps' }
+                    'None'                  { $special = 'None' }
+                    'Office365'             { $special = 'Office 365' }
+                    'MicrosoftAdminPortals' { $special = 'Microsoft Admin Portals' }
+                }
+            }
+            if ($special) { $special }
+            elseif ($NameMap.ContainsKey($v)) { $NameMap[$v] }
+            else { $v }
+        })
     }
+    function Names($ids) { _Resolve $ids 'user' }
+    function Apps($ids)  { _Resolve $ids 'app' }
     function Locs($ids) {
         if (-not $ids) { return @() }
         return @($ids | ForEach-Object {
-            switch ($_) {
+            switch ("$_") {
                 'All'        { 'All locations' }
                 'AllTrusted' { 'All trusted locations' }
-                default { if ($LocationMap.ContainsKey($_)) { $LocationMap[$_] } else { $_ } }
+                default { if ($LocationMap.ContainsKey("$_")) { $LocationMap["$_"] } else { "$_" } }
             }
         })
     }
@@ -99,8 +122,8 @@ function ConvertTo-CapFriendlyPolicy {
         includeGuestsExternal = _Get $users 'includeGuestsOrExternalUsers'
         excludeGuestsExternal = _Get $users 'excludeGuestsOrExternalUsers'
 
-        includeApplications   = Names (_Get $apps 'includeApplications')
-        excludeApplications   = Names (_Get $apps 'excludeApplications')
+        includeApplications   = Apps (_Get $apps 'includeApplications')
+        excludeApplications   = Apps (_Get $apps 'excludeApplications')
         includeUserActions    = @(_Get $apps 'includeUserActions')
         authenticationContext = @(_Get $apps 'includeAuthenticationContextClassReferences')
 

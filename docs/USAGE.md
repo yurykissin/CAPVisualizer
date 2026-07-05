@@ -22,14 +22,15 @@ Install-Module Microsoft.Graph.Authentication -Scope CurrentUser
 pwsh ./scripts/Invoke-CapVisualizer.ps1
 ```
 
-You'll be prompted to sign in and consent to the read-only `Policy.Read.All`
-scope. Output lands in a timestamped folder under `output/`.
+You'll be prompted to sign in and consent to read-only `Policy.Read.All` **and
+`Directory.Read.All`** (the latter is used to turn GUIDs into display names).
+Output lands in a timestamped folder under `output/`.
 
 ### Useful switches
 
 | Switch | Effect |
 |--------|--------|
-| `-ResolveNames` | Resolve object GUIDs to display names (needs `Directory.Read.All`). |
+| `-SkipResolveNames` | Do **not** resolve names; show GUIDs and request only `Policy.Read.All`. |
 | `-Delta` | Compare against the most recent previous snapshot. |
 | `-BaselinePath <folder>` | Use a specific snapshot as the delta baseline. |
 | `-Redact` | Replace tenant id and object GUIDs with stable pseudonyms (safe to share). |
@@ -37,16 +38,17 @@ scope. Output lands in a timestamped folder under `output/`.
 | `-NoTranscript` | Do not write a PowerShell transcript into the snapshot. |
 | `-OutputRoot <path>` | Change the output root (default `./output`). |
 
-Example:
+Example (minimal permissions, GUIDs only):
 
 ```bash
-pwsh ./scripts/Invoke-CapVisualizer.ps1 -ResolveNames -Delta
+pwsh ./scripts/Invoke-CapVisualizer.ps1 -SkipResolveNames -Delta
 ```
 
 ## 3. Run unattended (app registration)
 
 For scheduled/unattended runs, register an app with **application**
-`Policy.Read.All` and use certificate auth:
+`Policy.Read.All` (add `Directory.Read.All` for name resolution) and use
+certificate auth:
 
 ```bash
 pwsh ./scripts/Invoke-CapVisualizer.ps1 \

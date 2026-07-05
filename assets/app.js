@@ -2,7 +2,8 @@
 (function () {
   "use strict";
   var DATA = window.__CAP_DATA__ || { policies: [], summary: {}, findings: [], delta: null };
-  var policies = DATA.policies || [];
+  function arr(v) { return Array.isArray(v) ? v : (v === null || v === undefined || v === "" ? [] : [v]); }
+  var policies = arr(DATA.policies);
   var selected = null;
 
   function el(id) { return document.getElementById(id); }
@@ -12,7 +13,6 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
-  function arr(v) { return Array.isArray(v) ? v : (v === null || v === undefined || v === "" ? [] : [v]); }
   function list(v) {
     var a = arr(v).filter(function (x) { return x !== null && x !== undefined && x !== ""; });
     return a.length ? a.map(esc).join("<br>") : '<span class="muted">-</span>';
@@ -46,7 +46,7 @@
   function controlPills(p) {
     var out = [];
     if (p.isBlock) out.push('<span class="pill block">BLOCK</span>');
-    (p.grantControls || []).forEach(function (c) {
+    arr(p.grantControls).forEach(function (c) {
       if (c === "block") return;
       var cls = (c === "mfa") ? "pill mfa" : "pill";
       out.push('<span class="' + cls + '">' + esc(c) + "</span>");
@@ -64,8 +64,8 @@
       (p.modifiedDateTime ? " &nbsp;·&nbsp; modified: " + esc(p.modifiedDateTime) : "") + "</div>" +
       '<div class="flow">' +
         '<div class="flowcol"><h3>Users</h3>' +
-          "<b>Include</b>" + list(p.includeUsers.concat(p.includeGroups, p.includeRoles)) +
-          "<br><b>Exclude</b>" + list(p.excludeUsers.concat(p.excludeGroups, p.excludeRoles)) + "</div>" +
+          "<b>Include</b>" + list(arr(p.includeUsers).concat(arr(p.includeGroups), arr(p.includeRoles))) +
+          "<br><b>Exclude</b>" + list(arr(p.excludeUsers).concat(arr(p.excludeGroups), arr(p.excludeRoles))) + "</div>" +
         '<div class="arrow">&rarr;</div>' +
         '<div class="flowcol"><h3>Target resources</h3>' +
           "<b>Include apps</b>" + list(p.includeApplications) +
@@ -106,7 +106,7 @@
   }
 
   function renderFindings() {
-    var f = DATA.findings || [];
+    var f = arr(DATA.findings);
     if (!f.length) { el("findings").innerHTML = '<p class="muted">No hygiene findings.</p>'; return; }
     var rows = f.map(function (x) {
       return "<tr><td class=\"sev-" + esc(x.severity) + "\">" + esc(x.severity) + "</td><td>" + esc(x.code) +
@@ -119,7 +119,7 @@
     var rows = policies.map(function (p) {
       return "<tr><td><span class=\"dot " + stateClass(p.state) + "\"></span> " + esc(p.displayName) + "</td>" +
         "<td>" + esc(stateLabel(p.state)) + "</td>" +
-        "<td>" + list(p.includeUsers.concat(p.includeGroups, p.includeRoles)) + "</td>" +
+        "<td>" + list(arr(p.includeUsers).concat(arr(p.includeGroups), arr(p.includeRoles))) + "</td>" +
         "<td>" + list(p.includeApplications) + "</td>" +
         "<td>" + controlPills(p) + "</td></tr>";
     }).join("");
@@ -134,19 +134,21 @@
       '<span class="badge-remove">-' + d.removedCount + " removed</span> &nbsp; " +
       '<span class="badge-mod">~' + d.modifiedCount + " modified</span></p>";
     function tbl(title, items, cls) {
-      if (!items || !items.length) return "";
+      items = arr(items);
+      if (!items.length) return "";
       return "<h3>" + title + "</h3><table><tbody>" + items.map(function (x) {
         return '<tr><td class="' + cls + '">' + esc(x.displayName) + "</td><td>" + esc(x.state || "") + "</td></tr>";
       }).join("") + "</tbody></table>";
     }
     h += tbl("Added", d.added, "badge-add");
     h += tbl("Removed", d.removed, "badge-remove");
-    if (d.modified && d.modified.length) {
+    var mods = arr(d.modified);
+    if (mods.length) {
       h += "<h3>Modified</h3>";
-      d.modified.forEach(function (m) {
+      mods.forEach(function (m) {
         h += "<b class=\"badge-mod\">" + esc(m.displayName) + "</b> (" + m.changeCount + " changes)" +
           "<table><thead><tr><th>Field</th><th>From</th><th>To</th></tr></thead><tbody>" +
-          m.changes.map(function (c) {
+          arr(m.changes).map(function (c) {
             return "<tr><td>" + esc(c.field) + "</td><td>" + esc(c.from) + "</td><td>" + esc(c.to) + "</td></tr>";
           }).join("") + "</tbody></table>";
       });

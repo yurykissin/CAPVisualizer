@@ -257,13 +257,13 @@ function Get-CapDirectoryNameMap {
     param([Parameter(Mandatory)][string[]]$Ids)
 
     $map = @{}
-    $distinct = $Ids | Where-Object { $_ -and ($_ -match '^[0-9a-fA-F-]{36}$') } | Sort-Object -Unique
-    if (-not $distinct) { return $map }
+    $distinct = @($Ids | Where-Object { $_ -and ($_ -match '^[0-9a-fA-F-]{36}$') } | Sort-Object -Unique)
+    if (-not $distinct.Count) { return $map }
 
     # getByIds resolves mixed directory object types in batches of up to 1000.
     $batchSize = 900
     for ($i = 0; $i -lt $distinct.Count; $i += $batchSize) {
-        $batch = $distinct[$i..([math]::Min($i + $batchSize - 1, $distinct.Count - 1))]
+        $batch = @($distinct[$i..([math]::Min($i + $batchSize - 1, $distinct.Count - 1))])
         $body = @{ ids = @($batch); types = @('user', 'group', 'servicePrincipal', 'directoryRole', 'application') }
         try {
             $resp = Invoke-MgGraphRequest -Method POST -Uri "$script:CapGraphV1/directoryObjects/getByIds" `
@@ -284,5 +284,87 @@ function Get-CapDirectoryNameMap {
     return $map
 }
 
+function Get-CapRoleTemplateMap {
+<#
+.SYNOPSIS
+    OPTIONAL. Map directory role template ids (used by CA includeRoles /
+    excludeRoles) to role display names. Requires a read-only directory scope
+    (Directory.Read.All or RoleManagement.Read.Directory).
+#>
+    [CmdletBinding()]
+    param()
+    $map = @{}
+    try {
+        $templates = @(Invoke-CapGraphGet -Uri 'directoryRoleTemplates')
+        foreach ($t in $templates) {
+            $idP = $t.PSObject.Properties['id']; $dnP = $t.PSObject.Properties['displayName']
+            if ($idP -and $dnP -and $dnP.Value) { $map[$idP.Value] = $dnP.Value }
+        }
+    }
+    catch { Write-CapLog "Role template resolution failed (continuing): $($_.Exception.Message)" 'WARN' }
+    return $map
+}
+
+function Get-CapServicePrincipalMap {
+<#
+.SYNOPSIS
+    OPTIONAL. Map application (client) appId GUIDs (used by CA
+    includeApplications / excludeApplications) to service principal display
+    names. Requires a read-only directory scope (Directory.Read.All or
+    Application.Read.All).
+
+.PARAMETER AppIds
+    Distinct appId GUIDs referenced by the policy set.
+#>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string[]]$AppIds)
+
+    $map = @{}
+    $distinct = @($AppIds | Where-Object { $_ -and ($_ -match '^[0-9a-fA-F-]{36}$') } | Sort-Object -Unique)
+    if (-not $distinct.Count) { return $map }
+
+    # Query by appId in small batches to keep the URL length bounded. Uses
+    # chained 'eq ... or' which works without ConsistencyLevel headers.
+    $batchSize = 15
+    for ($i = 0; $i -lt $distinct.Count; $i += $batchSize) {
+        $batch = @($distinct[$i..([math]::Min($i + $batchSize - 1, $distinct.Count - 1))])
+        $filter = ($batch | ForEach-Object { "appId eq '$_'" }) -join ' or '
+        $uri = "servicePrincipals?`$select=appId,displayName&`$filter=$([uri]::EscapeDataString($filter))"
+        try {
+            $sps = @(Invoke-CapGraphGet -Uri $uri)
+            foreach ($sp in $sps) {
+                $aP = $sp.PSObject.Properties['appId']; $dP = $sp.PSObject.Properties['displayName']
+                if ($aP -and $dP -and $dP.Value) { $map[$aP.Value] = $dP.Value }
+            }
+        }
+        catch { Write-CapLog "Service principal resolution batch failed (continuing): $($_.Exception.Message)" 'WARN' }
+    }
+    return $map
+}
+
+function Get-CapWellKnownAppMap {
+<#
+.SYNOPSIS
+    Static fallback names for well-known first-party Microsoft app ids that may
+    be referenced by CA policies but not present as tenant service principals.
+#>
+    return @{
+        '00000002-0000-0ff1-ce00-000000000000' = 'Office 365 Exchange Online'
+        '00000003-0000-0ff1-ce00-000000000000' = 'Office 365 SharePoint Online'
+        '00000003-0000-0000-c000-000000000000' = 'Microsoft Graph'
+        '00000004-0000-0ff1-ce00-000000000000' = 'Skype for Business Online'
+        '00000005-0000-0ff1-ce00-000000000000' = 'Microsoft Yammer'
+        '00000006-0000-0ff1-ce00-000000000000' = 'Microsoft Office 365 Portal'
+        '00000007-0000-0ff1-ce00-000000000000' = 'Microsoft Exchange Online Protection'
+        '0000000c-0000-0000-c000-000000000000' = 'Microsoft App Access Panel'
+        '797f4846-ba00-4fd7-ba43-dac1f8f63013' = 'Windows Azure Service Management API'
+        'c44b4083-3bb0-49c1-b47d-974e53cbdf3c' = 'Microsoft Azure Portal'
+        '05a65629-4c1b-48c1-a78b-804c4abdd4af' = 'Microsoft Azure CLI'
+        '1950a258-227b-4e31-a9cf-717495945fc2' = 'Microsoft Azure PowerShell'
+        '89bee1f7-5e6e-4d8a-9f3d-ecd601259da7' = 'Office 365 (portal.office.com)'
+    }
+}
+
 Export-ModuleMember -Function Write-CapLog, Connect-CapGraph, Invoke-CapGraphGet, `
-    ConvertTo-CapHashtable, Get-CapFileSha256, Save-CapJson, Get-CapDirectoryNameMap
+    ConvertTo-CapHashtable, Get-CapFileSha256, Save-CapJson, Get-CapDirectoryNameMap, `
+    Get-CapRoleTemplateMap, Get-CapServicePrincipalMap, Get-CapWellKnownAppMap

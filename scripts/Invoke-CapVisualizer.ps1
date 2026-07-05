@@ -27,9 +27,11 @@
 .PARAMETER Scopes
     Delegated scopes for interactive sign-in. Default: Policy.Read.All.
 
-.PARAMETER ResolveNames
-    Resolve object GUIDs to display names. Requires additional read-only scopes
-    (Directory.Read.All). Off by default to keep the permission footprint minimal.
+.PARAMETER SkipResolveNames
+    By default the tool resolves object GUIDs (users, groups, roles, apps) to
+    display names, which needs the read-only Directory.Read.All scope in addition
+    to Policy.Read.All. Use -SkipResolveNames to keep the minimal
+    Policy.Read.All-only footprint (output will then show GUIDs).
 
 .PARAMETER Redact
     Replace tenant id and object GUIDs with stable pseudonyms so the output can be
@@ -49,11 +51,11 @@
 
 .EXAMPLE
     pwsh ./scripts/Invoke-CapVisualizer.ps1
-    Interactive sign-in, export + report + visualization.
+    Interactive sign-in; resolves names; export + report + visualization.
 
 .EXAMPLE
-    pwsh ./scripts/Invoke-CapVisualizer.ps1 -ResolveNames -Delta
-    Resolve names and diff against the previous run.
+    pwsh ./scripts/Invoke-CapVisualizer.ps1 -SkipResolveNames -Delta
+    Minimal permissions (GUIDs only) and diff against the previous run.
 
 .EXAMPLE
     pwsh ./scripts/Invoke-CapVisualizer.ps1 -TenantId contoso.com -ClientId <appId> -CertificateThumbprint <thumb> -Delta
@@ -80,7 +82,7 @@ param(
     [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
     [System.Security.SecureString]$ClientSecret,
 
-    [switch]$ResolveNames,
+    [switch]$SkipResolveNames,
     [switch]$Redact,
     [switch]$Delta,
     [string]$BaselinePath,
@@ -90,6 +92,11 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Name resolution is ON by default (GUIDs -> display names). It needs the
+# read-only Directory.Read.All scope in addition to Policy.Read.All. Use
+# -SkipResolveNames to keep the minimal Policy.Read.All-only footprint.
+$resolveNames = -not $SkipResolveNames
 
 $modules = Join-Path $PSScriptRoot 'modules'
 Import-Module (Join-Path $modules 'CapCommon.psm1') -Force
@@ -130,22 +137,34 @@ try {
     switch ($PSCmdlet.ParameterSetName) {
         'AppCert'   { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint | Out-Null }
         'AppSecret' { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -ClientSecret $ClientSecret | Out-Null }
-        default     { Connect-CapGraph -Scopes $Scopes | Out-Null }
+        default     {
+            $connectScopes = @($Scopes)
+            if ($resolveNames -and $connectScopes -notcontains 'Directory.Read.All') { $connectScopes += 'Directory.Read.All' }
+            Connect-CapGraph -Scopes $connectScopes | Out-Null
+        }
     }
 
     # --- Export ---
     $export = Get-CapExport
 
     # --- Name / location maps ---
-    $nameMap = @{}
-    if ($ResolveNames) {
-        Write-CapLog "Resolving object names (requires Directory.Read.All)..." 'INFO'
-        $ids = Get-CapReferencedIds -Export $export
-        if ($ids.Count) { $nameMap = Get-CapDirectoryNameMap -Ids $ids }
-        Write-CapLog "Resolved $($nameMap.Count) of $($ids.Count) object ids." 'OK'
-    }
     $locationMap = @{}
-    foreach ($nl in $export.namedLocations) { if ($nl.id) { $locationMap[$nl.id] = $nl.displayName } }
+    foreach ($nl in $export.namedLocations) { $nlId = if ($nl -is [System.Collections.IDictionary]) { $nl['id'] } else { $nl.id }; $nlName = if ($nl -is [System.Collections.IDictionary]) { $nl['displayName'] } else { $nl.displayName }; if ($nlId) { $locationMap[$nlId] = $nlName } }
+    # Named locations are also resolved as generic names (e.g. inside conditions).
+    $nameMap = @{}
+    foreach ($k in $locationMap.Keys) { $nameMap[$k] = $locationMap[$k] }
+    # Authentication context references (id -> displayName).
+    foreach ($ac in $export.authenticationContexts) { $acId = if ($ac -is [System.Collections.IDictionary]) { $ac['id'] } else { $ac.id }; $acName = if ($ac -is [System.Collections.IDictionary]) { $ac['displayName'] } else { $ac.displayName }; if ($acId) { $nameMap[$acId] = $acName } }
+
+    if ($resolveNames) {
+        Write-CapLog "Resolving object names (users/groups, roles, apps) via Directory.Read.All..." 'INFO'
+        $refs = Get-CapReferences -Export $export
+        if (@($refs.UserGroupIds).Count)    { (Get-CapDirectoryNameMap -Ids $refs.UserGroupIds).GetEnumerator()      | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
+        if (@($refs.RoleTemplateIds).Count) { (Get-CapRoleTemplateMap).GetEnumerator()                                | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
+        (Get-CapWellKnownAppMap).GetEnumerator() | ForEach-Object { if (-not $nameMap.ContainsKey($_.Key)) { $nameMap[$_.Key] = $_.Value } }
+        if (@($refs.AppIds).Count)          { (Get-CapServicePrincipalMap -AppIds $refs.AppIds).GetEnumerator()       | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
+        Write-CapLog "Resolved $($nameMap.Count) names (users/groups: $(@($refs.UserGroupIds).Count), roles: $(@($refs.RoleTemplateIds).Count), apps: $(@($refs.AppIds).Count))." 'OK'
+    }
 
     # --- Friendly / report ---
     $friendly = @($export.policies | ForEach-Object { ConvertTo-CapFriendlyPolicy -Policy $_ -NameMap $nameMap -LocationMap $locationMap })
@@ -211,7 +230,7 @@ try {
         snapshot     = $stamp
         generatedUtc = $summary.generatedUtc
         tenantId     = $summary.tenantId
-        resolveNames = [bool]$ResolveNames
+        resolveNames = [bool]$resolveNames
         redacted     = [bool]$Redact
         files        = @($files | ForEach-Object {
             [ordered]@{ path = ($_.FullName.Substring($snapshot.Length + 1) -replace '\\', '/'); sha256 = (Get-CapFileSha256 -Path $_.FullName); bytes = $_.Length }

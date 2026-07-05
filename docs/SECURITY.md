@@ -3,8 +3,8 @@
 ## Read-only
 CAPVisualizer only issues read operations against Microsoft Graph. It never
 creates, updates, or deletes anything in your tenant. The single POST it can
-make is the read-only `directoryObjects/getByIds` name lookup, used only when
-you pass `-ResolveNames`.
+make is the read-only `directoryObjects/getByIds` name lookup, used as part of
+default name resolution (disabled with `-SkipResolveNames`).
 
 ## Local execution, no third parties
 All Graph calls go directly from your machine to your tenant's Graph endpoint.

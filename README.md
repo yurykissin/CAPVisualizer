@@ -41,17 +41,19 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1
 #    output/<timestamp>/visual/index.html
 ```
 
-Add `-ResolveNames` to turn object GUIDs into display names, and `-Delta` to
-compare against your previous run. Full options in [docs/USAGE.md](docs/USAGE.md).
+Names are resolved by default; add `-Delta` to compare against your previous
+run, or `-SkipResolveNames` for the minimal `Policy.Read.All`-only footprint.
+Full options in [docs/USAGE.md](docs/USAGE.md).
 
 ## Lowest-privilege by design
 
 | Feature | Graph scope | Read-only |
 |---------|-------------|-----------|
 | Core export / report / visual / delta | `Policy.Read.All` | ✅ |
-| Optional `-ResolveNames` (GUID → display name) | `Directory.Read.All` (or narrower) | ✅ |
+| Name resolution (default; GUID → display name) | `Directory.Read.All` (or narrower) | ✅ |
 
-No write scopes are ever requested. Details: [docs/PERMISSIONS.md](docs/PERMISSIONS.md).
+No write scopes are ever requested. Use `-SkipResolveNames` for the minimal
+`Policy.Read.All`-only footprint. Details: [docs/PERMISSIONS.md](docs/PERMISSIONS.md).
 
 ## What each run produces
 

@@ -61,32 +61,45 @@ function Get-CapExport {
     return $export
 }
 
-function Get-CapReferencedIds {
+function Get-CapReferences {
 <#
 .SYNOPSIS
-    Collect the distinct directory object ids referenced by a policy set's
-    user/group/role assignments (for optional friendly-name resolution).
+    Collect the distinct object references in a policy set, categorized by the
+    lookup each needs: directory object ids (users/groups), role template ids
+    (roles), and application appIds (apps).
+
+.OUTPUTS
+    [ordered] hashtable with keys UserGroupIds, RoleTemplateIds, AppIds.
 #>
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Export)
 
     function _K { param($o, [string]$k) if ($null -eq $o) { return $null }; if ($o -is [System.Collections.IDictionary]) { if ($o.Contains($k)) { return $o[$k] } else { return $null } }; $p = $o.PSObject.Properties[$k]; if ($p) { return $p.Value } else { return $null } }
 
-    $ids = [System.Collections.Generic.HashSet[string]]::new()
+    $userGroup = [System.Collections.Generic.HashSet[string]]::new()
+    $roles     = [System.Collections.Generic.HashSet[string]]::new()
+    $apps      = [System.Collections.Generic.HashSet[string]]::new()
+
     foreach ($p in $Export.policies) {
         $cond = _K $p 'conditions'
         $users = _K $cond 'users'
-        foreach ($bucket in 'includeUsers','excludeUsers','includeGroups','excludeGroups','includeRoles','excludeRoles') {
-            $vals = _K $users $bucket
-            if ($vals) { foreach ($v in $vals) { if ("$v" -match '^[0-9a-fA-F-]{36}$') { [void]$ids.Add("$v") } } }
+        foreach ($bucket in 'includeUsers','excludeUsers','includeGroups','excludeGroups') {
+            foreach ($v in @(_K $users $bucket)) { if ("$v" -match '^[0-9a-fA-F-]{36}$') { [void]$userGroup.Add("$v") } }
         }
-        $apps = _K $cond 'applications'
+        foreach ($bucket in 'includeRoles','excludeRoles') {
+            foreach ($v in @(_K $users $bucket)) { if ("$v" -match '^[0-9a-fA-F-]{36}$') { [void]$roles.Add("$v") } }
+        }
+        $appsCond = _K $cond 'applications'
         foreach ($bucket in 'includeApplications','excludeApplications') {
-            $vals = _K $apps $bucket
-            if ($vals) { foreach ($v in $vals) { if ("$v" -match '^[0-9a-fA-F-]{36}$') { [void]$ids.Add("$v") } } }
+            foreach ($v in @(_K $appsCond $bucket)) { if ("$v" -match '^[0-9a-fA-F-]{36}$') { [void]$apps.Add("$v") } }
         }
     }
-    return @($ids)
+
+    return [ordered]@{
+        UserGroupIds    = @($userGroup)
+        RoleTemplateIds = @($roles)
+        AppIds          = @($apps)
+    }
 }
 
-Export-ModuleMember -Function Get-CapExport, Get-CapReferencedIds
+Export-ModuleMember -Function Get-CapExport, Get-CapReferences
