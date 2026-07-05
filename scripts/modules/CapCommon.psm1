@@ -163,7 +163,8 @@ function Invoke-CapGraphGet {
         if ($null -ne $response -and ($response.PSObject.Properties.Name -contains 'value')) {
             $isCollection = $true
             foreach ($item in $response.value) { $results.Add($item) }
-            $next = $response.'@odata.nextLink'
+            $nextProp = $response.PSObject.Properties['@odata.nextLink']
+            $next = if ($nextProp) { $nextProp.Value } else { $null }
         }
         else {
             return $response
@@ -268,9 +269,12 @@ function Get-CapDirectoryNameMap {
             $resp = Invoke-MgGraphRequest -Method POST -Uri "$script:CapGraphV1/directoryObjects/getByIds" `
                 -Body ($body | ConvertTo-Json) -OutputType PSObject -ErrorAction Stop
             foreach ($o in $resp.value) {
-                $name = $o.displayName
-                if (-not $name) { $name = $o.userPrincipalName }
-                if ($o.id -and $name) { $map[$o.id] = $name }
+                $idProp   = $o.PSObject.Properties['id']
+                $dnProp   = $o.PSObject.Properties['displayName']
+                $upnProp  = $o.PSObject.Properties['userPrincipalName']
+                $id   = if ($idProp) { $idProp.Value } else { $null }
+                $name = if ($dnProp -and $dnProp.Value) { $dnProp.Value } elseif ($upnProp) { $upnProp.Value } else { $null }
+                if ($id -and $name) { $map[$id] = $name }
             }
         }
         catch {
