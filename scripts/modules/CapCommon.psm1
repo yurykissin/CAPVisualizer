@@ -133,13 +133,20 @@ function Connect-CapGraph {
                 Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction Stop
             }
             else {
-                # Device-code flow: prints a copy/paste sign-in URL + code in the
-                # terminal, and we also auto-open the browser to that page.
+                # Device-code flow: the SDK prints "To sign in ... enter the code".
+                # That message is emitted on the success stream, which callers
+                # discard via `Connect-CapGraph | Out-Null`; re-emit it through
+                # Write-Host so the code is always visible (and survives an active
+                # transcript). We also auto-open the browser to the sign-in page.
                 $deviceUrl = 'https://microsoft.com/devicelogin'
-                Write-CapLog "Device-code sign-in. Sign-in URL (copy/paste if the browser does not open): $deviceUrl" 'INFO'
-                Write-CapLog "The one-time code is printed below; enter it on that page." 'INFO'
+                Write-CapLog "Device-code sign-in - a one-time code will be shown below. Sign-in page: $deviceUrl" 'INFO'
                 Open-CapBrowser -Url $deviceUrl
-                Connect-MgGraph -Scopes $Scopes -UseDeviceAuthentication -NoWelcome -ErrorAction Stop
+                Connect-MgGraph -Scopes $Scopes -UseDeviceAuthentication -NoWelcome -ErrorAction Stop |
+                    ForEach-Object {
+                        Write-Host ''
+                        Write-Host "  >> $_" -ForegroundColor Yellow
+                        Write-Host ''
+                    }
             }
         }
     }
