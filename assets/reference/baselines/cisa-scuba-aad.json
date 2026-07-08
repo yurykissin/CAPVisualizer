@@ -1,0 +1,59 @@
+{
+  "_comment": "Independently authored Conditional Access compliance baseline mapped to the public CISA SCuBA Microsoft Entra ID secure configuration baseline control identifiers (MS.AAD.*). Control statements are paraphrased from the public baseline; NIST 800-53 and MITRE ATT&CK identifiers are public references. Evaluation logic lives in CapCompliance.psm1 keyed by checkId - new controls that reuse an existing checkId can be added here without code changes. No third-party tool code or logic is reused.",
+  "schemaVersion": "1.0",
+  "baseline": "CISA SCuBA - Microsoft Entra ID (Conditional Access subset)",
+  "baselineVersion": "reference-2024",
+  "source": "https://github.com/cisagov/ScubaGear (control identifiers only)",
+  "controls": [
+    {
+      "id": "MS.AAD.1.1",
+      "checkId": "block-legacy-auth",
+      "statement": "Legacy authentication SHALL be blocked.",
+      "criticality": "SHALL",
+      "nist": ["IA-2", "IA-2(1)"],
+      "mitre": ["T1110", "T1078"],
+      "rationalePass": "An enabled policy blocks legacy authentication clients for all users and applications.",
+      "rationaleFail": "No enabled policy broadly blocks legacy authentication (exchangeActiveSync / other)."
+    },
+    {
+      "id": "MS.AAD.2.1",
+      "checkId": "block-high-risk-user",
+      "statement": "Users detected as high risk SHALL be blocked.",
+      "criticality": "SHALL",
+      "nist": ["AC-2", "SI-4"],
+      "mitre": ["T1078"],
+      "rationalePass": "An enabled policy blocks access for users at high risk.",
+      "rationaleFail": "No enabled policy blocks high user-risk sign-ins for all users and applications."
+    },
+    {
+      "id": "MS.AAD.2.3",
+      "checkId": "block-high-risk-signin",
+      "statement": "Sign-ins detected as high risk SHALL be blocked.",
+      "criticality": "SHALL",
+      "nist": ["AC-2", "SI-4"],
+      "mitre": ["T1078"],
+      "rationalePass": "An enabled policy blocks high-risk sign-ins.",
+      "rationaleFail": "No enabled policy blocks high sign-in-risk events for all users and applications."
+    },
+    {
+      "id": "MS.AAD.3.1",
+      "checkId": "phishing-resistant-mfa-all-users",
+      "statement": "Phishing-resistant MFA SHALL be enforced for all users.",
+      "criticality": "SHALL",
+      "nist": ["IA-2(1)", "IA-2(2)", "IA-2(8)"],
+      "mitre": ["T1621", "T1111"],
+      "rationalePass": "An enabled policy enforces a phishing-resistant authentication strength for all users and applications.",
+      "rationaleFail": "No enabled policy enforces phishing-resistant MFA (authentication strength) for all users and applications."
+    },
+    {
+      "id": "MS.AAD.3.2",
+      "checkId": "mfa-all-users",
+      "statement": "If phishing-resistant MFA is not enforced, an alternative MFA method SHOULD be enforced for all users.",
+      "criticality": "SHOULD",
+      "nist": ["IA-2(1)"],
+      "mitre": ["T1621"],
+      "rationalePass": "An enabled policy requires multifactor authentication for all users and applications.",
+      "rationaleFail": "No enabled policy requires MFA for all users and applications."
+    }
+  ]
+}
