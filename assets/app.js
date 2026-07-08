@@ -246,25 +246,53 @@
 
   function sevRank(s) { return { critical: 4, high: 3, medium: 2, low: 1, info: 0 }[s] || 0; }
 
+  // Collapse findings that share a checkId (e.g. "User is not capable of MFA"
+  // raised once per user) into a single row, unioning the affected objects.
+  function groupFindings(f) {
+    var map = {}, order = [];
+    f.forEach(function (x) {
+      var k = x.checkId || x.title;
+      if (!map[k]) {
+        map[k] = {
+          checkId: x.checkId, title: x.title, severity: x.severity, riskScore: x.riskScore,
+          description: x.description, remediation: x.remediation, references: x.references,
+          affectedObjects: [], count: 0
+        };
+        order.push(k);
+      }
+      var g = map[k];
+      g.count++;
+      arr(x.affectedObjects).forEach(function (o) { if (g.affectedObjects.indexOf(o) === -1) g.affectedObjects.push(o); });
+      if (sevRank(x.severity) > sevRank(g.severity)) g.severity = x.severity;
+      if ((x.riskScore || 0) > (g.riskScore || 0)) g.riskScore = x.riskScore;
+    });
+    return order.map(function (k) { return map[k]; });
+  }
+
   function renderRiskFindings(filterText, filterSev) {
     var f = arr(DATA.riskFindings);
     var tab = el("findingsTab");
     if (!f.length) { if (tab) tab.classList.add("hidden"); return; }
     if (tab) tab.classList.remove("hidden");
     var ft = (filterText || "").toLowerCase();
-    var rows = f.filter(function (x) {
+    var filtered = f.filter(function (x) {
       if (filterSev && filterSev !== "all" && x.severity !== filterSev) return false;
       if (ft) {
-        var hay = (x.title + " " + x.description + " " + (x.affectedObjects || []).join(" ")).toLowerCase();
+        var hay = (x.title + " " + x.description + " " + arr(x.affectedObjects).map(nm).join(" ")).toLowerCase();
         if (hay.indexOf(ft) === -1) return false;
       }
       return true;
-    }).map(function (x) {
+    });
+    var rows = groupFindings(filtered).map(function (x) {
       var refs = arr(x.references).map(esc).join(", ");
+      var desc = x.count > 1
+        ? esc(x.count + " objects affected - see the Affected column.")
+        : esc(x.description);
+      var badge = x.count > 1 ? ' <span class="pill">x' + x.count + "</span>" : "";
       return "<tr>" +
         "<td class=\"sev-" + esc(x.severity) + "\">" + esc(x.severity) + "</td>" +
         "<td style=\"text-align:center\">" + esc(x.riskScore) + "</td>" +
-        "<td><b>" + esc(x.title) + "</b><div class=\"muted\">" + esc(x.description) + "</div>" +
+        "<td><b>" + esc(x.title) + "</b>" + badge + "<div class=\"muted\">" + desc + "</div>" +
         (x.remediation ? "<div class=\"muted\"><i>Fix:</i> " + esc(x.remediation) + "</div>" : "") +
         (refs ? "<div class=\"muted\"><i>Refs:</i> " + refs + "</div>" : "") + "</td>" +
         "<td>" + listNames(x.affectedObjects) + "</td></tr>";
@@ -343,6 +371,84 @@
     el("tests").innerHTML = '<table><thead><tr><th>Result</th><th>Assertion</th><th>Type</th><th>Detail</th></tr></thead><tbody>' + rows + "</tbody></table>";
   }
 
+  function selectPolicy(i) {
+    if (i < 0 || i >= policies.length) return;
+    selected = i;
+    renderList(el("q") ? el("q").value : "", el("fstate") ? el("fstate").value : "all");
+    renderDetail(policies[i]);
+    showTab("detailview");
+  }
+
+  // Flatten everything into a searchable index so a single box finds a term
+  // (e.g. "device code flow", a user, a control id) anywhere in the report.
+  function buildSearchIndex() {
+    var idx = [];
+    function push(cat, label, tokens, go) {
+      var hay = tokens.filter(function (t) { return t !== null && t !== undefined && t !== ""; })
+        .map(function (t) { return String(nm(t)); }).join(" ").toLowerCase();
+      idx.push({ cat: cat, label: label, hay: hay + " " + String(label).toLowerCase(), go: go });
+    }
+    policies.forEach(function (p, i) {
+      var tokens = [p.displayName, p.id, stateLabel(p.state)]
+        .concat(arr(p.includeUsers), arr(p.includeGroups), arr(p.includeRoles),
+          arr(p.excludeUsers), arr(p.excludeGroups), arr(p.excludeRoles),
+          arr(p.includeApplications), arr(p.excludeApplications), arr(p.includeUserActions),
+          arr(p.authenticationContext), arr(p.clientAppTypes), arr(p.includePlatforms),
+          arr(p.excludePlatforms), arr(p.includeLocations), arr(p.excludeLocations),
+          arr(p.signInRiskLevels), arr(p.userRiskLevels), arr(p.servicePrincipalRiskLevels),
+          arr(p.insiderRiskLevels), arr(p.agentRiskLevels), arr(p.authenticationFlows),
+          arr(p.grantControlLabels || p.grantControls), arr(p.sessionControls),
+          arr(p.customAuthenticationFactors), [p.deviceFilter, p.authenticationStrength]);
+      push("Policy", p.displayName, tokens, (function (k) { return function () { selectPolicy(k); }; })(i));
+    });
+    arr(DATA.riskFindings).forEach(function (x) {
+      push("Finding", x.title, [x.title, x.description, x.remediation, x.checkId].concat(arr(x.affectedObjects)),
+        function () { showTab("riskfindings"); });
+    });
+    arr(DATA.findings).forEach(function (x) {
+      push("Hygiene", x.title || x.code, [x.title, x.code, x.detail, x.policy], function () { showTab("overview"); });
+    });
+    if (DATA.audit) arr(DATA.audit.issues).forEach(function (x) {
+      push("Contradiction", x.title, [x.title, x.detail, x.category, x.policyName], function () { showTab("contradictions"); });
+    });
+    if (DATA.compliance) arr(DATA.compliance.controls).forEach(function (x) {
+      push("Compliance", x.id + " " + x.statement, [x.id, x.statement, x.rationale, x.result].concat(arr(x.nist), arr(x.mitre), arr(x.evidence)),
+        function () { showTab("compliance"); });
+    });
+    if (DATA.test) arr(DATA.test.assertions).forEach(function (x) {
+      push("Test", x.name, [x.name, x.message, x.type, x.result], function () { showTab("tests"); });
+    });
+    return idx;
+  }
+
+  var SEARCH_INDEX = null;
+  function renderGlobalSearch(term) {
+    var box = el("gresults");
+    if (!box) return;
+    var t = (term || "").trim().toLowerCase();
+    if (t.length < 2) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+    if (!SEARCH_INDEX) SEARCH_INDEX = buildSearchIndex();
+    var hits = SEARCH_INDEX.filter(function (r) { return r.hay.indexOf(t) !== -1; });
+    if (!hits.length) { box.classList.remove("hidden"); box.innerHTML = '<div class="gr-empty muted">No matches for "' + esc(term) + '".</div>'; return; }
+    var byCat = {}, order = [];
+    hits.forEach(function (h) { if (!byCat[h.cat]) { byCat[h.cat] = []; order.push(h.cat); } byCat[h.cat].push(h); });
+    var html = order.map(function (cat) {
+      var items = byCat[cat].slice(0, 12).map(function (h, i) {
+        return '<div class="gr-item" data-cat="' + esc(cat) + '" data-i="' + i + '">' + esc(h.label) + "</div>";
+      }).join("");
+      var more = byCat[cat].length > 12 ? '<div class="gr-more muted">+' + (byCat[cat].length - 12) + " more</div>" : "";
+      return '<div class="gr-cat"><div class="gr-cat-h">' + esc(cat) + " (" + byCat[cat].length + ")</div>" + items + more + "</div>";
+    }).join("");
+    box.innerHTML = html;
+    box.classList.remove("hidden");
+    order.forEach(function (cat) {
+      byCat[cat].slice(0, 12).forEach(function (h, i) {
+        var node = box.querySelector('.gr-item[data-cat="' + cat + '"][data-i="' + i + '"]');
+        if (node) node.onclick = function () { box.classList.add("hidden"); h.go(); };
+      });
+    });
+  }
+
   window.addEventListener("DOMContentLoaded", function () {
     renderSummaryCards();
     renderFindings();
@@ -361,6 +467,14 @@
     if (el("fsev")) el("fsev").addEventListener("change", function () { renderRiskFindings(el("fq").value, el("fsev").value); });
     document.querySelectorAll(".tab").forEach(function (t) {
       t.onclick = function () { showTab(t.getAttribute("data-tab")); };
+    });
+    if (el("gsearch")) {
+      el("gsearch").addEventListener("input", function () { renderGlobalSearch(el("gsearch").value); });
+      el("gsearch").addEventListener("focus", function () { if (el("gsearch").value) renderGlobalSearch(el("gsearch").value); });
+    }
+    document.addEventListener("click", function (e) {
+      var g = el("gresults");
+      if (g && !g.classList.contains("hidden") && !e.target.closest(".gsearch")) g.classList.add("hidden");
     });
     showTab("overview");
   });

@@ -226,7 +226,14 @@ function ConvertTo-CapFriendlyPolicy {
         includeUserActions    = _Labels $script:CapUserActionLabels (_Get $apps 'includeUserActions')
         authenticationContext = @(_Get $apps 'includeAuthenticationContextClassReferences' | ForEach-Object { if ($NameMap.ContainsKey("$_")) { $NameMap["$_"] } else { "$_" } })
 
-        clientAppTypes        = _Labels $script:CapClientAppLabels (_Get $c 'clientAppTypes')
+        clientAppTypes        = $(
+            $cat = @(_Get $c 'clientAppTypes')
+            # Graph returns ["all"] as the default when Client apps is NOT
+            # configured (portal shows "Not available"). Only treat it as a real
+            # condition when a specific subset is selected.
+            if ($cat.Count -eq 1 -and "$($cat[0])" -eq 'all') { @() }
+            else { _Labels $script:CapClientAppLabels $cat }
+        )
         includePlatforms      = _Labels $script:CapPlatformLabels (_Get $platforms 'includePlatforms')
         excludePlatforms      = _Labels $script:CapPlatformLabels (_Get $platforms 'excludePlatforms')
         includeLocations      = Locs (_Get $locations 'includeLocations')
