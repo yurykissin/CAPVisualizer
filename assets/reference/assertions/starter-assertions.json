@@ -1,0 +1,28 @@
+{
+  "_comment": "Starter CAPVisualizer assertion pack. Declarative expectations evaluated offline against an export by CapTest.psm1 / Invoke-CapTest.ps1. Independent DSL (not Pester). Assertion types: compliance (a baseline control result), findingThreshold (no findings at/above a severity), whatif (a simulated sign-in outcome). Tune the whatif principalId/resource values to your tenant.",
+  "schemaVersion": "1.0",
+  "name": "CAPVisualizer starter assertions",
+  "assertions": [
+    {
+      "id": "assert-legacy-auth-blocked",
+      "name": "Legacy authentication must be blocked (MS.AAD.1.1)",
+      "type": "compliance",
+      "control": "MS.AAD.1.1",
+      "expect": "pass"
+    },
+    {
+      "id": "assert-mfa-all-users",
+      "name": "MFA must be required for all users (MS.AAD.3.2)",
+      "type": "compliance",
+      "control": "MS.AAD.3.2",
+      "expect": "pass"
+    },
+    {
+      "id": "assert-no-critical-findings",
+      "name": "There must be no critical-severity findings",
+      "type": "findingThreshold",
+      "disallowSeverity": "critical",
+      "maxCount": 0
+    }
+  ]
+}
