@@ -40,6 +40,8 @@ system-browser (SSO) flow instead. Output lands in a timestamped folder under
 | `-Delta` | Compare against the most recent previous snapshot. |
 | `-BaselinePath <folder>` | Use a specific snapshot as the delta baseline. |
 | `-Redact` | Replace tenant id and object GUIDs with stable pseudonyms (safe to share). |
+| `-SkipAnalysis` | Skip the offline analysis engines (audit / findings / compliance / tests); export + report + visual only. |
+| `-AssertionPath <path>` | Use a custom JSON assertion pack for the built-in test engine (default: bundled starter pack). |
 | `-NoVisual` | Skip HTML generation (JSON/CSV only). |
 | `-NoTranscript` | Do not write a PowerShell transcript into the snapshot. |
 | `-OutputRoot <path>` | Change the output root (default `./output`). |
@@ -99,20 +101,50 @@ Each run produces:
 
 ```
 output/<yyyyMMdd-HHmmss>/
-  raw/export.json          # verbatim Graph data (source of truth for diffs)
+  raw/export.json          # verbatim Graph data + directory enrichment (source of truth for diffs)
   report/policies.json     # enriched, analysis-ready
   report/policies.csv      # one row per policy (flattened)
   report/findings.json/csv # hygiene / gap findings
   report/summary.json      # counts and overview
+  analysis/audit.json      # contradictions + exemption exposure
+  analysis/findings.json   # risk-scored findings (impact x likelihood)
+  analysis/compliance.json # CISA SCuBA (MS.AAD.*) control results
+  analysis/tests.json      # assertion results (+ tests.junit.xml / tests.sarif.json)
   delta/delta.json         # only when -Delta and a baseline exists
   visual/index.html        # self-contained offline viewer (open in a browser)
   manifest.json            # SHA-256 of every output file
   transcript.txt           # run log (unless -NoTranscript)
 ```
 
-Open `visual/index.html` in any browser - it works fully offline.
+Open `visual/index.html` in any browser - it works fully offline. The
+`analysis/` folder is omitted when you pass `-SkipAnalysis`.
 
-## 5. Compare two arbitrary snapshots
+## 5. Run an individual analysis engine (offline)
+
+Each analysis engine is also a standalone script that runs against an existing
+export (or snapshot) with **no sign-in and no network**:
+
+```bash
+# Which policies actually target a principal (direct / via group or role / excluded)?
+pwsh ./scripts/Get-CapUserScope.ps1 -FromJson ./export.json -PrincipalId <object-id>
+
+# Simulate one sign-in (definitive vs signal-dependent outcome).
+pwsh ./scripts/Invoke-CapWhatIf.ps1 -FromJson ./export.json -PrincipalId <object-id> \
+  -Resource <app-id> -ClientApp browser
+
+# Permute unspecified signals to surface bypasses / no-enforcement paths.
+pwsh ./scripts/Invoke-CapAnalyze.ps1 -FromJson ./export.json
+
+# Run a declarative assertion pack; exit code 0 = pass, 1 = failure (CI-friendly).
+pwsh ./scripts/Invoke-CapTest.ps1 -FromJson ./export.json \
+  -AssertionPath ./my-assertions.json -JUnitPath ./results.xml -SarifPath ./results.sarif.json
+```
+
+See [SCOPE.md](SCOPE.md), [WHATIF.md](WHATIF.md), [ANALYZE.md](ANALYZE.md),
+[AUDIT.md](AUDIT.md), [FINDINGS.md](FINDINGS.md), [COMPLIANCE.md](COMPLIANCE.md),
+and [TESTING.md](TESTING.md) for each engine.
+
+## 6. Compare two arbitrary snapshots
 
 ```bash
 pwsh ./scripts/Compare-CapSnapshot.ps1 \

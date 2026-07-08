@@ -25,6 +25,24 @@ produces:
 
 ---
 
+## Contents
+
+- [Why](#why) - purpose
+- [Quickstart](#quickstart) - the three commands
+- [Lowest-privilege by design](#lowest-privilege-by-design) - permissions
+- [What each run produces](#what-each-run-produces) - output layout
+- [Features](#features)
+- [Offline analysis engines](#offline-analysis-engines) - scope, what-if, audit, findings, compliance, tests
+- [Capability parity & independence](#capability-parity) - how it compares, what is original
+- [How to run](#how-to-run) - all entry points and switches
+- [Layout](#layout) - repository map
+- [Requirements](#requirements)
+- [Try it without a tenant](#try-it-without-a-tenant)
+- [Security, privacy & disclaimer](#security-privacy--disclaimer)
+- [License](#license)
+
+---
+
 ## Why
 
 Conditional Access is the front door of an Entra tenant, but its policies are
@@ -145,6 +163,46 @@ Each engine reproduces the *result and intent* of a well-known community tool,
 > IDs (`MS.AAD.*`), NIST 800-53 controls, MITRE ATT&CK technique IDs, and the
 > JUnit/SARIF output formats - are referenced. BloodHound/AzureHound and
 > ROADtools are explicitly out of scope. Everything stays read-only and offline.
+>
+> Tool names referenced for comparison only - **CAPSlock**/**SpecterOps**,
+> **noCAP**, **EntraFalcon**, **ScubaGear** (CISA), and **Maester** - are the
+> trademarks or property of their respective owners. CAPVisualizer is not
+> affiliated with, endorsed by, or derived from any of them.
+
+## How to run
+
+Everything runs locally with PowerShell 7 (`pwsh`). Full reference in
+[docs/USAGE.md](docs/USAGE.md); permissions in
+[docs/PERMISSIONS.md](docs/PERMISSIONS.md).
+
+**Main workflow (export → report → analysis → visual):**
+
+```bash
+pwsh ./scripts/Test-Prerequisites.ps1 -Install     # one-time: PS7 + Graph auth module
+pwsh ./scripts/Invoke-CapVisualizer.ps1            # interactive read-only sign-in
+pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./export.json   # offline, zero permissions
+```
+
+| Common switch | Effect |
+| ------------- | ------ |
+| `-FromJson <path>` | Offline render from an existing export - no sign-in, no network. |
+| `-SkipResolveNames` | Show GUIDs; request only `Policy.Read.All`. |
+| `-Delta` / `-BaselinePath <folder>` | Diff against the previous (or a chosen) snapshot. |
+| `-Redact` | Replace tenant id and object GUIDs with stable pseudonyms (safe to share). |
+| `-SkipAnalysis` | Export + report + visual only (skip the analysis engines). |
+| `-AssertionPath <path>` | Custom assertion pack for the built-in test engine. |
+| `-NoVisual` / `-NoTranscript` | Skip HTML / skip the transcript. |
+| `-TenantId`/`-ClientId`/`-CertificateThumbprint` | Unattended app-registration auth. |
+
+**Standalone analysis engines** (each runs offline against an export):
+
+```bash
+pwsh ./scripts/Get-CapUserScope.ps1 -FromJson ./export.json -PrincipalId <object-id>
+pwsh ./scripts/Invoke-CapWhatIf.ps1 -FromJson ./export.json -PrincipalId <object-id> -Resource <app-id>
+pwsh ./scripts/Invoke-CapAnalyze.ps1 -FromJson ./export.json
+pwsh ./scripts/Invoke-CapTest.ps1    -FromJson ./export.json -AssertionPath ./assertions.json
+pwsh ./scripts/Compare-CapSnapshot.ps1 -BaselinePath output/<a> -CurrentPath output/<b>
+```
 
 ## Layout
 
@@ -194,10 +252,25 @@ pwsh ./samples/Test-Offline.ps1
 # open samples/sample-visual.html
 ```
 
-## Security & privacy
+## Security, privacy & disclaimer
 
-See [docs/SECURITY.md](docs/SECURITY.md) and [DISCLAIMER.md](DISCLAIMER.md).
-Output can contain sensitive configuration; `output/` is git-ignored.
+- **Read-only.** Only `GET` requests (plus one read-only `getByIds` name lookup)
+  are made against **your own tenant's** Microsoft Graph endpoint. No create,
+  update, or delete calls are ever issued - the tool cannot change your tenant.
+- **Local & offline.** Nothing is uploaded, there is no telemetry and no
+  phone-home. The HTML viewer inlines all assets (no CDN) and opens with no
+  internet. `-FromJson` reproduces everything with zero network access.
+- **Sensitive output.** Exports and reports can contain sensitive configuration
+  (targeting, exclusions, break-glass accounts, object IDs). `output/` is
+  git-ignored; use `-Redact` before sharing outside your tenant.
+- **Least privilege.** Core export needs only `Policy.Read.All`; optional
+  read-only directory scopes power name resolution and the analysis engines. See
+  [docs/PERMISSIONS.md](docs/PERMISSIONS.md).
+- **No warranty.** Provided "as is" under the MIT license; review the code and
+  validate behaviour before running against production.
+
+Full details: [docs/SECURITY.md](docs/SECURITY.md) and the
+[Disclaimer](DISCLAIMER.md).
 
 ## Optional cloud scheduling
 

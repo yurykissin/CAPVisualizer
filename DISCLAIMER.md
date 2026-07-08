@@ -36,6 +36,17 @@ CAPVisualizer is an independent, community project. It is **not** affiliated
 with, endorsed by, or sponsored by Microsoft. "Microsoft", "Entra", "Azure",
 and "Microsoft Graph" are trademarks of the Microsoft group of companies.
 
+## Independent implementation & third-party names
+CAPVisualizer's analysis engines were authored **independently**. No source
+code, algorithm, or configuration is copied from any third-party tool. Only
+publicly documented behaviour and open standards are referenced - CISA SCuBA
+control identifiers (`MS.AAD.*`), NIST 800-53 controls, MITRE ATT&CK technique
+IDs, and the JUnit and SARIF output formats. Any other tool names that appear in
+the documentation for comparison only (for example CAPSlock/SpecterOps, noCAP,
+EntraFalcon, ScubaGear/CISA, and Maester) are the trademarks or property of
+their respective owners; CAPVisualizer is not affiliated with, endorsed by, or
+derived from any of them.
+
 ## Least privilege
 CAPVisualizer is designed to run with the **lowest practical permissions**. The
 core export requires only the read-only `Policy.Read.All` Microsoft Graph scope.
