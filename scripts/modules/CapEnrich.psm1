@@ -69,11 +69,21 @@ function Get-CapGroupEnrichment {
         $isDynamic = [bool]($groupTypes -contains 'DynamicMembership')
         $ownerIds = @()
         $ownersKnown = $false
+        $memberIds = @()
+        $membersKnown = $false
         if ($wanted.Contains("$id")) {
             try {
                 $owners = @(Invoke-CapGraphGet -Uri "groups/$id/owners?`$select=id")
                 $ownerIds = @($owners | ForEach-Object { $_.PSObject.Properties['id'].Value } | Where-Object { $_ })
                 $ownersKnown = $true
+            }
+            catch { }
+            try {
+                # Transitive members so nested-group membership is captured. Only
+                # collected for policy-referenced groups to bound the cost.
+                $members = @(Invoke-CapGraphGet -Uri "groups/$id/transitiveMembers?`$select=id")
+                $memberIds = @($members | ForEach-Object { $_.PSObject.Properties['id'].Value } | Where-Object { $_ })
+                $membersKnown = $true
             }
             catch { }
         }
@@ -86,6 +96,8 @@ function Get-CapGroupEnrichment {
             ownersKnown       = $ownersKnown
             ownerIds          = @($ownerIds)
             ownerless         = [bool]($ownersKnown -and $ownerIds.Count -eq 0)
+            membersKnown      = $membersKnown
+            memberIds         = @($memberIds)
         }
     }
     return @($result)
