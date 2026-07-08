@@ -1,0 +1,41 @@
+{
+  "_comment": "Static reference used by CapNormalize to expand Conditional Access cloud-app groupings into the concrete first-party appIds Entra evaluates at sign-in. Authored from public Microsoft documentation of the 'Office 365' app group and well-known first-party app registrations. Best-effort: Microsoft may add members over time. Not derived from any third-party tool.",
+  "schemaVersion": "1.0",
+  "specialValues": {
+    "All": "All cloud apps / all resources",
+    "None": "No cloud apps",
+    "Office365": "Office 365 app group",
+    "MicrosoftAdminPortals": "Microsoft Admin Portals app group"
+  },
+  "groupings": {
+    "Office365": {
+      "displayName": "Office 365",
+      "members": [
+        { "appId": "00000002-0000-0ff1-ce00-000000000000", "name": "Office 365 Exchange Online" },
+        { "appId": "00000003-0000-0ff1-ce00-000000000000", "name": "Office 365 SharePoint Online" },
+        { "appId": "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe", "name": "Microsoft Teams Services" },
+        { "appId": "1fec8e78-bce4-4aaf-ab1b-5451cc387264", "name": "Microsoft Teams" },
+        { "appId": "00000004-0000-0ff1-ce00-000000000000", "name": "Skype for Business Online" },
+        { "appId": "00000005-0000-0ff1-ce00-000000000000", "name": "Microsoft Yammer" },
+        { "appId": "00000006-0000-0ff1-ce00-000000000000", "name": "Microsoft Office 365 Portal" },
+        { "appId": "00000007-0000-0ff1-ce00-000000000000", "name": "Microsoft Exchange Online Protection" },
+        { "appId": "c9a559d2-7aab-4f13-a6ed-e7e9c52aec87", "name": "Microsoft Forms" },
+        { "appId": "905fcf26-4eb7-48a0-9ff0-8dcc7194b5ba", "name": "Sway" },
+        { "appId": "2634dd23-5e5a-431c-81ca-11710d9079f4", "name": "Microsoft Stream" },
+        { "appId": "09abbdfd-ed23-44ee-a2d9-a627aa1c90f3", "name": "Microsoft Planner (ProjectWorkManagement)" },
+        { "appId": "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe", "name": "Microsoft Teams Web Client" },
+        { "appId": "0000000c-0000-0000-c000-000000000000", "name": "Microsoft App Access Panel" },
+        { "appId": "4765445b-32c6-49b0-83e6-1d93765276ca", "name": "OfficeHome" },
+        { "appId": "00000003-0000-0000-c000-000000000000", "name": "Microsoft Graph" }
+      ]
+    },
+    "MicrosoftAdminPortals": {
+      "displayName": "Microsoft Admin Portals",
+      "members": [
+        { "appId": "c44b4083-3bb0-49c1-b47d-974e53cbdf3c", "name": "Microsoft Azure Portal" },
+        { "appId": "0000000c-0000-0000-c000-000000000000", "name": "Microsoft 365 Admin Portal" },
+        { "appId": "80ccca67-54bd-44ab-8625-4b79c4dc7775", "name": "Microsoft 365 Security and Compliance Center" }
+      ]
+    }
+  }
+}
