@@ -122,6 +122,7 @@ function ConvertTo-CapFriendlyPolicy {
                     'None'                  { $special = 'None' }
                     'Office365'             { $special = 'Office 365' }
                     'MicrosoftAdminPortals' { $special = 'Microsoft Admin Portals' }
+                    'AllAgentIdResources'   { $special = 'All agent resources' }
                 }
             }
             if ($special) { $special }
@@ -242,7 +243,7 @@ function ConvertTo-CapFriendlyPolicy {
         userRiskLevels        = _Labels $script:CapRiskLabels (_Get $c 'userRiskLevels')
         servicePrincipalRiskLevels = _Labels $script:CapRiskLabels (_Get $c 'servicePrincipalRiskLevels')
         insiderRiskLevels     = _Labels $script:CapRiskLabels (_Get $c 'insiderRiskLevels')
-        agentRiskLevels       = _Labels $script:CapRiskLabels (_Get $c 'agentRiskLevels')
+        agentRiskLevels       = _Labels $script:CapRiskLabels (@(_Get $c 'agentIdRiskLevels') + @(_Get $c 'agentRiskLevels'))
         authenticationFlows   = _Labels $script:CapAuthFlowLabels (@(if ("$(_Get (_Get $c 'authenticationFlows') 'transferMethods')") { ("$(_Get (_Get $c 'authenticationFlows') 'transferMethods')" -split ',\s*') } else { @() }))
         deviceFilter          = $deviceFilter
 

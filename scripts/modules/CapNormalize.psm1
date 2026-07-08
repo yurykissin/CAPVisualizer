@@ -259,7 +259,7 @@ function ConvertTo-CapNormalizedPolicy {
     $userRisk    = @(_NArr (_NGet $cond 'userRiskLevels'))
     $spRisk      = @(_NArr (_NGet $cond 'servicePrincipalRiskLevels'))
     $insiderRisk = @(_NArr (_NGet $cond 'insiderRiskLevels'))
-    $agentRisk   = @(_NArr (_NGet $cond 'agentRiskLevels'))
+    $agentRisk   = @(@(_NArr (_NGet $cond 'agentIdRiskLevels')) + @(_NArr (_NGet $cond 'agentRiskLevels')))
     $authFlows   = @(_NArr (_NGet (_NGet $cond 'authenticationFlows') 'transferMethods'))
 
     $rawDeviceFilter = _NGet $cond 'devices'
