@@ -434,4 +434,4 @@ function Get-CapWellKnownAppMap {
 
 Export-ModuleMember -Function Write-CapLog, Connect-CapGraph, Invoke-CapGraphGet, `
     ConvertTo-CapHashtable, Get-CapFileSha256, Save-CapJson, Get-CapDirectoryNameMap, `
-    Get-CapRoleTemplateMap, Get-CapServicePrincipalMap, Get-CapWellKnownAppMap
+    Get-CapRoleTemplateMap, Get-CapServicePrincipalMap, Get-CapWellKnownAppMap, Open-CapBrowser

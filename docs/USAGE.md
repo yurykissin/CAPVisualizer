@@ -44,6 +44,7 @@ lands in a timestamped folder under `output/`.
 | `-SkipAnalysis` | Skip the offline analysis engines (audit / findings / compliance / tests); export + report + visual only. |
 | `-AssertionPath <path>` | Use a custom JSON assertion pack for the built-in test engine (default: bundled starter pack). |
 | `-NoVisual` | Skip HTML generation (JSON/CSV only). |
+| `-NoOpen` | Do not auto-open the HTML report in the browser when the run finishes (it opens by default on interactive runs). |
 | `-NoTranscript` | Do not write a PowerShell transcript into the snapshot. |
 | `-OutputRoot <path>` | Change the output root (default `./output`). |
 

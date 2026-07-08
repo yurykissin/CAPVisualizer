@@ -65,6 +65,11 @@
 .PARAMETER NoVisual
     Skip HTML visualization generation.
 
+.PARAMETER NoOpen
+    Do not automatically open the generated HTML report in the default browser
+    when the run completes. By default the report is opened (except in
+    unattended app-only runs).
+
 .PARAMETER NoTranscript
     Do not write a PowerShell transcript into the snapshot folder.
 
@@ -115,6 +120,7 @@ param(
     [switch]$Delta,
     [string]$BaselinePath,
     [switch]$NoVisual,
+    [switch]$NoOpen,
     [switch]$NoTranscript
 )
 
@@ -214,6 +220,32 @@ try {
     if ($export.Contains('nameMap') -and $export['nameMap']) { foreach ($k in $export['nameMap'].Keys) { $nameMap["$k"] = $export['nameMap'][$k] } }
     # Well-known first-party app ids are always safe to resolve (static, offline).
     (Get-CapWellKnownAppMap).GetEnumerator() | ForEach-Object { if (-not $nameMap.ContainsKey($_.Key)) { $nameMap[$_.Key] = $_.Value } }
+
+    # Policy ids -> display names (findings/audit reference policies by id).
+    foreach ($pol in $export.policies) {
+        $polId = if ($pol -is [System.Collections.IDictionary]) { $pol['id'] } else { $pol.id }
+        $polNm = if ($pol -is [System.Collections.IDictionary]) { $pol['displayName'] } else { $pol.displayName }
+        if ($polId -and $polNm) { $nameMap["$polId"] = "$polNm" }
+    }
+    # Directory enrichment display names (users incl. UPN, groups, role templates).
+    # These power the analysis-engine tabs (findings/contradictions), whose affected
+    # objects are directory ids that are not necessarily referenced by any policy.
+    if ($includeDirectory -and $export.Contains('enrichment') -and $export['enrichment']) {
+        $enrichmentData = $export['enrichment']
+        $encGet = { param($o, $n) if ($null -eq $o) { $null } elseif ($o -is [System.Collections.IDictionary]) { if ($o.Contains($n)) { $o[$n] } else { $null } } else { $p = $o.PSObject.Properties[$n]; if ($p) { $p.Value } else { $null } } }
+        foreach ($u in @(& $encGet (& $encGet $enrichmentData 'users') 'data')) {
+            $uid = "$(& $encGet $u 'id')"; $udn = "$(& $encGet $u 'displayName')"; $upn = "$(& $encGet $u 'userPrincipalName')"
+            if ($uid) { $nameMap[$uid] = if ($udn -and $upn) { "$udn ($upn)" } elseif ($udn) { $udn } else { $upn } }
+        }
+        foreach ($g in @(& $encGet (& $encGet $enrichmentData 'groups') 'data')) {
+            $gid = "$(& $encGet $g 'id')"; $gdn = "$(& $encGet $g 'displayName')"
+            if ($gid -and $gdn) { $nameMap[$gid] = $gdn }
+        }
+        foreach ($ra in @(& $encGet (& $encGet $enrichmentData 'roleAssignments') 'data')) {
+            $rtid = "$(& $encGet $ra 'roleTemplateId')"; $rtn = "$(& $encGet $ra 'roleName')"
+            if ($rtid -and $rtn -and -not $nameMap.ContainsKey($rtid)) { $nameMap[$rtid] = $rtn }
+        }
+    }
 
     if ($resolveNames -and -not $offline) {
         Write-CapLog "Resolving object names (users/groups, roles, apps) via Directory.Read.All..." 'INFO'
@@ -318,7 +350,7 @@ try {
     if (-not $NoVisual) {
         New-CapVisual -FriendlyPolicies $friendly -Summary $summary -Findings $findings -Delta $delta `
             -RiskFindings $(if ($riskFindings) { $riskFindings.findings } else { $null }) `
-            -Audit $auditResult -Compliance $complianceResult -TestResult $testResult `
+            -Audit $auditResult -Compliance $complianceResult -TestResult $testResult -NameMap $(if ($Redact) { @{} } else { $nameMap }) `
             -AssetsPath $assetsPath -OutputFile (Join-Path $snapshot 'visual/index.html')
     }
 
@@ -339,7 +371,15 @@ try {
     }
     Save-CapJson -InputObject $manifest -Path (Join-Path $snapshot 'manifest.json')
 
-    Write-CapLog "Done. Open: $(Join-Path $snapshot 'visual/index.html')" 'OK'
+    $visualPath = Join-Path $snapshot 'visual/index.html'
+    Write-CapLog "Done. Open: $visualPath" 'OK'
+
+    # Auto-open the report in the default browser (interactive runs only). App-only
+    # (unattended) runs and -NoOpen / -NoVisual skip this.
+    $unattended = $PSCmdlet.ParameterSetName -in @('AppCert', 'AppSecret')
+    if (-not $NoOpen -and -not $NoVisual -and -not $unattended -and (Test-Path $visualPath)) {
+        Open-CapBrowser -Url $visualPath
+    }
 }
 finally {
     if ($PSCmdlet.ParameterSetName -ne 'FromJson') { try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch { } }

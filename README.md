@@ -192,6 +192,7 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./export.json   # offline, zer
 | `-SkipAnalysis` | Export + report + visual only (skip the analysis engines). |
 | `-AssertionPath <path>` | Custom assertion pack for the built-in test engine. |
 | `-NoVisual` / `-NoTranscript` | Skip HTML / skip the transcript. |
+| `-NoOpen` | Do not auto-open the report in the browser (opens by default on interactive runs). |
 | `-TenantId`/`-ClientId`/`-CertificateThumbprint` | Unattended app-registration auth. |
 
 **Standalone analysis engines** (each runs offline against an export):

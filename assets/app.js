@@ -1,10 +1,19 @@
 /* CAPVisualizer offline viewer. Vanilla JS, no external dependencies. */
 (function () {
   "use strict";
-  var DATA = window.__CAP_DATA__ || { policies: [], summary: {}, findings: [], delta: null, riskFindings: [], audit: null, compliance: null, test: null };
+  var DATA = window.__CAP_DATA__ || { policies: [], summary: {}, findings: [], delta: null, riskFindings: [], audit: null, compliance: null, test: null, nameMap: {} };
   function arr(v) { return Array.isArray(v) ? v : (v === null || v === undefined || v === "" ? [] : [v]); }
   var policies = arr(DATA.policies);
   var selected = null;
+  var NAMES = DATA.nameMap || {};
+  // Resolve a directory GUID (or "type:guid" pair) to a friendly name when known.
+  function nm(v) {
+    if (v === null || v === undefined || v === "") return v;
+    var s = String(v);
+    var m = s.match(/^([a-zA-Z]+):(.+)$/);
+    if (m && NAMES[m[2]]) return m[1] + ": " + NAMES[m[2]];
+    return NAMES[s] || s;
+  }
 
   function el(id) { return document.getElementById(id); }
   function esc(s) {
@@ -16,6 +25,11 @@
   function list(v) {
     var a = arr(v).filter(function (x) { return x !== null && x !== undefined && x !== ""; });
     return a.length ? a.map(esc).join("<br>") : '<span class="muted">-</span>';
+  }
+  // Like list(), but resolves each entry through the name map first.
+  function listNames(v) {
+    var a = arr(v).filter(function (x) { return x !== null && x !== undefined && x !== ""; });
+    return a.length ? a.map(function (x) { return esc(nm(x)); }).join("<br>") : '<span class="muted">-</span>';
   }
   function stateClass(s) {
     if (s === "enabled") return "enabled";
@@ -244,7 +258,7 @@
         "<td><b>" + esc(x.title) + "</b><div class=\"muted\">" + esc(x.description) + "</div>" +
         (x.remediation ? "<div class=\"muted\"><i>Fix:</i> " + esc(x.remediation) + "</div>" : "") +
         (refs ? "<div class=\"muted\"><i>Refs:</i> " + refs + "</div>" : "") + "</td>" +
-        "<td>" + list(x.affectedObjects) + "</td></tr>";
+        "<td>" + listNames(x.affectedObjects) + "</td></tr>";
     }).join("");
     el("riskfindings").innerHTML = '<table><thead><tr><th>Severity</th><th>Risk</th><th>Finding</th><th>Affected</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="4" class="muted">No findings match the filter.</td></tr>') + "</tbody></table>";
@@ -272,7 +286,7 @@
       el("exemptions").innerHTML = '<p class="muted">No exclusions configured.</p>';
     } else {
       var er = exp.map(function (x) {
-        return "<tr><td>" + esc(x.displayName || x.id) + "</td><td>" + esc(x.type) + "</td>" +
+        return "<tr><td>" + esc(x.displayName || nm(x.id)) + "</td><td>" + esc(x.type) + "</td>" +
           "<td style=\"text-align:center\">" + esc(x.policyCount) + "</td>" +
           "<td>" + list(x.excludedFromPolicies) + "</td></tr>";
       }).join("");

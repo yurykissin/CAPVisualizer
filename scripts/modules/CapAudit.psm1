@@ -176,12 +176,24 @@ function Get-CapExemptionExposure {
         foreach ($g in @(_AuArr (_AuGet (_AuGet $Enrichment 'groups') 'data'))) {
             $nameMap["$(_AuGet $g 'id')"] = "$(_AuGet $g 'displayName')"
         }
+        # Role display names: from the privileged reference pack (keyed by role
+        # template id) plus any names carried on the role assignments themselves.
+        # Excluded roles in a CA policy are referenced by role template id.
+        foreach ($rt in $privRoles.Keys) { if (-not $nameMap.ContainsKey($rt)) { $nameMap[$rt] = $privRoles[$rt] } }
+        foreach ($ra in @(_AuArr (_AuGet (_AuGet $Enrichment 'roleAssignments') 'data'))) {
+            $rtid = "$(_AuGet $ra 'roleTemplateId')"; $rtn = "$(_AuGet $ra 'roleName')"
+            if ($rtid -and -not [string]::IsNullOrWhiteSpace($rtn)) { $nameMap[$rtid] = $rtn }
+        }
         foreach ($ra in @(_AuArr (_AuGet (_AuGet $Enrichment 'roleAssignments') 'data'))) {
             $rid = "$(_AuGet $ra 'roleTemplateId')"
             if ($privRoles.ContainsKey($rid)) {
                 $pid = "$(_AuGet $ra 'principalId')"
                 if (-not $memberOfPrivRole.ContainsKey($pid)) { $memberOfPrivRole[$pid] = [System.Collections.Generic.List[string]]::new() }
-                $memberOfPrivRole[$pid].Add("$(_AuGet $ra 'roleName')")
+                # Prefer the assignment's roleName; fall back to the reference-pack
+                # name so real-tenant data with a blank roleName still shows a name.
+                $rn = "$(_AuGet $ra 'roleName')"
+                if ([string]::IsNullOrWhiteSpace($rn)) { $rn = $privRoles[$rid] }
+                if (-not [string]::IsNullOrWhiteSpace($rn) -and -not $memberOfPrivRole[$pid].Contains($rn)) { $memberOfPrivRole[$pid].Add($rn) }
             }
         }
     }

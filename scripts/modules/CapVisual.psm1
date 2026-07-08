@@ -41,6 +41,7 @@ function New-CapVisual {
         $Audit,
         $Compliance,
         $TestResult,
+        [hashtable]$NameMap = @{},
         [Parameter(Mandatory)][string]$AssetsPath,
         [Parameter(Mandatory)][string]$OutputFile,
         [string]$Title = 'CAPVisualizer'
@@ -59,6 +60,7 @@ function New-CapVisual {
         audit        = $Audit
         compliance   = $Compliance
         test         = $TestResult
+        nameMap      = $NameMap
     }
     # Embed as JSON. Escape </script to keep the inline <script> intact.
     $dataJson = ($data | ConvertTo-Json -Depth 30) -replace '</script', '<\/script'
