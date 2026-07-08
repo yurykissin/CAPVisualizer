@@ -68,4 +68,53 @@ if (@($manifest.files).Count -lt 3) { throw "Manifest missing files." }
 Write-Host "Write/manifest OK  : $(@($manifest.files).Count) files hashed" -ForegroundColor Green
 Remove-Item -Recurse -Force $snap
 
+# --- Offline analysis engines against the enriched fixture ---
+Import-Module (Join-Path $modules 'CapNormalize.psm1') -Force
+Import-Module (Join-Path $modules 'CapScope.psm1') -Force
+Import-Module (Join-Path $modules 'CapWhatIf.psm1') -Force
+Import-Module (Join-Path $modules 'CapAudit.psm1') -Force
+Import-Module (Join-Path $modules 'CapFindings.psm1') -Force
+Import-Module (Join-Path $modules 'CapCompliance.psm1') -Force
+Import-Module (Join-Path $modules 'CapTest.psm1') -Force
+Import-Module (Join-Path $modules 'CapExport.psm1') -Force
+
+$enrExport = Import-CapExportJson -Path (Join-Path $root 'samples/sample-export-enriched.json')
+$grouping  = Get-CapAppGroupingMap
+$norm      = @($enrExport.policies | ForEach-Object { ConvertTo-CapNormalizedPolicy -Policy $_ -AppGroupingMap $grouping })
+$enr       = $enrExport.enrichment
+
+$scope = Resolve-CapScope -PrincipalId '22222222-2222-2222-2222-222222222222' -NormalizedPolicies $norm -Enrichment $enr
+if ($scope.counts.excluded -lt 1) { throw "Scope: expected the break-glass account to be excluded from a policy." }
+Write-Host "Scope OK           : direct=$($scope.counts.inScopeDirect) via=$($scope.counts.inScopeVia) excluded=$($scope.counts.excluded)" -ForegroundColor Green
+
+$wi = Test-CapWhatIf -PrincipalId '77777777-7777-7777-7777-777777777777' -NormalizedPolicies $norm -Enrichment $enr `
+    -Resource '00000002-0000-0ff1-ce00-000000000000' -ClientApp 'browser'
+if (-not $wi.outcome.mfaRequired) { throw "What-if: expected MFA required for the standard user." }
+Write-Host "What-if OK         : mfaRequired=$($wi.outcome.mfaRequired) definitive=$(@($wi.definitive).Count)" -ForegroundColor Green
+
+$audit = Invoke-CapAudit -NormalizedPolicies $norm -Enrichment $enr
+if (@($audit.issues | Where-Object { $_.checkId -eq 'app-include-exclude-overlap' }).Count -lt 1) { throw "Audit: expected the CA004 app contradiction." }
+Write-Host "Audit OK           : $(@($audit.issues).Count) issue(s)" -ForegroundColor Green
+
+$risk = Invoke-CapFindings -NormalizedPolicies $norm -Enrichment $enr -AuditResult $audit
+if (@($risk.findings).Count -lt 3) { throw "Findings: expected several risk-scored findings." }
+Write-Host "Findings OK        : $(@($risk.findings).Count) finding(s), top risk $($risk.summary.topRisk)" -ForegroundColor Green
+
+$comp = Invoke-CapCompliance -NormalizedPolicies $norm
+if (@($comp.controls).Count -lt 5) { throw "Compliance: expected 5 controls." }
+Write-Host "Compliance OK      : $($comp.summary.pass)/$($comp.summary.total) pass ($($comp.summary.passRate)%)" -ForegroundColor Green
+
+$test = Invoke-CapTest -NormalizedPolicies $norm -Enrichment $enr -ComplianceResult $comp -FindingsResult $risk
+Write-Host "Tests OK           : passed=$($test.summary.passed) failed=$($test.summary.failed) overall=$(if ($test.passed) { 'PASS' } else { 'FAIL' })" -ForegroundColor Green
+
+$out2 = Join-Path $root 'samples/sample-visual.html'
+New-CapVisual -FriendlyPolicies $friendly -Summary $summary -Findings $findings -Delta $delta `
+    -RiskFindings $risk.findings -Audit $audit -Compliance $comp -TestResult $test `
+    -AssetsPath (Join-Path $root 'assets') -OutputFile $out2
+$h2 = Get-Content -Raw $out2
+foreach ($needle in 'MS.AAD.1.1','app-include-exclude-overlap','Assertion results') {
+    if (-not $h2.Contains($needle)) { throw "Viewer missing analysis content: $needle" }
+}
+Write-Host "Unified viewer OK  : analysis tabs embedded" -ForegroundColor Green
+
 Write-Host "SMOKE TEST PASSED" -ForegroundColor Green

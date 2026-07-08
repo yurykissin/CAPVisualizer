@@ -65,13 +65,17 @@ No write scopes are ever requested. Use `-SkipResolveNames` for the minimal
 
 ```
 output/<yyyyMMdd-HHmmss>/
-  raw/export.json          # verbatim Graph data (source of truth for diffs)
+  raw/export.json          # verbatim Graph data + directory enrichment
   report/policies.json     # enriched, analysis-ready
   report/policies.csv      # one flattened row per policy
   report/findings.json/csv # hygiene / gap findings
   report/summary.json      # counts and overview
+  analysis/audit.json      # contradictions + exemption exposure
+  analysis/findings.json   # risk-scored findings (impact x likelihood)
+  analysis/compliance.json # CISA SCuBA (MS.AAD.*) control results
+  analysis/tests.json      # assertion results (+ .junit.xml / .sarif.json)
   delta/delta.json         # when -Delta and a baseline exist
-  visual/index.html        # self-contained offline viewer
+  visual/index.html        # self-contained offline viewer (all tabs)
   manifest.json            # SHA-256 of every output file
   transcript.txt           # run log (unless -NoTranscript)
 ```
@@ -96,23 +100,82 @@ output/<yyyyMMdd-HHmmss>/
   [docs/SCHEDULING.md](docs/SCHEDULING.md).
 - **Cross-platform** - PowerShell 7 on macOS, Linux, Windows.
 
+## Offline analysis engines
+
+Beyond export and reporting, every run also performs offline reasoning over the
+normalized policy set and the read-only directory enrichment - no extra tools, no
+network, reproducible from a JSON export via `-FromJson`:
+
+- **Per-user scope** ([docs/SCOPE.md](docs/SCOPE.md)) - which policies actually
+  target a principal (direct / via group or role / excluded). `Get-CapUserScope.ps1`.
+- **What-if** ([docs/WHATIF.md](docs/WHATIF.md)) - simulate one sign-in; separates
+  *definitive* from *signal-dependent* outcomes. `Invoke-CapWhatIf.ps1`.
+- **Gap permutation** ([docs/ANALYZE.md](docs/ANALYZE.md)) - permute unspecified
+  signals to surface bypasses and no-enforcement paths. `Invoke-CapAnalyze.ps1`.
+- **Contradiction audit** ([docs/AUDIT.md](docs/AUDIT.md)) - self-defeating
+  include/exclude overlaps, legacy-auth gaps, exemption exposure.
+- **Risk-scored findings** ([docs/FINDINGS.md](docs/FINDINGS.md)) - deterministic
+  impact x likelihood model with MITRE / CISA / NIST references.
+- **Compliance baseline** ([docs/COMPLIANCE.md](docs/COMPLIANCE.md)) - CISA SCuBA
+  `MS.AAD.*` control matrix, evaluated from a versioned baseline pack.
+- **Assertion engine** ([docs/TESTING.md](docs/TESTING.md)) - declarative JSON
+  assertions with JUnit / SARIF / JSON output and CI exit codes.
+  `Invoke-CapTest.ps1`.
+
+These are surfaced as extra tabs in the offline viewer and as `analysis/*.json`
+files.
+
+### Capability parity
+
+Each engine reproduces the *result and intent* of a well-known community tool,
+**authored independently** from public Entra behaviour and open standards:
+
+| CAPVisualizer pillar        | Mirrors the result of | Public standards referenced          |
+| --------------------------- | --------------------- | ------------------------------------ |
+| Scope / what-if / gap       | CAPSlock (SpecterOps) | Entra CA evaluation model            |
+| Contradiction audit         | noCAP                 | Entra CA assignment model            |
+| Risk-scored findings        | EntraFalcon           | MITRE ATT&CK, CISA SCuBA, NIST 800-53 |
+| Compliance baseline         | ScubaGear             | CISA SCuBA `MS.AAD.*`, NIST 800-53   |
+| Assertion / test engine     | Maester               | JUnit, SARIF 2.1.0                   |
+
+> [!NOTE]
+> **Independence statement.** No source code, algorithm, or configuration is
+> copied from CAPSlock, noCAP, EntraFalcon, ScubaGear, Maester, or any other
+> tool. Only observable behaviour and **public** standards - CISA SCuBA control
+> IDs (`MS.AAD.*`), NIST 800-53 controls, MITRE ATT&CK technique IDs, and the
+> JUnit/SARIF output formats - are referenced. BloodHound/AzureHound and
+> ROADtools are explicitly out of scope. Everything stays read-only and offline.
+
 ## Layout
 
 ```
 scripts/
-  Invoke-CapVisualizer.ps1     # entry point (export → report → visual → delta)
+  Invoke-CapVisualizer.ps1     # entry point (export → enrich → report → analysis → visual → delta)
   Test-Prerequisites.ps1       # environment / connectivity doctor
   Compare-CapSnapshot.ps1      # diff two existing snapshots
   Register-CapSchedule.ps1     # local cron / Task Scheduler helper
+  Get-CapUserScope.ps1         # per-user policy scope (offline)
+  Invoke-CapWhatIf.ps1         # simulate one sign-in (offline)
+  Invoke-CapAnalyze.ps1        # gap permutation (offline)
+  Invoke-CapTest.ps1           # assertion engine, CI exit codes
   modules/
     CapCommon.psm1             # auth, Graph paging, throttling, hashing, name resolution
-    CapExport.psm1             # fetch CA policies + dependencies
+    CapExport.psm1             # fetch CA policies + dependencies + directory enrichment
+    CapNormalize.psm1          # canonical policy shape (the analysis gate)
     CapReport.psm1             # JSON/CSV reports + hygiene checks + summary
+    CapScope.psm1              # per-user scope resolution
+    CapWhatIf.psm1             # offline what-if evaluation
+    CapAnalyze.psm1            # gap / bypass permutation
+    CapAudit.psm1              # contradiction & exemption audit
+    CapFindings.psm1           # risk-scored findings model
+    CapCompliance.psm1         # CISA SCuBA baseline evaluation
+    CapTest.psm1               # assertion engine (JUnit/SARIF/JSON)
     CapVisual.psm1             # render self-contained offline HTML
     CapDelta.psm1              # snapshot comparison engine
 assets/                        # HTML template + inlined CSS/JS (offline)
+  reference/                   # app groupings, privileged roles, baselines, assertions
 arm/                           # OPTIONAL, opt-in Azure scheduling (not local)
-docs/                          # USAGE, PERMISSIONS, DELTA, SCHEDULING, SECURITY
+docs/                          # USAGE, PERMISSIONS, SCOPE, WHATIF, ANALYZE, AUDIT, FINDINGS, COMPLIANCE, TESTING, DELTA, SCHEDULING, SECURITY
 samples/                       # sanitized sample export + offline self-test
 ```
 

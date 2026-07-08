@@ -109,6 +109,8 @@ param(
 
     [switch]$SkipResolveNames,
     [switch]$SkipDirectory,
+    [switch]$SkipAnalysis,
+    [string]$AssertionPath,
     [switch]$Redact,
     [switch]$Delta,
     [string]$BaselinePath,
@@ -130,6 +132,12 @@ Import-Module (Join-Path $modules 'CapCommon.psm1') -Force
 Import-Module (Join-Path $modules 'CapExport.psm1') -Force
 Import-Module (Join-Path $modules 'CapEnrich.psm1') -Force
 Import-Module (Join-Path $modules 'CapNormalize.psm1') -Force
+Import-Module (Join-Path $modules 'CapScope.psm1') -Force
+Import-Module (Join-Path $modules 'CapWhatIf.psm1') -Force
+Import-Module (Join-Path $modules 'CapAudit.psm1') -Force
+Import-Module (Join-Path $modules 'CapFindings.psm1') -Force
+Import-Module (Join-Path $modules 'CapCompliance.psm1') -Force
+Import-Module (Join-Path $modules 'CapTest.psm1') -Force
 Import-Module (Join-Path $modules 'CapReport.psm1') -Force
 Import-Module (Join-Path $modules 'CapVisual.psm1') -Force
 Import-Module (Join-Path $modules 'CapDelta.psm1')  -Force
@@ -221,6 +229,25 @@ try {
     $findings = Get-CapHygieneFindings -FriendlyPolicies $friendly
     $summary  = New-CapSummary -Export $export -FriendlyPolicies $friendly -Findings $findings
 
+    # --- Offline analysis engines (normalize -> audit/findings/compliance/test) ---
+    $riskFindings = $null; $auditResult = $null; $complianceResult = $null; $testResult = $null
+    if (-not $SkipAnalysis) {
+        Write-CapLog "Running offline analysis engines (normalize, audit, findings, compliance, tests)..." 'INFO'
+        $grouping   = Get-CapAppGroupingMap
+        $normalized = @($export.policies | ForEach-Object { ConvertTo-CapNormalizedPolicy -Policy $_ -AppGroupingMap $grouping })
+        $enrichment = if ($export.Contains('enrichment')) { $export.enrichment } else { $null }
+
+        $auditResult      = Invoke-CapAudit -NormalizedPolicies $normalized -Enrichment $enrichment
+        $riskFindings     = Invoke-CapFindings -NormalizedPolicies $normalized -Enrichment $enrichment -AuditResult $auditResult
+        $complianceResult = Invoke-CapCompliance -NormalizedPolicies $normalized
+        $testArgs = @{ NormalizedPolicies = $normalized; Enrichment = $enrichment; ComplianceResult = $complianceResult; FindingsResult = $riskFindings }
+        if ($AssertionPath) { $testArgs['AssertionPath'] = $AssertionPath }
+        $testResult = Invoke-CapTest @testArgs
+        Write-CapLog ("Analysis: {0} audit issue(s), {1} finding(s), compliance {2}% pass, tests {3}." -f `
+            @($auditResult.issues).Count, @($riskFindings.findings).Count, $complianceResult.summary.passRate, `
+            $(if ($testResult.passed) { 'PASS' } else { 'FAIL' })) 'OK'
+    }
+
     # --- Redact (optional) ---
     if ($Redact) {
         Write-CapLog "Redacting tenant id and object GUIDs..." 'WARN'
@@ -229,6 +256,12 @@ try {
         $summary.tenantId = 'REDACTED'
         $export   = Protect-CapObject -Object $export
         $friendly = @(Protect-CapObject -Object $friendly)
+        if (-not $SkipAnalysis) {
+            $auditResult      = Protect-CapObject -Object $auditResult
+            $riskFindings     = Protect-CapObject -Object $riskFindings
+            $complianceResult = Protect-CapObject -Object $complianceResult
+            $testResult       = Protect-CapObject -Object $testResult
+        }
     }
 
     # --- Write raw + report ---
@@ -239,6 +272,17 @@ try {
     Save-CapJson -InputObject $friendly -Path (Join-Path $snapshot 'report/policies.json')
     Save-CapJson -InputObject $summary  -Path (Join-Path $snapshot 'report/summary.json')
     Save-CapJson -InputObject $findings -Path (Join-Path $snapshot 'report/findings.json')
+    if (-not $SkipAnalysis) {
+        New-Item -ItemType Directory -Force -Path (Join-Path $snapshot 'analysis') | Out-Null
+        Save-CapJson -InputObject $auditResult      -Path (Join-Path $snapshot 'analysis/audit.json')
+        Save-CapJson -InputObject $riskFindings     -Path (Join-Path $snapshot 'analysis/findings.json')
+        Save-CapJson -InputObject $complianceResult -Path (Join-Path $snapshot 'analysis/compliance.json')
+        Save-CapJson -InputObject $testResult       -Path (Join-Path $snapshot 'analysis/tests.json')
+        if ($testResult) {
+            ConvertTo-CapJUnit -TestResult $testResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.junit.xml') -Encoding utf8
+            ConvertTo-CapSarif -TestResult $testResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.sarif.json') -Encoding utf8
+        }
+    }
 
     $csvRows = @($friendly | ForEach-Object { ConvertTo-CapCsvRow -Friendly $_ })
     if ($csvRows) { $csvRows | Export-Csv -Path (Join-Path $snapshot 'report/policies.csv') -NoTypeInformation -Encoding UTF8 }
@@ -273,6 +317,8 @@ try {
     # --- Visualization ---
     if (-not $NoVisual) {
         New-CapVisual -FriendlyPolicies $friendly -Summary $summary -Findings $findings -Delta $delta `
+            -RiskFindings $(if ($riskFindings) { $riskFindings.findings } else { $null }) `
+            -Audit $auditResult -Compliance $complianceResult -TestResult $testResult `
             -AssetsPath $assetsPath -OutputFile (Join-Path $snapshot 'visual/index.html')
     }
 
