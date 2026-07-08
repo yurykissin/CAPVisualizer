@@ -83,10 +83,12 @@ function Connect-CapGraph {
 .PARAMETER ClientSecret
     Client secret (SecureString) for app-based auth. Certificate is preferred.
 
-.PARAMETER UseWebBrowser
-    Interactive sign-in only. Use the classic system-browser (authorization code)
-    flow instead of the default device-code flow. The device-code flow prints a
-    copy/paste sign-in URL and code in the terminal AND auto-opens the browser.
+.PARAMETER UseDeviceCode
+    Interactive sign-in only. Use the device-code flow (prints a copy/paste
+    sign-in URL and one-time code in the terminal) instead of the default
+    system-browser authorization-code flow. Intended for headless / SSH sessions
+    with no local browser. Device-code flow is more phishing-prone, so it is
+    off by default; prefer the browser flow whenever a browser is available.
 #>
     [CmdletBinding(DefaultParameterSetName = 'Interactive')]
     param(
@@ -94,7 +96,7 @@ function Connect-CapGraph {
         [string[]]$Scopes = @('Policy.Read.All'),
 
         [Parameter(ParameterSetName = 'Interactive')]
-        [switch]$UseWebBrowser,
+        [switch]$UseDeviceCode,
 
         [Parameter(Mandatory, ParameterSetName = 'AppCert')]
         [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
@@ -129,15 +131,13 @@ function Connect-CapGraph {
         }
         default {
             Write-CapLog "Connecting to Graph (interactive) scopes: $($Scopes -join ', ')" 'INFO'
-            if ($UseWebBrowser) {
-                Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction Stop
-            }
-            else {
-                # Device-code flow: the SDK prints "To sign in ... enter the code".
-                # That message is emitted on the success stream, which callers
-                # discard via `Connect-CapGraph | Out-Null`; re-emit it through
-                # Write-Host so the code is always visible (and survives an active
-                # transcript). We also auto-open the browser to the sign-in page.
+            if ($UseDeviceCode) {
+                # Opt-in device-code flow for headless / SSH sessions (no browser).
+                # More phishing-prone than the browser flow, so it is not the default.
+                # The SDK emits the "To sign in ... enter the code" message on the
+                # success stream, which callers discard via `Connect-CapGraph |
+                # Out-Null`; re-emit it through Write-Host so the code is always
+                # visible (and survives an active transcript).
                 $deviceUrl = 'https://microsoft.com/devicelogin'
                 Write-CapLog "Device-code sign-in - a one-time code will be shown below. Sign-in page: $deviceUrl" 'INFO'
                 Open-CapBrowser -Url $deviceUrl
@@ -147,6 +147,12 @@ function Connect-CapGraph {
                         Write-Host "  >> $_" -ForegroundColor Yellow
                         Write-Host ''
                     }
+            }
+            else {
+                # Default: system-browser authorization-code flow (PKCE). This is
+                # the Microsoft-recommended interactive flow - a single, SSO-aware
+                # browser prompt and not susceptible to device-code phishing.
+                Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction Stop
             }
         }
     }

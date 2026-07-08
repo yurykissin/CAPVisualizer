@@ -24,18 +24,19 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1
 
 You'll be prompted to sign in and consent to read-only `Policy.Read.All` **and
 `Directory.Read.All`** (the latter is used to turn GUIDs into display names).
-By default sign-in uses the **device-code flow**: the terminal prints a
-copy/paste sign-in URL (`https://microsoft.com/devicelogin`) and a one-time code,
-and the browser is opened automatically. Add `-UseWebBrowser` for the classic
-system-browser (SSO) flow instead. Output lands in a timestamped folder under
-`output/`.
+By default sign-in uses the **system-browser authorization-code flow** (PKCE):
+a single, SSO-aware browser prompt - the Microsoft-recommended interactive flow.
+For headless / SSH sessions with no local browser, add `-UseDeviceCode` to fall
+back to the device-code flow (prints a copy/paste URL + one-time code); note that
+device-code flow is more phishing-prone, so use it only when necessary. Output
+lands in a timestamped folder under `output/`.
 
 ### Useful switches
 
 | Switch | Effect |
 |--------|--------|
 | `-SkipResolveNames` | Do **not** resolve names; show GUIDs and request only `Policy.Read.All`. |
-| `-UseWebBrowser` | Use the classic system-browser sign-in instead of the default device-code flow. |
+| `-UseDeviceCode` | Use the device-code flow (headless / SSH, no browser) instead of the default system-browser sign-in. |
 | `-FromJson <path>` | Offline render mode: build reports + HTML from an existing JSON file, no sign-in, no network. |
 | `-Delta` | Compare against the most recent previous snapshot. |
 | `-BaselinePath <folder>` | Use a specific snapshot as the delta baseline. |

@@ -27,11 +27,11 @@
 .PARAMETER Scopes
     Delegated scopes for interactive sign-in. Default: Policy.Read.All.
 
-.PARAMETER UseWebBrowser
-    Interactive sign-in only. Use the classic system-browser flow instead of the
-    default device-code flow. By default the tool uses device-code sign-in, which
-    prints a copy/paste sign-in URL and one-time code in the terminal and also
-    auto-opens the browser.
+.PARAMETER UseDeviceCode
+    Interactive sign-in only. Use the device-code flow (prints a copy/paste
+    sign-in URL and one-time code in the terminal) instead of the default
+    system-browser sign-in. Intended for headless / SSH sessions with no local
+    browser. Device-code flow is more phishing-prone, so it is off by default.
 
 .PARAMETER SkipResolveNames
     By default the tool resolves object GUIDs (users, groups, roles, apps) to
@@ -88,7 +88,7 @@ param(
     [string[]]$Scopes = @('Policy.Read.All'),
 
     [Parameter(ParameterSetName = 'Interactive')]
-    [switch]$UseWebBrowser,
+    [switch]$UseDeviceCode,
 
     [Parameter(Mandatory, ParameterSetName = 'AppCert')]
     [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
@@ -194,7 +194,7 @@ try {
                         if ($connectScopes -notcontains $s) { $connectScopes += $s }
                     }
                 }
-                Connect-CapGraph -Scopes $connectScopes -UseWebBrowser:$UseWebBrowser | Out-Null
+                Connect-CapGraph -Scopes $connectScopes -UseDeviceCode:$UseDeviceCode | Out-Null
             }
         }
 
