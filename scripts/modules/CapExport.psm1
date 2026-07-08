@@ -17,12 +17,20 @@ function Get-CapExport {
 .SYNOPSIS
     Fetch CA policies plus dependencies and return a single export object.
 
+.PARAMETER IncludeDirectory
+    Collect read-only directory enrichment (groups/roles/users/MFA capability) in
+    addition to the CA policies. On by default; each dataset degrades gracefully
+    if the signed-in principal lacks the scope. Use -IncludeDirectory:$false to
+    keep the minimal policy-only footprint.
+
 .OUTPUTS
     [ordered] hashtable with keys: metadata, policies, namedLocations,
-    authenticationStrengths, authenticationContexts.
+    authenticationStrengths, authenticationContexts, enrichment.
 #>
     [CmdletBinding()]
-    param()
+    param(
+        [bool]$IncludeDirectory = $true
+    )
 
     Write-CapLog "Reading Conditional Access policies..." 'INFO'
     $policies = @(Invoke-CapGraphGet -Uri 'identity/conditionalAccess/policies')
@@ -45,7 +53,7 @@ function Get-CapExport {
     $export = [ordered]@{
         metadata = [ordered]@{
             tool           = 'CAPVisualizer'
-            schemaVersion  = '1.0'
+            schemaVersion  = '2.0'
             generatedUtc   = (Get-Date).ToUniversalTime().ToString('o')
             tenantId       = $ctx.TenantId
             account        = ($ctx.Account ?? $ctx.ClientId)
@@ -58,7 +66,35 @@ function Get-CapExport {
         authenticationStrengths  = @($authStrengths  | ForEach-Object { ConvertTo-CapHashtable -InputObject $_ })
         authenticationContexts   = @($authContexts   | ForEach-Object { ConvertTo-CapHashtable -InputObject $_ })
     }
+
+    if ($IncludeDirectory) {
+        $groupIds = @(Get-CapPolicyGroupIds -Export $export)
+        $enrichment = Get-CapEnrichment -GroupIds $groupIds
+        $export['enrichment'] = ConvertTo-CapHashtable -InputObject $enrichment
+    }
+
     return $export
+}
+
+function Get-CapPolicyGroupIds {
+<#
+.SYNOPSIS
+    Distinct group object ids referenced by CA policies (include/exclude groups),
+    used to bound owner expansion during enrichment.
+#>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Export)
+
+    function _K { param($o, [string]$k) if ($null -eq $o) { return $null }; if ($o -is [System.Collections.IDictionary]) { if ($o.Contains($k)) { return $o[$k] } else { return $null } }; $p = $o.PSObject.Properties[$k]; if ($p) { return $p.Value } else { return $null } }
+
+    $ids = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($p in $Export.policies) {
+        $users = _K (_K $p 'conditions') 'users'
+        foreach ($bucket in 'includeGroups', 'excludeGroups') {
+            foreach ($v in @(_K $users $bucket)) { if ("$v" -match '^[0-9a-fA-F-]{36}$') { [void]$ids.Add("$v") } }
+        }
+    }
+    return @($ids)
 }
 
 function Get-CapReferences {
@@ -149,6 +185,7 @@ function Import-CapExportJson {
     $namedLocations = @()
     $authStrengths = @()
     $authContexts = @()
+    $enrichment = $null
     $nameMap = @{}
 
     if ($raw -is [System.Collections.IDictionary] -and $raw.Contains('policies')) {
@@ -158,6 +195,7 @@ function Import-CapExportJson {
         $namedLocations = @(_K $raw 'namedLocations')
         $authStrengths  = @(_K $raw 'authenticationStrengths')
         $authContexts   = @(_K $raw 'authenticationContexts')
+        $enrichment     = _K $raw 'enrichment'
         $nm = _K $raw 'nameMap'
         if ($nm -is [System.Collections.IDictionary]) { foreach ($k in $nm.Keys) { $nameMap["$k"] = $nm[$k] } }
     }
@@ -197,8 +235,9 @@ function Import-CapExportJson {
         namedLocations          = @($namedLocations | ForEach-Object { ConvertTo-CapHashtable -InputObject $_ })
         authenticationStrengths = @($authStrengths | ForEach-Object { ConvertTo-CapHashtable -InputObject $_ })
         authenticationContexts  = @($authContexts | ForEach-Object { ConvertTo-CapHashtable -InputObject $_ })
+        enrichment              = if ($enrichment) { ConvertTo-CapHashtable -InputObject $enrichment } else { $null }
         nameMap                 = $nameMap
     }
 }
 
-Export-ModuleMember -Function Get-CapExport, Get-CapReferences, Import-CapExportJson
+Export-ModuleMember -Function Get-CapExport, Get-CapReferences, Get-CapPolicyGroupIds, Import-CapExportJson

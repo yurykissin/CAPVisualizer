@@ -39,6 +39,12 @@
     to Policy.Read.All. Use -SkipResolveNames to keep the minimal
     Policy.Read.All-only footprint (output will then show GUIDs).
 
+.PARAMETER SkipDirectory
+    By default the tool also collects read-only directory enrichment (groups,
+    role assignments, users, MFA capability) that powers the scope/findings/
+    contradiction/compliance analysis. Each dataset degrades gracefully if a
+    scope is missing. Use -SkipDirectory to keep a policy-only run.
+
 .PARAMETER FromJson
     Fully-offline render mode. Instead of connecting to Graph, load policies from
     an existing JSON file (a CAPVisualizer export.json, a snapshot folder, a raw
@@ -102,6 +108,7 @@ param(
     [string]$FromJson,
 
     [switch]$SkipResolveNames,
+    [switch]$SkipDirectory,
     [switch]$Redact,
     [switch]$Delta,
     [string]$BaselinePath,
@@ -116,10 +123,13 @@ $ErrorActionPreference = 'Stop'
 # read-only Directory.Read.All scope in addition to Policy.Read.All. Use
 # -SkipResolveNames to keep the minimal Policy.Read.All-only footprint.
 $resolveNames = -not $SkipResolveNames
+$includeDirectory = -not $SkipDirectory
 
 $modules = Join-Path $PSScriptRoot 'modules'
 Import-Module (Join-Path $modules 'CapCommon.psm1') -Force
 Import-Module (Join-Path $modules 'CapExport.psm1') -Force
+Import-Module (Join-Path $modules 'CapEnrich.psm1') -Force
+Import-Module (Join-Path $modules 'CapNormalize.psm1') -Force
 Import-Module (Join-Path $modules 'CapReport.psm1') -Force
 Import-Module (Join-Path $modules 'CapVisual.psm1') -Force
 Import-Module (Join-Path $modules 'CapDelta.psm1')  -Force
@@ -171,12 +181,17 @@ try {
             default     {
                 $connectScopes = @($Scopes)
                 if ($resolveNames -and $connectScopes -notcontains 'Directory.Read.All') { $connectScopes += 'Directory.Read.All' }
+                if ($includeDirectory) {
+                    foreach ($s in 'Directory.Read.All', 'Group.Read.All', 'User.Read.All', 'RoleManagement.Read.Directory', 'AuditLog.Read.All', 'UserAuthenticationMethod.Read.All') {
+                        if ($connectScopes -notcontains $s) { $connectScopes += $s }
+                    }
+                }
                 Connect-CapGraph -Scopes $connectScopes -UseWebBrowser:$UseWebBrowser | Out-Null
             }
         }
 
         # --- Export ---
-        $export = Get-CapExport
+        $export = Get-CapExport -IncludeDirectory $includeDirectory
     }
 
     # --- Name / location maps ---
@@ -270,6 +285,7 @@ try {
         tenantId     = $summary.tenantId
         resolveNames = [bool]$resolveNames
         offline      = [bool]$offline
+        directory    = [bool]$includeDirectory
         redacted     = [bool]$Redact
         files        = @($files | ForEach-Object {
             [ordered]@{ path = ($_.FullName.Substring($snapshot.Length + 1) -replace '\\', '/'); sha256 = (Get-CapFileSha256 -Path $_.FullName); bytes = $_.Length }

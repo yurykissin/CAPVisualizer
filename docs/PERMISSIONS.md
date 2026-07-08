@@ -26,6 +26,32 @@ so the interactive default requests **`Policy.Read.All` + `Directory.Read.All`**
 To keep the **minimal `Policy.Read.All`-only** footprint (output then shows
 GUIDs), pass **`-SkipResolveNames`**.
 
+## Directory enrichment (on by default)
+
+To power the analysis engines (per-user scope resolution, risk-scored findings,
+contradiction and compliance checks), the tool also collects read-only directory
+context: groups and their protection state, directory-role assignments, users
+and account/sign-in state, and per-user MFA capability. Each dataset is
+collected **best-effort** and independently - if a scope is missing, that dataset
+is marked unavailable and the dependent checks report "insufficient data" instead
+of failing the run.
+
+| Capability | Microsoft Graph scope | Type |
+|------------|-----------------------|------|
+| Groups + protection state (`groups`, `groups/{id}/owners`) | `Group.Read.All` (or `Directory.Read.All`) | Delegated **or** Application |
+| Directory-role assignments (active + PIM-eligible) | `RoleManagement.Read.Directory` (or `Directory.Read.All`) | Delegated **or** Application |
+| Users + account state | `User.Read.All` (or `Directory.Read.All`) | Delegated **or** Application |
+| Last sign-in activity (`signInActivity`) | `AuditLog.Read.All` | Delegated **or** Application |
+| Per-user MFA capability (`reports/authenticationMethods/userRegistrationDetails`) | `AuditLog.Read.All` + `UserAuthenticationMethod.Read.All` (or `Reports.Read.All`) | Delegated **or** Application |
+
+The collected enrichment is embedded in `raw/export.json`, so a later
+`-FromJson` render (and all analysis engines) run **fully offline** against the
+snapshot with no further permissions.
+
+To keep the tool **policy-only** (no directory enrichment), pass
+**`-SkipDirectory`**. Note that scope, findings, contradiction, and compliance
+checks that rely on directory data will then be limited or unavailable.
+
 ## Delegated (interactive) vs Application (unattended)
 
 - **Interactive / delegated** (default): you sign in as yourself. The effective
