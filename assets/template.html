@@ -18,6 +18,10 @@ __STYLES__
 <div class="tabs" style="padding: 12px 24px 0;">
   <div class="tab" data-tab="overview">Overview</div>
   <div class="tab" data-tab="detailview">Per-policy</div>
+  <div class="tab hidden" id="findingsTab" data-tab="riskfindings">Findings</div>
+  <div class="tab hidden" id="contraTab" data-tab="contradictions">Contradictions</div>
+  <div class="tab hidden" id="complianceTab" data-tab="compliance">Compliance</div>
+  <div class="tab hidden" id="testsTab" data-tab="tests">Tests</div>
   <div class="tab hidden" id="deltaTab" data-tab="delta">Delta</div>
 </div>
 
@@ -51,6 +55,49 @@ __STYLES__
 
 <div id="pane-delta" class="hidden">
   <div class="main"><h2>Changes since baseline</h2><div id="delta"></div></div>
+</div>
+
+<div id="pane-riskfindings" class="hidden">
+  <div class="main">
+    <h2>Risk-scored findings</h2>
+    <div class="search" style="margin-bottom:12px">
+      <input id="fq" type="text" placeholder="Filter findings...">
+      <select id="fsev">
+        <option value="all">All severities</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+        <option value="info">Info</option>
+      </select>
+    </div>
+    <div id="riskfindings"></div>
+  </div>
+</div>
+
+<div id="pane-contradictions" class="hidden">
+  <div class="main">
+    <h2>Contradictions &amp; misconfigurations</h2>
+    <div id="contradictions"></div>
+    <h2 style="margin-top:24px">Exemption exposure</h2>
+    <div id="exemptions"></div>
+  </div>
+</div>
+
+<div id="pane-compliance" class="hidden">
+  <div class="main">
+    <h2>Compliance baseline</h2>
+    <div id="complianceMeta" class="muted"></div>
+    <div id="compliance"></div>
+  </div>
+</div>
+
+<div id="pane-tests" class="hidden">
+  <div class="main">
+    <h2>Assertion results</h2>
+    <div id="testsMeta" class="muted"></div>
+    <div id="tests"></div>
+  </div>
 </div>
 
 <footer>

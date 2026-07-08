@@ -37,6 +37,10 @@ function New-CapVisual {
         [Parameter(Mandatory)]$Summary,
         [Parameter(Mandatory)]$Findings,
         $Delta,
+        $RiskFindings,
+        $Audit,
+        $Compliance,
+        $TestResult,
         [Parameter(Mandatory)][string]$AssetsPath,
         [Parameter(Mandatory)][string]$OutputFile,
         [string]$Title = 'CAPVisualizer'
@@ -47,10 +51,14 @@ function New-CapVisual {
     $appJs    = Get-Content -LiteralPath (Join-Path $AssetsPath 'app.js')        -Raw
 
     $data = [ordered]@{
-        policies = @($FriendlyPolicies)
-        summary  = $Summary
-        findings = @($Findings)
-        delta    = $Delta
+        policies     = @($FriendlyPolicies)
+        summary      = $Summary
+        findings     = @($Findings)
+        delta        = $Delta
+        riskFindings = if ($RiskFindings) { @($RiskFindings) } else { @() }
+        audit        = $Audit
+        compliance   = $Compliance
+        test         = $TestResult
     }
     # Embed as JSON. Escape </script to keep the inline <script> intact.
     $dataJson = ($data | ConvertTo-Json -Depth 30) -replace '</script', '<\/script'

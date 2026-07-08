@@ -84,6 +84,11 @@ th { background: var(--panel2); position: sticky; top: 0; }
 tr:hover td { background: var(--panel2); }
 .sev-warning { color: var(--warn); }
 .sev-info { color: var(--muted); }
+.sev-critical { color: #ff6b6b; font-weight: 700; }
+.sev-high { color: var(--err, #ff8787); font-weight: 600; }
+.sev-medium { color: var(--warn); }
+.sev-low { color: #9bbcff; }
+td.ok, .ok { color: #a8f0c2; }
 .badge-add { color: var(--ok); }
 .badge-remove { color: var(--block); }
 .badge-mod { color: var(--warn); }

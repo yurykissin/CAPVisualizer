@@ -1,7 +1,7 @@
 /* CAPVisualizer offline viewer. Vanilla JS, no external dependencies. */
 (function () {
   "use strict";
-  var DATA = window.__CAP_DATA__ || { policies: [], summary: {}, findings: [], delta: null };
+  var DATA = window.__CAP_DATA__ || { policies: [], summary: {}, findings: [], delta: null, riskFindings: [], audit: null, compliance: null, test: null };
   function arr(v) { return Array.isArray(v) ? v : (v === null || v === undefined || v === "" ? [] : [v]); }
   var policies = arr(DATA.policies);
   var selected = null;
@@ -212,7 +212,7 @@
   }
 
   function showTab(name) {
-    ["overview", "detailview", "delta"].forEach(function (t) {
+    ["overview", "detailview", "riskfindings", "contradictions", "compliance", "tests", "delta"].forEach(function (t) {
       var pane = el("pane-" + t);
       if (pane) pane.classList.toggle("hidden", t !== name);
     });
@@ -221,16 +221,121 @@
     });
   }
 
+  function sevRank(s) { return { critical: 4, high: 3, medium: 2, low: 1, info: 0 }[s] || 0; }
+
+  function renderRiskFindings(filterText, filterSev) {
+    var f = arr(DATA.riskFindings);
+    var tab = el("findingsTab");
+    if (!f.length) { if (tab) tab.classList.add("hidden"); return; }
+    if (tab) tab.classList.remove("hidden");
+    var ft = (filterText || "").toLowerCase();
+    var rows = f.filter(function (x) {
+      if (filterSev && filterSev !== "all" && x.severity !== filterSev) return false;
+      if (ft) {
+        var hay = (x.title + " " + x.description + " " + (x.affectedObjects || []).join(" ")).toLowerCase();
+        if (hay.indexOf(ft) === -1) return false;
+      }
+      return true;
+    }).map(function (x) {
+      var refs = arr(x.references).map(esc).join(", ");
+      return "<tr>" +
+        "<td class=\"sev-" + esc(x.severity) + "\">" + esc(x.severity) + "</td>" +
+        "<td style=\"text-align:center\">" + esc(x.riskScore) + "</td>" +
+        "<td><b>" + esc(x.title) + "</b><div class=\"muted\">" + esc(x.description) + "</div>" +
+        (x.remediation ? "<div class=\"muted\"><i>Fix:</i> " + esc(x.remediation) + "</div>" : "") +
+        (refs ? "<div class=\"muted\"><i>Refs:</i> " + refs + "</div>" : "") + "</td>" +
+        "<td>" + list(x.affectedObjects) + "</td></tr>";
+    }).join("");
+    el("riskfindings").innerHTML = '<table><thead><tr><th>Severity</th><th>Risk</th><th>Finding</th><th>Affected</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="4" class="muted">No findings match the filter.</td></tr>') + "</tbody></table>";
+  }
+
+  function renderContradictions() {
+    var a = DATA.audit;
+    var tab = el("contraTab");
+    if (!a) { if (tab) tab.classList.add("hidden"); return; }
+    if (tab) tab.classList.remove("hidden");
+    var issues = arr(a.issues);
+    if (!issues.length) {
+      el("contradictions").innerHTML = '<p class="muted">No contradictions detected.</p>';
+    } else {
+      var rows = issues.map(function (x) {
+        return "<tr><td class=\"sev-" + esc(x.severity) + "\">" + esc(x.severity) + "</td>" +
+          "<td>" + esc(x.category) + "</td>" +
+          "<td><b>" + esc(x.title) + "</b><div class=\"muted\">" + esc(x.detail) + "</div></td>" +
+          "<td>" + esc(x.policyName || "-") + "</td></tr>";
+      }).join("");
+      el("contradictions").innerHTML = '<table><thead><tr><th>Severity</th><th>Category</th><th>Issue</th><th>Policy</th></tr></thead><tbody>' + rows + "</tbody></table>";
+    }
+    var exp = arr(a.exemptionExposure);
+    if (!exp.length) {
+      el("exemptions").innerHTML = '<p class="muted">No exclusions configured.</p>';
+    } else {
+      var er = exp.map(function (x) {
+        return "<tr><td>" + esc(x.displayName || x.id) + "</td><td>" + esc(x.type) + "</td>" +
+          "<td style=\"text-align:center\">" + esc(x.policyCount) + "</td>" +
+          "<td>" + list(x.excludedFromPolicies) + "</td></tr>";
+      }).join("");
+      el("exemptions").innerHTML = '<table><thead><tr><th>Principal</th><th>Type</th><th># policies</th><th>Excluded from</th></tr></thead><tbody>' + er + "</tbody></table>";
+    }
+  }
+
+  function renderCompliance() {
+    var c = DATA.compliance;
+    var tab = el("complianceTab");
+    if (!c) { if (tab) tab.classList.add("hidden"); return; }
+    if (tab) tab.classList.remove("hidden");
+    var s = c.summary || {};
+    el("complianceMeta").innerHTML = esc(c.baseline) + " (" + esc(c.baselineVersion) + ") &nbsp;·&nbsp; " +
+      "Pass " + (s.pass || 0) + " / Fail " + (s.fail || 0) + " / Manual " + (s.manual || 0) +
+      " &nbsp;·&nbsp; pass rate " + (s.passRate || 0) + "%";
+    var rows = arr(c.controls).map(function (x) {
+      var rc = x.result === "pass" ? "ok" : (x.result === "fail" ? "sev-high" : "muted");
+      var refs = arr(x.nist).concat(arr(x.mitre)).map(esc).join(", ");
+      return "<tr><td><code>" + esc(x.id) + "</code></td>" +
+        "<td><span class=\"pill " + (x.result === "pass" ? "ok" : "") + "\">" + esc(x.result) + "</span></td>" +
+        "<td>" + esc(x.criticality) + "</td>" +
+        "<td>" + esc(x.statement) + "<div class=\"muted\">" + esc(x.rationale) + "</div>" +
+        (refs ? "<div class=\"muted\"><i>Refs:</i> " + refs + "</div>" : "") + "</td>" +
+        "<td>" + list(x.evidence) + "</td></tr>";
+    }).join("");
+    el("compliance").innerHTML = '<table><thead><tr><th>Control</th><th>Result</th><th>Level</th><th>Statement</th><th>Evidence</th></tr></thead><tbody>' + rows + "</tbody></table>";
+  }
+
+  function renderTests() {
+    var t = DATA.test;
+    var tab = el("testsTab");
+    if (!t) { if (tab) tab.classList.add("hidden"); return; }
+    if (tab) tab.classList.remove("hidden");
+    var s = t.summary || {};
+    el("testsMeta").innerHTML = esc(t.name) + " &nbsp;·&nbsp; " +
+      "Passed " + (s.passed || 0) + " / Failed " + (s.failed || 0) + " / Errored " + (s.errored || 0) +
+      " &nbsp;·&nbsp; overall " + (t.passed ? "<span class=\"pill ok\">PASS</span>" : "<span class=\"pill block\">FAIL</span>");
+    var rows = arr(t.assertions).map(function (x) {
+      var cls = x.result === "pass" ? "ok" : (x.result === "fail" ? "sev-high" : "muted");
+      return "<tr><td class=\"" + cls + "\">" + esc(x.result) + "</td>" +
+        "<td>" + esc(x.name) + "</td><td>" + esc(x.type) + "</td>" +
+        "<td>" + esc(x.message) + "</td></tr>";
+    }).join("");
+    el("tests").innerHTML = '<table><thead><tr><th>Result</th><th>Assertion</th><th>Type</th><th>Detail</th></tr></thead><tbody>' + rows + "</tbody></table>";
+  }
+
   window.addEventListener("DOMContentLoaded", function () {
     renderSummaryCards();
     renderFindings();
     renderAllTable();
     renderDelta();
+    renderRiskFindings("", "all");
+    renderContradictions();
+    renderCompliance();
+    renderTests();
     renderList("", "all");
     if (policies.length) { selected = 0; renderDetail(policies[0]); }
 
     el("q").addEventListener("input", function () { renderList(el("q").value, el("fstate").value); });
     el("fstate").addEventListener("change", function () { renderList(el("q").value, el("fstate").value); });
+    if (el("fq")) el("fq").addEventListener("input", function () { renderRiskFindings(el("fq").value, el("fsev").value); });
+    if (el("fsev")) el("fsev").addEventListener("change", function () { renderRiskFindings(el("fq").value, el("fsev").value); });
     document.querySelectorAll(".tab").forEach(function (t) {
       t.onclick = function () { showTab(t.getAttribute("data-tab")); };
     });
