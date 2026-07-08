@@ -15,6 +15,9 @@ viewer's **Compliance** tab.
 | MS.AAD.2.3  | High-risk sign-ins SHALL be blocked.               | SHALL       |
 | MS.AAD.3.1  | Phishing-resistant MFA SHALL be enforced (all users). | SHALL    |
 | MS.AAD.3.2  | MFA SHOULD be enforced for all users.              | SHOULD      |
+| MS.AAD.3.6  | Phishing-resistant MFA SHALL be enforced for privileged roles. | SHALL |
+| MS.AAD.3.7  | Managed devices SHOULD be required for authentication. | SHOULD  |
+| MS.AAD.3.8  | Managed devices SHOULD be required to register security info. | SHOULD (manual) |
 
 ## Result model
 

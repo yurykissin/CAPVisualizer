@@ -244,6 +244,25 @@ function Get-CapPolicyStateFindings {
                 -References @('CISA SCuBA MS.AAD.3.2')))
         }
     }
+
+    # Tenant-level hardening: is there an enforced policy that blocks the device
+    # code / authentication-transfer flow? Its absence is a common gap that
+    # enables device-code phishing, so surface it once for the whole tenant.
+    $blocksDeviceCode = @(@($NormalizedPolicies) | Where-Object {
+        $_.enforced -and $_.grant.block -and
+        @(@($_.conditions.authFlows) | Where-Object { "$_" -in @('deviceCodeFlow', 'authenticationTransfer') }).Count -ge 1
+    })
+    if ($blocksDeviceCode.Count -eq 0) {
+        $findings.Add((New-CapFinding -CheckId 'no-device-code-flow-block' `
+            -Title 'Device code flow authentication is not blocked' `
+            -Impact 3 -Likelihood 3 `
+            -Description 'No enabled Conditional Access policy blocks the device code / authentication-transfer flow for users who do not need it.' `
+            -Threat 'Device code flow is a common phishing vector: an attacker relays a legitimate code to a victim to capture tokens without the victim ever visiting a malicious site.' `
+            -Remediation 'Create a policy that blocks the device code flow (Conditions > Authentication flows) for all users except those with a genuine headless/kiosk need.' `
+            -AffectedObjects @('Tenant-wide') `
+            -References @('MITRE ATT&CK T1528', 'MITRE ATT&CK T1566')))
+    }
+
     @($findings)
 }
 

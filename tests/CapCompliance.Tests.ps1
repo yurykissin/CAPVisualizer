@@ -18,11 +18,14 @@ BeforeAll {
 }
 
 Describe 'Baseline pack' {
-    It 'loads all five CA-relevant controls' {
+    It 'loads all CA-relevant controls' {
         $ids = @($script:Result.controls | ForEach-Object { $_.id })
         $ids | Should -Contain 'MS.AAD.1.1'
         $ids | Should -Contain 'MS.AAD.3.2'
-        @($ids).Count | Should -Be 5
+        $ids | Should -Contain 'MS.AAD.3.6'
+        $ids | Should -Contain 'MS.AAD.3.7'
+        $ids | Should -Contain 'MS.AAD.3.8'
+        @($ids).Count | Should -Be 8
     }
 
     It 'carries NIST and MITRE references per control' {
@@ -60,12 +63,27 @@ Describe 'Control evaluation against the fixture' {
         $c.result | Should -Be 'pass'
         $c.evidence | Should -Contain 'CA001 - Require MFA for all users'
     }
+
+    It 'fails MS.AAD.3.6 (no phishing-resistant strength for privileged roles in the fixture)' {
+        $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.3.6' })[0]
+        $c.result | Should -Be 'fail'
+    }
+
+    It 'fails MS.AAD.3.7 (CA005 managed-device policy is report-only and admin-scoped)' {
+        $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.3.7' })[0]
+        $c.result | Should -Be 'fail'
+    }
+
+    It 'marks MS.AAD.3.8 as manual (no automated check)' {
+        $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.3.8' })[0]
+        $c.result | Should -Be 'manual'
+    }
 }
 
 Describe 'Compliance summary' {
     It 'computes pass/fail counts and a pass rate' {
         $s = $script:Result.summary
-        $s.total | Should -Be 5
+        $s.total | Should -Be 8
         $s.pass  | Should -Be (@($script:Result.controls | Where-Object { $_.result -eq 'pass' }).Count)
         $s.fail  | Should -Be (@($script:Result.controls | Where-Object { $_.result -eq 'fail' }).Count)
         $s.passRate | Should -BeGreaterThan 0

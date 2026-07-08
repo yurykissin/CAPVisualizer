@@ -54,6 +54,36 @@
       "mitre": ["T1621"],
       "rationalePass": "An enabled policy requires multifactor authentication for all users and applications.",
       "rationaleFail": "No enabled policy requires MFA for all users and applications."
+    },
+    {
+      "id": "MS.AAD.3.6",
+      "checkId": "phishing-resistant-mfa-privileged-roles",
+      "statement": "Phishing-resistant MFA SHALL be enforced for highly privileged roles.",
+      "criticality": "SHALL",
+      "nist": ["IA-2(1)", "IA-2(2)", "AC-6(2)"],
+      "mitre": ["T1621", "T1078.004"],
+      "rationalePass": "An enabled policy enforces a phishing-resistant authentication strength for directory roles (or all users) across all applications.",
+      "rationaleFail": "No enabled policy enforces phishing-resistant MFA (authentication strength) targeting privileged directory roles."
+    },
+    {
+      "id": "MS.AAD.3.7",
+      "checkId": "require-managed-device",
+      "statement": "Managed devices SHOULD be required for authentication.",
+      "criticality": "SHOULD",
+      "nist": ["AC-3", "IA-2(11)", "CM-2"],
+      "mitre": ["T1078", "T1550"],
+      "rationalePass": "An enabled policy requires a compliant or hybrid Entra joined device for all users and applications.",
+      "rationaleFail": "No enabled policy broadly requires a managed (compliant or hybrid joined) device."
+    },
+    {
+      "id": "MS.AAD.3.8",
+      "checkId": "managed-device-register-security-info",
+      "statement": "Managed devices SHOULD be required to register security information (MFA).",
+      "criticality": "SHOULD",
+      "nist": ["IA-2(1)", "CM-2"],
+      "mitre": ["T1098.005"],
+      "rationalePass": "An enabled policy requires a managed device to register security information.",
+      "rationaleFail": "Registration of security information from a managed device could not be confirmed from the exported policy set (review manually)."
     }
   ]
 }

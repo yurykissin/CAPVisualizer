@@ -11,6 +11,27 @@
       "expect": "pass"
     },
     {
+      "id": "assert-high-risk-users-blocked",
+      "name": "High-risk users must be blocked (MS.AAD.2.1)",
+      "type": "compliance",
+      "control": "MS.AAD.2.1",
+      "expect": "pass"
+    },
+    {
+      "id": "assert-high-risk-signins-blocked",
+      "name": "High-risk sign-ins must be blocked (MS.AAD.2.3)",
+      "type": "compliance",
+      "control": "MS.AAD.2.3",
+      "expect": "pass"
+    },
+    {
+      "id": "assert-phishing-resistant-mfa-admins",
+      "name": "Phishing-resistant MFA must be enforced for privileged roles (MS.AAD.3.6)",
+      "type": "compliance",
+      "control": "MS.AAD.3.6",
+      "expect": "pass"
+    },
+    {
       "id": "assert-mfa-all-users",
       "name": "MFA must be required for all users (MS.AAD.3.2)",
       "type": "compliance",

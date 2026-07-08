@@ -60,6 +60,16 @@ function _BroadBlock {
     @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
 }
 
+function _BroadGrant {
+    param($Policies, [scriptblock]$ExtraCondition)
+    $matches = @($Policies | Where-Object {
+        $_.enforced -and
+        $_.conditions.users.includeAll -and $_.conditions.applications.includeAll -and
+        (& $ExtraCondition $_)
+    })
+    @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+}
+
 $script:CapComplianceChecks = @{
     'block-legacy-auth' = {
         param($Policies)
@@ -92,6 +102,19 @@ $script:CapComplianceChecks = @{
             $_.conditions.users.includeAll -and $_.conditions.applications.includeAll
         })
         @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+    }
+    'phishing-resistant-mfa-privileged-roles' = {
+        param($Policies)
+        $matches = @($Policies | Where-Object {
+            $_.enforced -and $_.conditions.applications.includeAll -and
+            "$($_.grant.authStrengthId)" -eq $script:CapPhishResistantStrengthId -and
+            ($_.conditions.users.includeAll -or @($_.conditions.users.includeRoles).Count -ge 1)
+        })
+        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+    }
+    'require-managed-device' = {
+        param($Policies)
+        _BroadGrant $Policies { param($p) ($p.grant.requireCompliant -or $p.grant.requireHybrid) }
     }
 }
 
