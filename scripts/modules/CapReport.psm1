@@ -38,6 +38,10 @@ $script:CapClientAppLabels = @{
 $script:CapRiskLabels = @{
     high = 'High'; medium = 'Medium'; low = 'Low'; none = 'No risk'; hidden = 'Hidden'
 }
+$script:CapAuthFlowLabels = @{
+    deviceCodeFlow         = 'Device code flow'
+    authenticationTransfer = 'Authentication transfer'
+}
 $script:CapUserActionLabels = @{
     'urn:user:registersecurityinfo' = 'Register security information'
     'urn:user:registerdevice'       = 'Register or join devices'
@@ -230,6 +234,9 @@ function ConvertTo-CapFriendlyPolicy {
         signInRiskLevels      = _Labels $script:CapRiskLabels (_Get $c 'signInRiskLevels')
         userRiskLevels        = _Labels $script:CapRiskLabels (_Get $c 'userRiskLevels')
         servicePrincipalRiskLevels = _Labels $script:CapRiskLabels (_Get $c 'servicePrincipalRiskLevels')
+        insiderRiskLevels     = _Labels $script:CapRiskLabels (_Get $c 'insiderRiskLevels')
+        agentRiskLevels       = _Labels $script:CapRiskLabels (_Get $c 'agentRiskLevels')
+        authenticationFlows   = _Labels $script:CapAuthFlowLabels (@(if ("$(_Get (_Get $c 'authenticationFlows') 'transferMethods')") { ("$(_Get (_Get $c 'authenticationFlows') 'transferMethods')" -split ',\s*') } else { @() }))
         deviceFilter          = $deviceFilter
 
         grantOperator         = _Get $grant 'operator'
@@ -277,6 +284,9 @@ function ConvertTo-CapCsvRow {
         SignInRisk         = _Join $Friendly.signInRiskLevels
         UserRisk           = _Join $Friendly.userRiskLevels
         ServicePrincipalRisk = _Join $Friendly.servicePrincipalRiskLevels
+        InsiderRisk        = _Join $Friendly.insiderRiskLevels
+        AgentRisk          = _Join $Friendly.agentRiskLevels
+        AuthFlows          = _Join $Friendly.authenticationFlows
         DeviceFilter       = $Friendly.deviceFilter
         GrantOperator      = $Friendly.grantOperator
         GrantControls      = _Join $Friendly.grantControlLabels

@@ -32,9 +32,21 @@ function Get-CapExport {
         [bool]$IncludeDirectory = $true
     )
 
+    # Read policies from the beta endpoint: it is a superset of v1.0 and is the
+    # only place preview conditions (e.g. Agent risk / agentRiskLevels) are
+    # returned, so the export captures every configured condition. Fall back to
+    # v1.0 if beta is unavailable in the tenant/environment.
     Write-CapLog "Reading Conditional Access policies..." 'INFO'
-    $policies = @(Invoke-CapGraphGet -Uri 'identity/conditionalAccess/policies')
-    Write-CapLog "Found $($policies.Count) CA policies." 'OK'
+    $policyApi = 'beta'
+    try {
+        $policies = @(Invoke-CapGraphGet -Uri 'identity/conditionalAccess/policies' -Beta)
+    }
+    catch {
+        Write-CapLog "Beta policies endpoint unavailable ($($_.Exception.Message)); falling back to v1.0." 'WARN'
+        $policyApi = 'v1.0'
+        $policies = @(Invoke-CapGraphGet -Uri 'identity/conditionalAccess/policies')
+    }
+    Write-CapLog "Found $($policies.Count) CA policies (via $policyApi)." 'OK'
 
     Write-CapLog "Reading named locations..." 'INFO'
     $namedLocations = @(Invoke-CapGraphGet -Uri 'identity/conditionalAccess/namedLocations')
@@ -59,6 +71,7 @@ function Get-CapExport {
             account        = ($ctx.Account ?? $ctx.ClientId)
             authType       = $ctx.AuthType
             scopes         = @($ctx.Scopes)
+            policyApi      = $policyApi
             policyCount    = $policies.Count
         }
         policies                 = @($policies    | ForEach-Object { ConvertTo-CapHashtable -InputObject $_ })

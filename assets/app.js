@@ -91,6 +91,13 @@
     if (!a.length) return "";
     return "<div class=\"kv\"><span class=\"k\">" + label + "</span><span class=\"v\">" + a.map(esc).join("<br>") + "</span></div>";
   }
+  // Like row(), but always renders (shows "Not configured" when empty) so the
+  // condition list is consistent across every policy.
+  function condRow(label, v) {
+    var a = arr(v).filter(function (x) { return x !== null && x !== undefined && x !== ""; });
+    var val = a.length ? a.map(esc).join("<br>") : '<span class="muted">Not configured</span>';
+    return "<div class=\"kv\"><span class=\"k\">" + label + "</span><span class=\"v\">" + val + "</span></div>";
+  }
   function flag(label, on) { return on ? "<div class=\"kv\"><span class=\"k\">" + label + "</span><span class=\"v\">Yes</span></div>" : ""; }
 
   function renderDetail(p) {
@@ -123,17 +130,19 @@
     var appExc = [ row("Cloud apps", p.excludeApplications) ];
 
     var conditions = [
-      row("Client apps", p.clientAppTypes),
-      row("Device platforms (include)", p.includePlatforms),
-      row("Device platforms (exclude)", p.excludePlatforms),
-      row("Locations (include)", p.includeLocations),
-      row("Locations (exclude)", p.excludeLocations),
-      row("Sign-in risk", p.signInRiskLevels),
-      row("User risk", p.userRiskLevels),
-      row("Service principal risk", p.servicePrincipalRiskLevels),
-      (p.deviceFilter ? row("Filter for devices", p.deviceFilter) : "")
+      condRow("Client apps", p.clientAppTypes),
+      condRow("Device platforms (include)", p.includePlatforms),
+      condRow("Device platforms (exclude)", p.excludePlatforms),
+      condRow("Locations (include)", p.includeLocations),
+      condRow("Locations (exclude)", p.excludeLocations),
+      condRow("Sign-in risk", p.signInRiskLevels),
+      condRow("User risk", p.userRiskLevels),
+      condRow("Service principal risk", p.servicePrincipalRiskLevels),
+      condRow("Insider risk", p.insiderRiskLevels),
+      condRow("Agent risk", p.agentRiskLevels),
+      condRow("Authentication flows", p.authenticationFlows),
+      condRow("Filter for devices", p.deviceFilter)
     ].join("");
-    if (!conditions) conditions = '<span class="muted">Not configured</span>';
 
     var controls = "<div class=\"kv\"><span class=\"k\">Grant (" + esc(p.grantOperator || "-") + ")</span><span class=\"v\">" + controlPills(p) + "</span></div>";
     controls += row("Terms of use", p.termsOfUse);

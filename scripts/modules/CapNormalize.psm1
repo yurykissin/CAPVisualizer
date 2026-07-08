@@ -258,6 +258,8 @@ function ConvertTo-CapNormalizedPolicy {
     $signInRisk  = @(_NArr (_NGet $cond 'signInRiskLevels'))
     $userRisk    = @(_NArr (_NGet $cond 'userRiskLevels'))
     $spRisk      = @(_NArr (_NGet $cond 'servicePrincipalRiskLevels'))
+    $insiderRisk = @(_NArr (_NGet $cond 'insiderRiskLevels'))
+    $agentRisk   = @(_NArr (_NGet $cond 'agentRiskLevels'))
     $authFlows   = @(_NArr (_NGet (_NGet $cond 'authenticationFlows') 'transferMethods'))
 
     $rawDeviceFilter = _NGet $cond 'devices'
@@ -294,6 +296,8 @@ function ConvertTo-CapNormalizedPolicy {
     if ($signInRisk.Count) { [void]$signals.Add('signInRisk') }
     if ($userRisk.Count)   { [void]$signals.Add('userRisk') }
     if ($spRisk.Count)     { [void]$signals.Add('servicePrincipalRisk') }
+    if ($insiderRisk.Count) { [void]$signals.Add('insiderRisk') }
+    if ($agentRisk.Count)  { [void]$signals.Add('agentRisk') }
     if ($authFlows.Count)  { [void]$signals.Add('authFlow') }
     if ($null -ne $locations) { [void]$signals.Add('location') }
     if ($null -ne $deviceFilter) { [void]$signals.Add('deviceState') }
@@ -313,6 +317,8 @@ function ConvertTo-CapNormalizedPolicy {
             signInRisk     = @($signInRisk)
             userRisk       = @($userRisk)
             servicePrincipalRisk = @($spRisk)
+            insiderRisk    = @($insiderRisk)
+            agentRisk      = @($agentRisk)
             authFlows      = @($authFlows)
             deviceFilter   = $deviceFilter
         }
