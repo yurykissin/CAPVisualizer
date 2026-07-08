@@ -134,8 +134,11 @@ network, reproducible from a JSON export via `-FromJson`:
   include/exclude overlaps, legacy-auth gaps, exemption exposure.
 - **Risk-scored findings** ([docs/FINDINGS.md](docs/FINDINGS.md)) - deterministic
   impact x likelihood model with MITRE / CISA / NIST references.
-- **Compliance baseline** ([docs/COMPLIANCE.md](docs/COMPLIANCE.md)) - CISA SCuBA
-  `MS.AAD.*` control matrix, evaluated from a versioned baseline pack.
+- **Compliance baseline** ([docs/COMPLIANCE.md](docs/COMPLIANCE.md)) - the full
+  CISA SCuBA `MS.AAD.*` control set, evaluated from a versioned baseline pack.
+  Conditional Access controls are scored automatically; controls that live
+  outside Conditional Access are listed as manual with official guidance so the
+  matrix covers everything, not only what CA can enforce.
 - **Assertion engine** ([docs/TESTING.md](docs/TESTING.md)) - declarative JSON
   assertions with JUnit / SARIF / JSON output and CI exit codes.
   `Invoke-CapTest.ps1`.

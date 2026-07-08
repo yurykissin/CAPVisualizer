@@ -337,20 +337,45 @@
     if (!c) { if (tab) tab.classList.add("hidden"); return; }
     if (tab) tab.classList.remove("hidden");
     var s = c.summary || {};
-    el("complianceMeta").innerHTML = esc(c.baseline) + " (" + esc(c.baselineVersion) + ") &nbsp;·&nbsp; " +
+    el("complianceMeta").innerHTML = esc(c.baseline) + " (" + esc(c.baselineVersion) + ")<br>" +
       "Pass " + (s.pass || 0) + " / Fail " + (s.fail || 0) + " / Manual " + (s.manual || 0) +
-      " &nbsp;·&nbsp; pass rate " + (s.passRate || 0) + "%";
-    var rows = arr(c.controls).map(function (x) {
-      var rc = x.result === "pass" ? "ok" : (x.result === "fail" ? "sev-high" : "muted");
-      var refs = arr(x.nist).concat(arr(x.mitre)).map(esc).join(", ");
-      return "<tr><td><code>" + esc(x.id) + "</code></td>" +
-        "<td><span class=\"pill " + (x.result === "pass" ? "ok" : "") + "\">" + esc(x.result) + "</span></td>" +
-        "<td>" + esc(x.criticality) + "</td>" +
-        "<td>" + esc(x.statement) + "<div class=\"muted\">" + esc(x.rationale) + "</div>" +
-        (refs ? "<div class=\"muted\"><i>Refs:</i> " + refs + "</div>" : "") + "</td>" +
-        "<td>" + list(x.evidence) + "</td></tr>";
+      " of " + (s.total || 0) + " controls &nbsp;·&nbsp; " +
+      "pass rate " + (s.passRate || 0) + "% over " + (s.automatable || 0) + " Conditional-Access controls evaluated automatically" +
+      " &nbsp;·&nbsp; the remaining " + ((s.total || 0) - (s.automatable || 0)) + " live outside Conditional Access (manual review, guidance shown).";
+    // Group controls by SCuBA section (MS.AAD.<section>.*) so the full baseline
+    // reads as a structured matrix rather than a flat list.
+    var groups = {}, order = [];
+    arr(c.controls).forEach(function (x) {
+      var m = /MS\.AAD\.(\d+)/.exec(x.id);
+      var g = m ? "MS.AAD." + m[1] : "Other";
+      if (!groups[g]) { groups[g] = []; order.push(g); }
+      groups[g].push(x);
+    });
+    var sectionTitles = {
+      "MS.AAD.1": "Legacy authentication", "MS.AAD.2": "Risk-based policies",
+      "MS.AAD.3": "Strong authentication", "MS.AAD.4": "Centralized log collection",
+      "MS.AAD.5": "Application registration and consent", "MS.AAD.6": "Passwords",
+      "MS.AAD.7": "Highly privileged access", "MS.AAD.8": "Guest / external users",
+      "MS.AAD.9": "AI agents"
+    };
+    var html = order.map(function (g) {
+      var rows = groups[g].map(function (x) {
+        var isCa = x.scope === "conditional-access";
+        var refs = arr(x.nist).concat(arr(x.mitre)).map(esc).join(", ");
+        var scopeCell = isCa ? '<span class="pill ok">CA</span>'
+          : '<span class="pill">manual</span><div class="muted">' + esc(x.scope || "") + "</div>";
+        return "<tr><td><code>" + esc(x.id) + "</code></td>" +
+          "<td><span class=\"pill " + (x.result === "pass" ? "ok" : (x.result === "fail" ? "block" : "")) + "\">" + esc(x.result) + "</span></td>" +
+          "<td>" + esc(x.criticality) + "</td>" +
+          "<td>" + scopeCell + "</td>" +
+          "<td>" + esc(x.statement) + "<div class=\"muted\">" + esc(x.rationale) + "</div>" +
+          (refs ? "<div class=\"muted\"><i>Refs:</i> " + refs + "</div>" : "") + "</td>" +
+          "<td>" + list(x.evidence) + "</td></tr>";
+      }).join("");
+      return "<h3 style=\"margin:18px 0 6px\">" + esc(g) + (sectionTitles[g] ? " - " + esc(sectionTitles[g]) : "") + "</h3>" +
+        '<table><thead><tr><th>Control</th><th>Result</th><th>Level</th><th>Scope</th><th>Statement</th><th>Evidence</th></tr></thead><tbody>' + rows + "</tbody></table>";
     }).join("");
-    el("compliance").innerHTML = '<table><thead><tr><th>Control</th><th>Result</th><th>Level</th><th>Statement</th><th>Evidence</th></tr></thead><tbody>' + rows + "</tbody></table>";
+    el("compliance").innerHTML = html;
   }
 
   function renderTests() {

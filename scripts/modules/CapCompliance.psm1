@@ -116,6 +116,22 @@ $script:CapComplianceChecks = @{
         param($Policies)
         _BroadGrant $Policies { param($p) ($p.grant.requireCompliant -or $p.grant.requireHybrid) }
     }
+    'block-device-code' = {
+        param($Policies)
+        $matches = @($Policies | Where-Object {
+            $_.enforced -and $_.grant.block -and $_.conditions.users.includeAll -and
+            @(@(_CoArr $_.conditions.authFlows) | Where-Object { "$_" -eq 'deviceCodeFlow' }).Count -ge 1
+        })
+        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+    }
+    'block-risky-agents' = {
+        param($Policies)
+        $matches = @($Policies | Where-Object {
+            $_.enforced -and $_.grant.block -and
+            @(@(_CoArr $_.conditions.agentRisk) | Where-Object { "$_" -eq 'high' }).Count -ge 1
+        })
+        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+    }
 }
 
 function Invoke-CapCompliance {
@@ -154,7 +170,8 @@ function Invoke-CapCompliance {
             }
         }
         else {
-            $rationale = 'No automated check available - manual review required.'
+            $guidance = "$(_CoGet $c 'manualGuidance')"
+            $rationale = if ($guidance) { $guidance } else { 'No automated check available - manual review required.' }
         }
 
         $controls.Add([ordered]@{
@@ -162,6 +179,7 @@ function Invoke-CapCompliance {
             checkId     = $checkId
             statement   = "$(_CoGet $c 'statement')"
             criticality = "$(_CoGet $c 'criticality')"
+            scope       = "$(_CoGet $c 'scope')"
             result      = $result
             rationale   = $rationale
             evidence    = @($evidence)
@@ -187,6 +205,7 @@ function Invoke-CapCompliance {
             fail          = $fail
             manual        = $manual
             notApplicable = $na
+            automatable   = $auto
             passRate      = if ($auto -gt 0) { [math]::Round(100.0 * $pass / $auto, 1) } else { 0 }
         }
     }

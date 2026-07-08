@@ -6,25 +6,44 @@ pack mapped to public **CISA SCuBA** Microsoft Entra ID control identifiers
 part of `Invoke-CapVisualizer.ps1` (`analysis/compliance.json`) and drives the
 viewer's **Compliance** tab.
 
-## Controls (CA subset)
+## Controls (full MS.AAD baseline)
 
-| Control     | Statement                                          | Criticality |
-| ----------- | -------------------------------------------------- | ----------- |
-| MS.AAD.1.1  | Legacy authentication SHALL be blocked.            | SHALL       |
-| MS.AAD.2.1  | High-risk users SHALL be blocked.                  | SHALL       |
-| MS.AAD.2.3  | High-risk sign-ins SHALL be blocked.               | SHALL       |
-| MS.AAD.3.1  | Phishing-resistant MFA SHALL be enforced (all users). | SHALL    |
-| MS.AAD.3.2  | MFA SHOULD be enforced for all users.              | SHOULD      |
-| MS.AAD.3.6  | Phishing-resistant MFA SHALL be enforced for privileged roles. | SHALL |
-| MS.AAD.3.7  | Managed devices SHOULD be required for authentication. | SHOULD  |
-| MS.AAD.3.8  | Managed devices SHOULD be required to register security info. | SHOULD (manual) |
+The pack enumerates the **entire** public CISA SCuBA MS.AAD baseline (34
+controls), not only the Conditional Access subset, so the report reflects every
+recommended control. Each control carries a `scope`:
+
+- `conditional-access` - evaluated automatically from the read-only CA export
+  (result `pass` / `fail`).
+- any other scope (`identity-protection`, `auth-methods`, `app-management`,
+  `privileged-access`, `external-collaboration`, `logging`, `password-policy`) -
+  the setting lives outside Conditional Access, so it is reported as `manual`
+  with official guidance on where to verify it.
+
+Conditional-Access-automatable controls:
+
+| Control     | Statement                                                      | Criticality |
+| ----------- | -------------------------------------------------------------- | ----------- |
+| MS.AAD.1.1  | Legacy authentication SHALL be blocked.                        | SHALL       |
+| MS.AAD.2.1  | Users detected as high risk SHALL be blocked.                  | SHALL       |
+| MS.AAD.2.3  | Sign-ins detected as high risk SHALL be blocked.               | SHALL       |
+| MS.AAD.3.1  | Phishing-resistant MFA SHALL be enforced for all users.        | SHALL       |
+| MS.AAD.3.2  | An alternative MFA method SHALL be enforced for all users.     | SHALL       |
+| MS.AAD.3.6  | Phishing-resistant MFA SHALL be required for privileged roles. | SHALL       |
+| MS.AAD.3.7  | Managed devices SHOULD be required for authentication.         | SHOULD      |
+| MS.AAD.3.9  | Device code authentication SHOULD be blocked.                  | SHOULD      |
+| MS.AAD.9.1  | Risky AI agents SHALL be blocked.                              | SHALL       |
+
+The remaining controls (MS.AAD.2.2, 3.3-3.5, 3.8, 4.1, 5.x, 6.1, 7.x, 8.x) are
+reported as `manual` with guidance, since they are configured outside
+Conditional Access.
 
 ## Result model
 
-Per control: `{ id, statement, criticality, result, rationale, evidence[],
-nist[], mitre[] }` where `result` is `pass` / `fail` / `manual`. Evidence lists
-the policies that satisfy the control. The summary reports pass/fail counts and a
-pass rate over automatable controls.
+Per control: `{ id, statement, criticality, scope, result, rationale,
+evidence[], nist[], mitre[] }` where `result` is `pass` / `fail` / `manual`.
+Evidence lists the policies that satisfy the control. The summary reports
+pass/fail/manual counts, the number of `automatable` controls, and a pass rate
+computed over the automatable (Conditional Access) controls only.
 
 ## Versioned pack, minimal code coupling
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "Starter CAPVisualizer assertion pack. Declarative expectations evaluated offline against an export by CapTest.psm1 / Invoke-CapTest.ps1. Independent DSL (not Pester). Assertion types: compliance (a baseline control result), findingThreshold (no findings at/above a severity), whatif (a simulated sign-in outcome). Tune the whatif principalId/resource values to your tenant.",
+  "_comment": "Starter CAPVisualizer assertion pack. Declarative expectations evaluated offline against an export by CapTest.psm1 / Invoke-CapTest.ps1. Independent DSL (not Pester). Assertion types: compliance (a baseline control result), findingThreshold (no findings at/above a severity), whatif (a simulated sign-in outcome). The compliance assertions cover every Conditional-Access-automatable CISA SCuBA MS.AAD control; tune or remove any that do not apply to your tenant.",
   "schemaVersion": "1.0",
   "name": "CAPVisualizer starter assertions",
   "assertions": [
@@ -25,10 +25,10 @@
       "expect": "pass"
     },
     {
-      "id": "assert-phishing-resistant-mfa-admins",
-      "name": "Phishing-resistant MFA must be enforced for privileged roles (MS.AAD.3.6)",
+      "id": "assert-phishing-resistant-mfa-all",
+      "name": "Phishing-resistant MFA must be enforced for all users (MS.AAD.3.1)",
       "type": "compliance",
-      "control": "MS.AAD.3.6",
+      "control": "MS.AAD.3.1",
       "expect": "pass"
     },
     {
@@ -39,10 +39,45 @@
       "expect": "pass"
     },
     {
+      "id": "assert-phishing-resistant-mfa-admins",
+      "name": "Phishing-resistant MFA must be enforced for privileged roles (MS.AAD.3.6)",
+      "type": "compliance",
+      "control": "MS.AAD.3.6",
+      "expect": "pass"
+    },
+    {
+      "id": "assert-managed-device-required",
+      "name": "Managed devices should be required for authentication (MS.AAD.3.7)",
+      "type": "compliance",
+      "control": "MS.AAD.3.7",
+      "expect": "pass"
+    },
+    {
+      "id": "assert-device-code-blocked",
+      "name": "Device code authentication should be blocked (MS.AAD.3.9)",
+      "type": "compliance",
+      "control": "MS.AAD.3.9",
+      "expect": "pass"
+    },
+    {
+      "id": "assert-risky-agents-blocked",
+      "name": "Risky AI agents must be blocked (MS.AAD.9.1)",
+      "type": "compliance",
+      "control": "MS.AAD.9.1",
+      "expect": "pass"
+    },
+    {
       "id": "assert-no-critical-findings",
       "name": "There must be no critical-severity findings",
       "type": "findingThreshold",
       "disallowSeverity": "critical",
+      "maxCount": 0
+    },
+    {
+      "id": "assert-no-high-findings",
+      "name": "There should be no high-severity findings",
+      "type": "findingThreshold",
+      "disallowSeverity": "high",
       "maxCount": 0
     }
   ]

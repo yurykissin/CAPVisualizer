@@ -1,17 +1,23 @@
 {
-  "_comment": "Independently authored Conditional Access compliance baseline mapped to the public CISA SCuBA Microsoft Entra ID secure configuration baseline control identifiers (MS.AAD.*). Control statements are paraphrased from the public baseline; NIST 800-53 and MITRE ATT&CK identifiers are public references. Evaluation logic lives in CapCompliance.psm1 keyed by checkId - new controls that reuse an existing checkId can be added here without code changes. No third-party tool code or logic is reused.",
-  "schemaVersion": "1.0",
-  "baseline": "CISA SCuBA - Microsoft Entra ID (Conditional Access subset)",
-  "baselineVersion": "reference-2024",
-  "source": "https://github.com/cisagov/ScubaGear (control identifiers only)",
+  "_comment": "Independently authored Conditional Access compliance baseline that enumerates the full public CISA SCuBA Microsoft Entra ID secure configuration baseline (MS.AAD.*) so the report covers every recommended control, not only Conditional Access. Control statements are paraphrased from the public baseline; NIST 800-53 and MITRE ATT&CK identifiers are public references. Controls with scope \"conditional-access\" are evaluated automatically from the read-only CA export by predicates in CapCompliance.psm1 keyed by checkId. All other controls live outside Conditional Access (identity protection, authentication methods, app management, privileged access, external collaboration, logging, password policy) and are reported as manual with official guidance on where to verify them. No third-party tool code or logic is reused.",
+  "schemaVersion": "2.0",
+  "baseline": "CISA SCuBA - Microsoft Entra ID (full MS.AAD baseline)",
+  "baselineVersion": "reference-2025",
+  "source": "https://github.com/cisagov/ScubaGear/blob/main/PowerShell/ScubaGear/baselines/aad.md (control identifiers and statements only)",
   "controls": [
     {
       "id": "MS.AAD.1.1",
       "checkId": "block-legacy-auth",
       "statement": "Legacy authentication SHALL be blocked.",
       "criticality": "SHALL",
-      "nist": ["IA-2", "IA-2(1)"],
-      "mitre": ["T1110", "T1078"],
+      "scope": "conditional-access",
+      "nist": [
+        "CM-7"
+      ],
+      "mitre": [
+        "T1110",
+        "T1078"
+      ],
       "rationalePass": "An enabled policy blocks legacy authentication clients for all users and applications.",
       "rationaleFail": "No enabled policy broadly blocks legacy authentication (exchangeActiveSync / other)."
     },
@@ -20,18 +26,49 @@
       "checkId": "block-high-risk-user",
       "statement": "Users detected as high risk SHALL be blocked.",
       "criticality": "SHALL",
-      "nist": ["AC-2", "SI-4"],
-      "mitre": ["T1078"],
+      "scope": "conditional-access",
+      "nist": [
+        "AC-2(12)",
+        "AC-2(13)"
+      ],
+      "mitre": [
+        "T1078",
+        "T1078.004"
+      ],
       "rationalePass": "An enabled policy blocks access for users at high risk.",
       "rationaleFail": "No enabled policy blocks high user-risk sign-ins for all users and applications."
+    },
+    {
+      "id": "MS.AAD.2.2",
+      "checkId": "id-protection-high-risk-user-alert",
+      "statement": "A notification SHOULD be sent to the administrator when high-risk users are detected.",
+      "criticality": "SHOULD",
+      "scope": "identity-protection",
+      "nist": [
+        "AC-2(12)"
+      ],
+      "mitre": [
+        "T1078",
+        "T1078.004"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Configure in Entra ID Protection > Users at risk detected alerts (recipients and threshold). Review manually."
     },
     {
       "id": "MS.AAD.2.3",
       "checkId": "block-high-risk-signin",
       "statement": "Sign-ins detected as high risk SHALL be blocked.",
       "criticality": "SHALL",
-      "nist": ["AC-2", "SI-4"],
-      "mitre": ["T1078"],
+      "scope": "conditional-access",
+      "nist": [
+        "AC-2(12)",
+        "AC-2(13)"
+      ],
+      "mitre": [
+        "T1078",
+        "T1078.004"
+      ],
       "rationalePass": "An enabled policy blocks high-risk sign-ins.",
       "rationaleFail": "No enabled policy blocks high sign-in-risk events for all users and applications."
     },
@@ -40,28 +77,109 @@
       "checkId": "phishing-resistant-mfa-all-users",
       "statement": "Phishing-resistant MFA SHALL be enforced for all users.",
       "criticality": "SHALL",
-      "nist": ["IA-2(1)", "IA-2(2)", "IA-2(8)"],
-      "mitre": ["T1621", "T1111"],
+      "scope": "conditional-access",
+      "nist": [
+        "IA-2(1)",
+        "IA-2(2)",
+        "IA-5c",
+        "IA-5g",
+        "IA-2(8)"
+      ],
+      "mitre": [
+        "T1566",
+        "T1566.001",
+        "T1566.002"
+      ],
       "rationalePass": "An enabled policy enforces a phishing-resistant authentication strength for all users and applications.",
       "rationaleFail": "No enabled policy enforces phishing-resistant MFA (authentication strength) for all users and applications."
     },
     {
       "id": "MS.AAD.3.2",
       "checkId": "mfa-all-users",
-      "statement": "If phishing-resistant MFA is not enforced, an alternative MFA method SHOULD be enforced for all users.",
-      "criticality": "SHOULD",
-      "nist": ["IA-2(1)"],
-      "mitre": ["T1621"],
+      "statement": "If phishing-resistant MFA has not been enforced, an alternative MFA method SHALL be enforced for all users.",
+      "criticality": "SHALL",
+      "scope": "conditional-access",
+      "nist": [
+        "IA-2(1)",
+        "IA-2(2)"
+      ],
+      "mitre": [
+        "T1110"
+      ],
       "rationalePass": "An enabled policy requires multifactor authentication for all users and applications.",
       "rationaleFail": "No enabled policy requires MFA for all users and applications."
     },
     {
+      "id": "MS.AAD.3.3",
+      "checkId": "authenticator-show-context",
+      "statement": "If phishing-resistant MFA has not been enforced and Microsoft Authenticator is enabled, it SHALL be configured to show login context information.",
+      "criticality": "SHALL",
+      "scope": "auth-methods",
+      "nist": [
+        "IA-2(1)",
+        "IA-2(2)",
+        "IA-5c",
+        "IA-5g",
+        "IA-2(8)",
+        "IA-2(13)"
+      ],
+      "mitre": [
+        "T1110"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Configure in Entra Authentication methods > Microsoft Authenticator (show application name and geographic location). Review manually."
+    },
+    {
+      "id": "MS.AAD.3.4",
+      "checkId": "auth-methods-migration-complete",
+      "statement": "The Authentication Methods Manage Migration feature SHALL be set to Migration Complete.",
+      "criticality": "SHALL",
+      "scope": "auth-methods",
+      "nist": [
+        "CM-7"
+      ],
+      "mitre": [],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Verify Entra Authentication methods > Manage migration is set to Migration Complete. Review manually."
+    },
+    {
+      "id": "MS.AAD.3.5",
+      "checkId": "disable-weak-auth-methods",
+      "statement": "The authentication methods SMS, Voice Call, and Email One-Time Passcode (OTP) SHALL be disabled.",
+      "criticality": "SHALL",
+      "scope": "auth-methods",
+      "nist": [
+        "CM-7b",
+        "IA-5c"
+      ],
+      "mitre": [
+        "T1621",
+        "T1566",
+        "T1566.002"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Disable SMS, Voice Call, and Email OTP in Entra Authentication methods policy. Review manually."
+    },
+    {
       "id": "MS.AAD.3.6",
       "checkId": "phishing-resistant-mfa-privileged-roles",
-      "statement": "Phishing-resistant MFA SHALL be enforced for highly privileged roles.",
+      "statement": "Phishing-resistant MFA SHALL be required for highly privileged roles.",
       "criticality": "SHALL",
-      "nist": ["IA-2(1)", "IA-2(2)", "AC-6(2)"],
-      "mitre": ["T1621", "T1078.004"],
+      "scope": "conditional-access",
+      "nist": [
+        "IA-2(1)",
+        "IA-5c",
+        "IA-5g",
+        "IA-2(8)"
+      ],
+      "mitre": [
+        "T1566",
+        "T1078",
+        "T1078.004"
+      ],
       "rationalePass": "An enabled policy enforces a phishing-resistant authentication strength for directory roles (or all users) across all applications.",
       "rationaleFail": "No enabled policy enforces phishing-resistant MFA (authentication strength) targeting privileged directory roles."
     },
@@ -70,20 +188,417 @@
       "checkId": "require-managed-device",
       "statement": "Managed devices SHOULD be required for authentication.",
       "criticality": "SHOULD",
-      "nist": ["AC-3", "IA-2(11)", "CM-2"],
-      "mitre": ["T1078", "T1550"],
+      "scope": "conditional-access",
+      "nist": [
+        "AC-20b",
+        "IA-3"
+      ],
+      "mitre": [
+        "T1078",
+        "T1078.004"
+      ],
       "rationalePass": "An enabled policy requires a compliant or hybrid Entra joined device for all users and applications.",
       "rationaleFail": "No enabled policy broadly requires a managed (compliant or hybrid joined) device."
     },
     {
       "id": "MS.AAD.3.8",
-      "checkId": "managed-device-register-security-info",
-      "statement": "Managed devices SHOULD be required to register security information (MFA).",
+      "checkId": "managed-device-register-mfa",
+      "statement": "Managed devices SHOULD be required to register MFA.",
       "criticality": "SHOULD",
-      "nist": ["IA-2(1)", "CM-2"],
-      "mitre": ["T1098.005"],
-      "rationalePass": "An enabled policy requires a managed device to register security information.",
-      "rationaleFail": "Registration of security information from a managed device could not be confirmed from the exported policy set (review manually)."
+      "scope": "conditional-access",
+      "nist": [
+        "AC-20b",
+        "IA-3"
+      ],
+      "mitre": [
+        "T1078",
+        "T1098",
+        "T1098.005"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Requires a policy targeting the security-info registration user action with a compliant/hybrid device grant. Verify the \"Register security information\" user-action policy manually."
+    },
+    {
+      "id": "MS.AAD.3.9",
+      "checkId": "block-device-code",
+      "statement": "Device code authentication SHOULD be blocked.",
+      "criticality": "SHOULD",
+      "scope": "conditional-access",
+      "nist": [
+        "CM-7"
+      ],
+      "mitre": [
+        "T1528",
+        "T1078",
+        "T1078.004"
+      ],
+      "rationalePass": "An enabled policy blocks the device code authentication flow for all users.",
+      "rationaleFail": "No enabled policy blocks the device code authentication flow (device-code phishing gap)."
+    },
+    {
+      "id": "MS.AAD.4.1",
+      "checkId": "security-logs-to-soc",
+      "statement": "Security logs SHALL be sent to the agency security operations center for monitoring.",
+      "criticality": "SHALL",
+      "scope": "logging",
+      "nist": [
+        "AU-4"
+      ],
+      "mitre": [
+        "T1562",
+        "T1562.008"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Verify Entra Diagnostic settings stream AuditLogs and SignInLogs to a Log Analytics workspace / SIEM. Review manually."
+    },
+    {
+      "id": "MS.AAD.5.1",
+      "checkId": "restrict-app-registration",
+      "statement": "Only administrators SHALL be allowed to register applications.",
+      "criticality": "SHALL",
+      "scope": "app-management",
+      "nist": [
+        "AC-6(10)",
+        "CM-5"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.001",
+        "T1098.003"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Set Entra > Users > User settings > \"Users can register applications\" to No. Review manually."
+    },
+    {
+      "id": "MS.AAD.5.2",
+      "checkId": "restrict-user-consent",
+      "statement": "User consent to applications SHALL be restricted.",
+      "criticality": "SHALL",
+      "scope": "app-management",
+      "nist": [
+        "AC-6(10)",
+        "CM-5"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.001",
+        "T1098.003"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Set Enterprise applications > Consent and permissions to \"Do not allow user consent\" (or allow for verified publishers, limited permissions). Review manually."
+    },
+    {
+      "id": "MS.AAD.5.3",
+      "checkId": "admin-consent-workflow",
+      "statement": "An admin consent workflow SHALL be configured for applications.",
+      "criticality": "SHALL",
+      "scope": "app-management",
+      "nist": [
+        "CM-4"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.001",
+        "T1098.003"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Enable the admin consent request workflow with designated reviewers. Review manually."
+    },
+    {
+      "id": "MS.AAD.5.5",
+      "checkId": "block-app-password-addition",
+      "statement": "Application Password Addition SHOULD be blocked.",
+      "criticality": "SHOULD",
+      "scope": "app-management",
+      "nist": [
+        "IA-5"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.001",
+        "T1528"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Restrict application password (client secret) addition via the application registration authorization policy. Review manually."
+    },
+    {
+      "id": "MS.AAD.5.6",
+      "checkId": "app-password-lifetime",
+      "statement": "Application password lifetime SHOULD be restricted to 180 days or less.",
+      "criticality": "SHOULD",
+      "scope": "app-management",
+      "nist": [
+        "IA-5",
+        "SC-12"
+      ],
+      "mitre": [
+        "T1552",
+        "T1552.001"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Enforce an app management policy limiting client secret lifetime to <=180 days. Review manually."
+    },
+    {
+      "id": "MS.AAD.5.7",
+      "checkId": "app-certificate-lifetime",
+      "statement": "Application certificate lifetime SHOULD be restricted to 365 days or less.",
+      "criticality": "SHOULD",
+      "scope": "app-management",
+      "nist": [
+        "SC-12",
+        "IA-5"
+      ],
+      "mitre": [
+        "T1649"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Enforce an app management policy limiting certificate credential lifetime to <=365 days. Review manually."
+    },
+    {
+      "id": "MS.AAD.6.1",
+      "checkId": "passwords-do-not-expire",
+      "statement": "User passwords SHALL NOT expire.",
+      "criticality": "SHALL",
+      "scope": "password-policy",
+      "nist": [
+        "IA-5(1)"
+      ],
+      "mitre": [],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Set the password expiration policy to never expire (cloud-only) per NIST guidance. Review manually."
+    },
+    {
+      "id": "MS.AAD.7.1",
+      "checkId": "ga-count-2-to-8",
+      "statement": "A minimum of two users and a maximum of eight users SHALL be provisioned with the Global Administrator role.",
+      "criticality": "SHALL",
+      "scope": "privileged-access",
+      "nist": [
+        "AC-6(5)"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.003"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Count active Global Administrator assignments in Entra Roles / PIM (target 2-8). Review manually."
+    },
+    {
+      "id": "MS.AAD.7.2",
+      "checkId": "finer-grained-roles",
+      "statement": "Privileged users SHALL be provisioned with finer-grained roles instead of Global Administrator.",
+      "criticality": "SHALL",
+      "scope": "privileged-access",
+      "nist": [
+        "AC-5"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.003",
+        "T1136"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Prefer least-privilege roles over Global Administrator. Review role assignments manually."
+    },
+    {
+      "id": "MS.AAD.7.3",
+      "checkId": "privileged-cloud-only-accounts",
+      "statement": "Privileged users SHALL be provisioned cloud-only accounts separate from an on-premises directory or other federated identity providers.",
+      "criticality": "SHALL",
+      "scope": "privileged-access",
+      "nist": [
+        "AC-6(5)"
+      ],
+      "mitre": [
+        "T1556",
+        "T1556.007"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Verify privileged accounts are cloud-only (not synced from on-prem). Review manually."
+    },
+    {
+      "id": "MS.AAD.7.4",
+      "checkId": "no-permanent-privileged",
+      "statement": "Permanent active role assignments SHALL NOT be allowed for highly privileged roles.",
+      "criticality": "SHALL",
+      "scope": "privileged-access",
+      "nist": [
+        "AC-2"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.003"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Use PIM eligible (not permanent active) assignments for privileged roles. Review manually."
+    },
+    {
+      "id": "MS.AAD.7.5",
+      "checkId": "provision-via-pam",
+      "statement": "Provisioning users to highly privileged roles SHALL NOT occur outside of a PAM system.",
+      "criticality": "SHALL",
+      "scope": "privileged-access",
+      "nist": [
+        "AC-2"
+      ],
+      "mitre": [
+        "T1651"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Provision privileged roles only through PIM/PAM. Review manually."
+    },
+    {
+      "id": "MS.AAD.7.6",
+      "checkId": "ga-activation-approval",
+      "statement": "Activation of the Global Administrator role SHALL require approval.",
+      "criticality": "SHALL",
+      "scope": "privileged-access",
+      "nist": [
+        "AC-6(1)"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.003"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Configure PIM to require approval to activate Global Administrator. Review manually."
+    },
+    {
+      "id": "MS.AAD.7.7",
+      "checkId": "privileged-assignment-alert",
+      "statement": "Eligible and active highly privileged role assignments SHALL trigger an alert.",
+      "criticality": "SHALL",
+      "scope": "privileged-access",
+      "nist": [
+        "AC-2(1)"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.003"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Configure PIM alerts / notifications on privileged role assignment. Review manually."
+    },
+    {
+      "id": "MS.AAD.7.8",
+      "checkId": "ga-activation-alert",
+      "statement": "User activation of the Global Administrator role SHALL trigger an alert.",
+      "criticality": "SHALL",
+      "scope": "privileged-access",
+      "nist": [
+        "AC-6(9)"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.003"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Configure PIM activation alerts for Global Administrator. Review manually."
+    },
+    {
+      "id": "MS.AAD.7.9",
+      "checkId": "privileged-activation-alert",
+      "statement": "User activation of other highly privileged roles SHOULD trigger an alert.",
+      "criticality": "SHOULD",
+      "scope": "privileged-access",
+      "nist": [
+        "AC-6(9)"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.003",
+        "T1136"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Configure PIM activation alerts for other highly privileged roles. Review manually."
+    },
+    {
+      "id": "MS.AAD.8.1",
+      "checkId": "guest-limited-access",
+      "statement": "Guest users SHOULD have limited or restricted access to Microsoft Entra ID directory objects.",
+      "criticality": "SHOULD",
+      "scope": "external-collaboration",
+      "nist": [
+        "AC-6"
+      ],
+      "mitre": [
+        "T1087",
+        "T1087.003",
+        "T1526"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Set External collaboration settings > Guest user access to the most restrictive level. Review manually."
+    },
+    {
+      "id": "MS.AAD.8.2",
+      "checkId": "guest-inviter-only",
+      "statement": "Only users with the Guest Inviter role SHOULD be able to invite guest users.",
+      "criticality": "SHOULD",
+      "scope": "external-collaboration",
+      "nist": [
+        "AC-6(10)"
+      ],
+      "mitre": [
+        "T1098",
+        "T1098.003"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Restrict guest invitations to the Guest Inviter role in External collaboration settings. Review manually."
+    },
+    {
+      "id": "MS.AAD.8.3",
+      "checkId": "guest-invite-allowlist",
+      "statement": "Guest invites SHOULD only be allowed to specific external domains that have been authorized by the agency for legitimate business purposes.",
+      "criticality": "SHOULD",
+      "scope": "external-collaboration",
+      "nist": [
+        "AC-3"
+      ],
+      "mitre": [
+        "T1078",
+        "T1078.001"
+      ],
+      "rationalePass": "",
+      "rationaleFail": "",
+      "manualGuidance": "Not expressible in Conditional Access. Configure an allow list of collaboration domains in External collaboration settings. Review manually."
+    },
+    {
+      "id": "MS.AAD.9.1",
+      "checkId": "block-risky-agents",
+      "statement": "Risky AI agents SHALL be blocked.",
+      "criticality": "SHALL",
+      "scope": "conditional-access",
+      "nist": [
+        "AC-3",
+        "AC-6",
+        "CM-7(4)"
+      ],
+      "mitre": [
+        "T1078",
+        "T1078.004"
+      ],
+      "rationalePass": "An enabled policy blocks agent identities detected at high agent risk.",
+      "rationaleFail": "No enabled policy blocks high agent-risk (agent identity) access. Note: this condition is currently in preview and requires the beta export."
     }
   ]
 }

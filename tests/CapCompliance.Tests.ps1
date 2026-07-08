@@ -18,20 +18,27 @@ BeforeAll {
 }
 
 Describe 'Baseline pack' {
-    It 'loads all CA-relevant controls' {
+    It 'loads the full SCuBA MS.AAD baseline' {
         $ids = @($script:Result.controls | ForEach-Object { $_.id })
         $ids | Should -Contain 'MS.AAD.1.1'
-        $ids | Should -Contain 'MS.AAD.3.2'
-        $ids | Should -Contain 'MS.AAD.3.6'
-        $ids | Should -Contain 'MS.AAD.3.7'
-        $ids | Should -Contain 'MS.AAD.3.8'
-        @($ids).Count | Should -Be 8
+        $ids | Should -Contain 'MS.AAD.3.9'
+        $ids | Should -Contain 'MS.AAD.7.1'
+        $ids | Should -Contain 'MS.AAD.8.1'
+        $ids | Should -Contain 'MS.AAD.9.1'
+        @($ids).Count | Should -Be 34
     }
 
     It 'carries NIST and MITRE references per control' {
         $c11 = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.1.1' })[0]
-        $c11.nist  | Should -Contain 'IA-2'
+        $c11.nist  | Should -Contain 'CM-7'
         $c11.mitre | Should -Contain 'T1110'
+    }
+
+    It 'tags each control with a scope' {
+        $ca = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.1.1' })[0]
+        $ca.scope | Should -Be 'conditional-access'
+        $pim = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.7.1' })[0]
+        $pim.scope | Should -Be 'privileged-access'
     }
 }
 
@@ -74,18 +81,31 @@ Describe 'Control evaluation against the fixture' {
         $c.result | Should -Be 'fail'
     }
 
-    It 'marks MS.AAD.3.8 as manual (no automated check)' {
-        $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.3.8' })[0]
+    It 'fails MS.AAD.3.9 (no device-code-flow block in the fixture)' {
+        $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.3.9' })[0]
+        $c.result | Should -Be 'fail'
+    }
+
+    It 'fails MS.AAD.9.1 (no agent-risk block in the fixture)' {
+        $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.9.1' })[0]
+        $c.result | Should -Be 'fail'
+    }
+
+    It 'marks non-CA controls as manual with official guidance' {
+        $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.7.1' })[0]
         $c.result | Should -Be 'manual'
+        $c.rationale | Should -Not -BeNullOrEmpty
     }
 }
 
 Describe 'Compliance summary' {
-    It 'computes pass/fail counts and a pass rate' {
+    It 'computes pass/fail counts and a pass rate over automatable controls' {
         $s = $script:Result.summary
-        $s.total | Should -Be 8
+        $s.total | Should -Be 34
+        $s.automatable | Should -Be 9
         $s.pass  | Should -Be (@($script:Result.controls | Where-Object { $_.result -eq 'pass' }).Count)
         $s.fail  | Should -Be (@($script:Result.controls | Where-Object { $_.result -eq 'fail' }).Count)
+        $s.manual | Should -BeGreaterThan 0
         $s.passRate | Should -BeGreaterThan 0
     }
 }
