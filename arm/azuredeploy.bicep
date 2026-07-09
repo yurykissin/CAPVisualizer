@@ -25,8 +25,8 @@ param automationAccountName string = 'capvisualizer-auto'
 @description('Name of the daily schedule.')
 param scheduleName string = 'CAPVisualizer-Daily'
 
-@description('Daily run time (ISO 8601, must be in the future at deploy time).')
-param scheduleStart string = '2026-01-01T03:00:00+00:00'
+@description('First run time (ISO 8601). Must be at least 5 minutes in the future at deploy time. Defaults to 10 minutes after deployment; the schedule then repeats daily at that time. Override for a specific daily run time.')
+param scheduleStart string = dateTimeAdd(utcNow(), 'PT10M')
 
 resource automation 'Microsoft.Automation/automationAccounts@2023-11-01' = {
   name: automationAccountName

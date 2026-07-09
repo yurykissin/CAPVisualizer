@@ -32,9 +32,9 @@
     },
     "scheduleStart": {
       "type": "string",
-      "defaultValue": "2026-01-01T03:00:00+00:00",
+      "defaultValue": "[dateTimeAdd(utcNow(), 'PT10M')]",
       "metadata": {
-        "description": "Daily run time (ISO 8601, must be in the future at deploy time)."
+        "description": "First run time (ISO 8601). Must be at least 5 minutes in the future at deploy time. Defaults to 10 minutes after deployment; the schedule then repeats daily at that time. Override for a specific daily run time."
       }
     }
   },
