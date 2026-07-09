@@ -9,13 +9,28 @@
 
 ## What the template provisions
 
+This template is a **scaffold only**. It creates:
+
 - An **Azure Automation Account** with a **system-assigned managed identity**.
-- A **daily schedule** (`CAPVisualizer-Daily`).
+- An empty **daily schedule** (`CAPVisualizer-Daily`).
+
+It does **not** import a runbook, grant any Graph permission, import the Graph
+module, or link anything to the schedule. Deploying it produces no runs until
+you complete the [required manual steps](#required-manual-steps-after-deployment).
 
 ## Deploy
 
-Portal: use the **Deploy to Azure** button in the top-level `README.md` (it
-points at `arm/azuredeploy.json`).
+> [!WARNING]
+> Deploying this template alone does **nothing useful**. It only provisions an
+> empty Automation Account and an empty daily schedule. There are **no runs, no
+> credentials, and no output** until you complete the
+> [required manual steps](#required-manual-steps-after-deployment) below. Those
+> steps (Graph permission grant + admin consent, module import, runbook import,
+> schedule link) are **not optional** for a working setup.
+
+Portal (Deploy to Azure):
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fyurykissin%2FCAPVisualizer%2Fmain%2Farm%2Fazuredeploy.json)
 
 CLI:
 
@@ -35,8 +50,12 @@ az bicep build --file arm/azuredeploy.bicep
 
 ## Required manual steps after deployment
 
-The template deploys the account and schedule, but for security these steps are
-deliberately manual:
+> [!IMPORTANT]
+> **All four steps below are required.** The template deploys only the account
+> and the schedule; without these the schedule fires against nothing and the
+> managed identity cannot read any policy. They are kept manual on purpose,
+> because granting `Policy.Read.All` application permission with admin consent is
+> a privileged action that should not be baked into a public template.
 
 1. **Grant Graph permission to the managed identity.** Take the
    `managedIdentityPrincipalId` output and grant it the Microsoft Graph

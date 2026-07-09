@@ -310,9 +310,10 @@ Full details: [docs/SECURITY.md](docs/SECURITY.md) and the
 
 A fully-local schedule is the default. If you specifically want the run to
 happen **in Azure** (leaving the local-only model), an opt-in ARM/Bicep template
-is provided in [`arm/`](arm/README.md):
-
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fyurykissin%2FCAPVisualizer%2Fmain%2Farm%2Fazuredeploy.json)
+is provided. It only scaffolds the resources - the runbook, Graph permission,
+module, and schedule link are deliberately manual. See
+[`arm/README.md`](arm/README.md) for the template, all configuration details,
+the required post-deployment steps, and the **Deploy to Azure** button.
 
 ## License
 
