@@ -22,7 +22,6 @@ header {
   padding: 18px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
-  position: sticky; top: 0; z-index: 10;
 }
 header h1 { margin: 0 0 4px; font-size: 18px; }
 header .meta { color: var(--muted); font-size: 12px; }
@@ -92,7 +91,11 @@ td.ok, .ok { color: #a8f0c2; }
 .badge-add { color: var(--ok); }
 .badge-remove { color: var(--block); }
 .badge-mod { color: var(--warn); }
-.tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.tabs {
+  display: flex; gap: 8px; margin-bottom: 12px;
+  position: sticky; top: 0; z-index: 20;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
 .tab { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; background: var(--panel2); }
 .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .hidden { display: none; }
@@ -109,3 +112,14 @@ footer { padding: 14px 24px; color: var(--muted); font-size: 11px; border-top: 1
 .gr-item { padding: 6px 10px; border-radius: 4px; cursor: pointer; }
 .gr-item:hover { background: var(--accent); color: #fff; }
 .gr-more, .gr-empty { padding: 4px 10px; font-size: 12px; }
+
+/* Collapsible affected-object lists in findings */
+.affmore { margin-top: 4px; }
+.affmore > summary {
+  cursor: pointer; color: var(--accent); font-size: 12px;
+  list-style: none; user-select: none;
+}
+.affmore > summary::-webkit-details-marker { display: none; }
+.affmore > summary::before { content: "\25B8 "; }
+.affmore[open] > summary::before { content: "\25BE "; }
+.affmore[open] > summary { margin-bottom: 4px; }

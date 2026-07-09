@@ -31,6 +31,18 @@
     var a = arr(v).filter(function (x) { return x !== null && x !== undefined && x !== ""; });
     return a.length ? a.map(function (x) { return esc(nm(x)); }).join("<br>") : '<span class="muted">-</span>';
   }
+  // Collapsible name list: shows a few entries, hides the rest behind a toggle.
+  function listNamesCollapsible(v, shown) {
+    var a = arr(v).filter(function (x) { return x !== null && x !== undefined && x !== ""; });
+    if (!a.length) return '<span class="muted">-</span>';
+    var n = shown || 5;
+    var names = a.map(function (x) { return esc(nm(x)); });
+    if (names.length <= n) return names.join("<br>");
+    var head = names.slice(0, n).join("<br>");
+    var rest = names.slice(n).join("<br>");
+    return head + '<details class="affmore"><summary>Show ' + (names.length - n) +
+      ' more</summary>' + rest + "</details>";
+  }
   function stateClass(s) {
     if (s === "enabled") return "enabled";
     if (s === "enabledForReportingButNotEnforced") return "report";
@@ -295,7 +307,7 @@
         "<td><b>" + esc(x.title) + "</b>" + badge + "<div class=\"muted\">" + desc + "</div>" +
         (x.remediation ? "<div class=\"muted\"><i>Fix:</i> " + esc(x.remediation) + "</div>" : "") +
         (refs ? "<div class=\"muted\"><i>Refs:</i> " + refs + "</div>" : "") + "</td>" +
-        "<td>" + listNames(x.affectedObjects) + "</td></tr>";
+        "<td>" + listNamesCollapsible(x.affectedObjects, 5) + "</td></tr>";
     }).join("");
     el("riskfindings").innerHTML = '<table><thead><tr><th>Severity</th><th>Risk</th><th>Finding</th><th>Affected</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="4" class="muted">No findings match the filter.</td></tr>') + "</tbody></table>";
