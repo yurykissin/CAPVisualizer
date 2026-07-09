@@ -28,6 +28,7 @@ produces:
 ## Contents
 
 - [Why](#why) - purpose
+- [Screenshots](#screenshots) - what the viewer looks like
 - [Quickstart](#quickstart) - the three commands
 - [Lowest-privilege by design](#lowest-privilege-by-design) - permissions
 - [What each run produces](#what-each-run-produces) - output layout
@@ -49,6 +50,35 @@ Conditional Access is the front door of an Entra tenant, but its policies are
 hard to review at a glance and drift over time. CAPVisualizer gives you a
 point-in-time, offline, auditable picture of your CA posture - and a diff
 between snapshots - using the **lowest possible permissions**.
+
+## Screenshots
+
+The offline HTML viewer is fully self-contained and works with no internet. All
+images below are rendered from the bundled synthetic sample
+(`samples/sample-export-enriched.json`); no real tenant data is shown.
+
+**Overview** - policy inventory, state counts, hygiene findings at a glance:
+
+![Overview tab](docs/images/01-overview.png)
+
+**Per-policy** - each policy as a Users -> Target resources -> Conditions ->
+Access controls flow, with every condition always shown (even when unset):
+
+![Per-policy tab](docs/images/02-per-policy.png)
+
+**Findings** - risk-scored posture gaps, grouped and with collapsible affected
+lists:
+
+![Findings tab](docs/images/03-findings.png)
+
+**Compliance** - the full CISA SCuBA `MS.AAD.*` baseline: Conditional Access
+controls scored automatically, the rest listed as manual with official guidance:
+
+![Compliance tab](docs/images/04-compliance.png)
+
+**Tests** - assertion-pack results over the exported configuration:
+
+![Tests tab](docs/images/05-tests.png)
 
 ## Quickstart
 
