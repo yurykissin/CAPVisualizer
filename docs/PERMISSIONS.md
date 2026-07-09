@@ -70,6 +70,28 @@ Any of the following built-in roles can read Conditional Access policies:
 **Conditional Access Administrator**, **Global Administrator**. Prefer the
 least-privileged that fits (Global Reader / Security Reader).
 
+## Why am I prompted to sign in twice?
+
+**On the first run you may see two sign-in prompts. This is expected and
+read-only.** The Quickstart is two separate scripts, each running in its own
+process and signing in independently:
+
+1. `Test-Prerequisites.ps1` signs in with just `Policy.Read.All` to verify Graph
+   connectivity.
+2. `Invoke-CapVisualizer.ps1` runs in a fresh process and signs in again. The
+   token from step 1 is not shared across processes, so it cannot be reused.
+
+The second prompt may also show a **consent** screen, because the actual run
+requests the additional read-only scopes it needs for name resolution and
+enrichment (for example `Directory.Read.All`, and with MFA/risk enrichment also
+`Group.Read.All`, `User.Read.All`, `RoleManagement.Read.Directory`,
+`AuditLog.Read.All`, `UserAuthenticationMethod.Read.All`) that were not consented
+during the prerequisites check.
+
+**To get a single sign-in**, skip the prerequisites check and run
+`Invoke-CapVisualizer.ps1` directly. Subsequent runs are quieter once the token
+is cached and consent has been granted. None of these scopes are write scopes.
+
 ## What CAPVisualizer never requests
 
 No write scopes are ever requested (`Policy.ReadWrite.ConditionalAccess`,

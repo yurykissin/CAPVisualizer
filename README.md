@@ -99,6 +99,17 @@ No consent to spare? Render from a JSON file you already have with
 `-FromJson ./policies.json` (fully offline). Full options in
 [docs/USAGE.md](docs/USAGE.md).
 
+> [!NOTE]
+> **Expect two sign-in prompts on the first run.** Steps 1 and 2 are separate
+> scripts that each run in their own process and sign in independently, so the
+> token from the prerequisites check is not reused by the actual run. The run
+> also requests the extra read-only scopes it needs for name resolution and
+> enrichment (for example `Directory.Read.All`), so the second prompt may also
+> ask for consent. This is expected and read-only. To get a **single** sign-in,
+> skip step 1 and run `Invoke-CapVisualizer.ps1` directly; later runs are quieter
+> once the token is cached and consent is granted. See
+> [docs/PERMISSIONS.md](docs/PERMISSIONS.md#why-am-i-prompted-to-sign-in-twice).
+
 ## Lowest-privilege by design
 
 | Feature | Graph scope | Read-only |
