@@ -247,7 +247,7 @@
   }
 
   function showTab(name) {
-    ["overview", "detailview", "riskfindings", "contradictions", "compliance", "tests", "delta"].forEach(function (t) {
+    ["overview", "detailview", "riskfindings", "contradictions", "compliance", "tests", "delta", "compare"].forEach(function (t) {
       var pane = el("pane-" + t);
       if (pane) pane.classList.toggle("hidden", t !== name);
     });
@@ -255,6 +255,144 @@
       t.classList.toggle("active", t.getAttribute("data-tab") === name);
     });
   }
+
+  // ---- In-browser export comparison (mirrors CapDelta semantics) ----
+  var cmpSourceData = null, cmpTargetData = null;
+
+  // Flatten a nested object into dotted-path -> scalar. Arrays are sorted and
+  // joined so element ordering does not register as a change.
+  function cmpFlatten(obj, prefix, out) {
+    out = out || {};
+    prefix = prefix || "";
+    if (obj === null || obj === undefined) { out[prefix] = null; return out; }
+    if (Array.isArray(obj)) {
+      out[prefix] = obj.map(function (x) {
+        return (x !== null && typeof x === "object") ? JSON.stringify(x) : String(x);
+      }).sort().join("|");
+      return out;
+    }
+    if (typeof obj === "object") {
+      Object.keys(obj).forEach(function (k) {
+        cmpFlatten(obj[k], prefix ? prefix + "." + k : k, out);
+      });
+      return out;
+    }
+    out[prefix] = String(obj);
+    return out;
+  }
+
+  function cmpComparePolicy(base, cur) {
+    var b = cmpFlatten(base), c = cmpFlatten(cur);
+    var keys = {}, out = [];
+    Object.keys(b).forEach(function (k) { keys[k] = 1; });
+    Object.keys(c).forEach(function (k) { keys[k] = 1; });
+    Object.keys(keys).sort().forEach(function (k) {
+      var bv = k in b ? b[k] : null;
+      var cv = k in c ? c[k] : null;
+      if (String(bv) !== String(cv)) out.push({ field: k, from: bv, to: cv });
+    });
+    return out;
+  }
+
+  function cmpCompareExport(baseline, current) {
+    var bList = arr(baseline.policies), cList = arr(current.policies);
+    var bMap = {}, cMap = {};
+    bList.forEach(function (p) { bMap[p.id] = p; });
+    cList.forEach(function (p) { cMap[p.id] = p; });
+    var added = [], removed = [], modified = [];
+    Object.keys(cMap).forEach(function (id) {
+      if (!(id in bMap)) added.push({ id: id, displayName: cMap[id].displayName, state: cMap[id].state });
+    });
+    Object.keys(bMap).forEach(function (id) {
+      if (!(id in cMap)) removed.push({ id: id, displayName: bMap[id].displayName, state: bMap[id].state });
+    });
+    Object.keys(cMap).forEach(function (id) {
+      if (!(id in bMap)) return;
+      var changes = cmpComparePolicy(bMap[id], cMap[id]);
+      if (changes.length) {
+        modified.push({
+          id: id, displayName: cMap[id].displayName,
+          stateFrom: bMap[id].state, stateTo: cMap[id].state,
+          changeCount: changes.length, changes: changes
+        });
+      }
+    });
+    return {
+      baselineUtc: (baseline.metadata || {}).generatedUtc || "",
+      currentUtc: (current.metadata || {}).generatedUtc || "",
+      addedCount: added.length, removedCount: removed.length, modifiedCount: modified.length,
+      added: added, removed: removed, modified: modified
+    };
+  }
+
+  function renderCompareResult(d) {
+    var h = "<p>Source <code>" + esc(d.baselineUtc) + "</code> &rarr; Target <code>" +
+      esc(d.currentUtc) + "</code></p>" +
+      '<p><span class="badge-add">+' + d.addedCount + " added</span> &nbsp; " +
+      '<span class="badge-remove">-' + d.removedCount + " removed</span> &nbsp; " +
+      '<span class="badge-mod">~' + d.modifiedCount + " modified</span></p>";
+    if (!d.addedCount && !d.removedCount && !d.modifiedCount) {
+      h += '<p class="muted">The two exports are identical (by policy).</p>';
+      el("cmpResult").innerHTML = h;
+      return;
+    }
+    function tbl(title, items, cls) {
+      items = arr(items);
+      if (!items.length) return "";
+      return "<h3>" + title + "</h3><table><tbody>" + items.map(function (x) {
+        return '<tr><td class="' + cls + '">' + esc(x.displayName || x.id) +
+          "</td><td>" + esc(x.state || "") + "</td></tr>";
+      }).join("") + "</tbody></table>";
+    }
+    h += tbl("Added (only in target)", d.added, "badge-add");
+    h += tbl("Removed (only in source)", d.removed, "badge-remove");
+    var mods = arr(d.modified);
+    if (mods.length) {
+      h += "<h3>Modified</h3>";
+      mods.forEach(function (m) {
+        h += "<b class=\"badge-mod\">" + esc(m.displayName || m.id) + "</b> (" + m.changeCount + " changes)" +
+          "<table><thead><tr><th>Field</th><th>Source</th><th>Target</th></tr></thead><tbody>" +
+          arr(m.changes).map(function (c) {
+            return "<tr><td>" + esc(c.field) + "</td><td>" + esc(c.from) + "</td><td>" + esc(c.to) + "</td></tr>";
+          }).join("") + "</tbody></table>";
+      });
+    }
+    el("cmpResult").innerHTML = h;
+  }
+
+  function cmpUpdateButton() {
+    var btn = el("cmpRun");
+    if (btn) btn.disabled = !(cmpSourceData && cmpTargetData);
+  }
+
+  function cmpLoadFile(input, which, infoEl) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(reader.result);
+        if (!data || !Array.isArray(data.policies)) {
+          throw new Error("not a CAPVisualizer export (no policies array)");
+        }
+        if (which === "source") cmpSourceData = data; else cmpTargetData = data;
+        var meta = data.metadata || {};
+        if (infoEl) infoEl.textContent = file.name + " - " + (data.policies.length) +
+          " policies" + (meta.generatedUtc ? ", generated " + meta.generatedUtc : "");
+      } catch (e) {
+        if (which === "source") cmpSourceData = null; else cmpTargetData = null;
+        if (infoEl) infoEl.textContent = "Could not read this file: " + e.message;
+      }
+      cmpUpdateButton();
+    };
+    reader.onerror = function () {
+      if (infoEl) infoEl.textContent = "Could not read this file.";
+      if (which === "source") cmpSourceData = null; else cmpTargetData = null;
+      cmpUpdateButton();
+    };
+    reader.readAsText(file);
+  }
+
 
   function sevRank(s) { return { critical: 4, high: 3, medium: 2, low: 1, info: 0 }[s] || 0; }
 
@@ -508,6 +646,28 @@
     if (el("gsearch")) {
       el("gsearch").addEventListener("input", function () { renderGlobalSearch(el("gsearch").value); });
       el("gsearch").addEventListener("focus", function () { if (el("gsearch").value) renderGlobalSearch(el("gsearch").value); });
+    }
+    if (el("cmpSource")) {
+      el("cmpSource").addEventListener("change", function () { cmpLoadFile(this, "source", el("cmpSourceInfo")); });
+      el("cmpTarget").addEventListener("change", function () { cmpLoadFile(this, "target", el("cmpTargetInfo")); });
+      el("cmpRun").addEventListener("click", function () {
+        if (!cmpSourceData || !cmpTargetData) return;
+        el("cmpMsg").textContent = "";
+        try {
+          renderCompareResult(cmpCompareExport(cmpSourceData, cmpTargetData));
+        } catch (e) {
+          el("cmpMsg").textContent = "Comparison failed: " + e.message;
+        }
+      });
+      el("cmpSwap").addEventListener("click", function () {
+        var s = cmpSourceData; cmpSourceData = cmpTargetData; cmpTargetData = s;
+        var si = el("cmpSourceInfo").textContent;
+        el("cmpSourceInfo").textContent = el("cmpTargetInfo").textContent;
+        el("cmpTargetInfo").textContent = si;
+        el("cmpSource").value = ""; el("cmpTarget").value = "";
+        cmpUpdateButton();
+        if (cmpSourceData && cmpTargetData) el("cmpRun").click();
+      });
     }
     document.addEventListener("click", function (e) {
       var g = el("gresults");

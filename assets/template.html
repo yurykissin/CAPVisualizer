@@ -27,6 +27,7 @@ __STYLES__
   <div class="tab hidden" id="complianceTab" data-tab="compliance">Compliance</div>
   <div class="tab hidden" id="testsTab" data-tab="tests">Tests</div>
   <div class="tab hidden" id="deltaTab" data-tab="delta">Delta</div>
+  <div class="tab" id="compareTab" data-tab="compare">Compare</div>
 </div>
 
 <div id="pane-overview">
@@ -59,6 +60,33 @@ __STYLES__
 
 <div id="pane-delta" class="hidden">
   <div class="main"><h2>Changes since baseline</h2><div id="delta"></div></div>
+</div>
+
+<div id="pane-compare" class="hidden">
+  <div class="main">
+    <h2>Compare two exports</h2>
+    <p class="muted">Select two CAPVisualizer export JSON files (from any
+      <code>output/&lt;timestamp&gt;/raw/export.json</code>) to see what changed
+      between them. Everything runs in your browser - nothing is uploaded.</p>
+    <div class="cmp-pick">
+      <div class="cmp-slot">
+        <label for="cmpSource">Source (baseline)</label>
+        <input id="cmpSource" type="file" accept=".json,application/json">
+        <div id="cmpSourceInfo" class="muted cmp-info"></div>
+      </div>
+      <div class="cmp-slot">
+        <label for="cmpTarget">Target (compare to)</label>
+        <input id="cmpTarget" type="file" accept=".json,application/json">
+        <div id="cmpTargetInfo" class="muted cmp-info"></div>
+      </div>
+    </div>
+    <div class="cmp-actions">
+      <button id="cmpRun" type="button" class="cmp-btn" disabled>Compare</button>
+      <button id="cmpSwap" type="button" class="cmp-btn cmp-btn-sec">Swap</button>
+      <span id="cmpMsg" class="muted"></span>
+    </div>
+    <div id="cmpResult"></div>
+  </div>
 </div>
 
 <div id="pane-riskfindings" class="hidden">

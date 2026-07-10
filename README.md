@@ -80,6 +80,11 @@ controls scored automatically, the rest listed as manual with official guidance:
 
 ![Tests tab](docs/images/05-tests.png)
 
+**Compare** - pick any two export files in the browser and see added, removed,
+and modified policies (works fully offline, nothing is uploaded):
+
+![Compare tab](docs/images/06-compare.png)
+
 ## Quickstart
 
 ```bash
@@ -148,6 +153,9 @@ output/<yyyyMMdd-HHmmss>/
   flow, plus an all-policies overview. Zero external requests (no CDN).
 - **Delta / periodic** - immutable timestamped snapshots and field-level diffs
   between runs. See [docs/DELTA.md](docs/DELTA.md).
+- **In-browser Compare** - the offline viewer can load any two export files and
+  list added, removed, and modified policies with field-level changes, without
+  re-running the tool.
 - **Hygiene / gap checks** - flags report-only/disabled policies, enabled
   policies with no controls, missing legacy-auth block, and "All users" targeting
   with no break-glass exclusion. Flags only - never changes anything.

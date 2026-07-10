@@ -123,3 +123,14 @@ footer { padding: 14px 24px; color: var(--muted); font-size: 11px; border-top: 1
 .affmore > summary::before { content: "\25B8 "; }
 .affmore[open] > summary::before { content: "\25BE "; }
 .affmore[open] > summary { margin-bottom: 4px; }
+
+/* Compare tab (in-browser export comparison) */
+.cmp-pick { display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
+.cmp-slot { flex: 1 1 320px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.cmp-slot label { display: block; font-weight: 600; margin-bottom: 8px; }
+.cmp-slot input[type="file"] { width: 100%; color: var(--muted); font-size: 12px; }
+.cmp-info { margin-top: 8px; font-size: 12px; word-break: break-all; }
+.cmp-actions { display: flex; align-items: center; gap: 10px; margin: 8px 0 16px; }
+.cmp-btn { padding: 7px 16px; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; font-size: 13px; }
+.cmp-btn:disabled { opacity: .45; cursor: not-allowed; }
+.cmp-btn-sec { background: var(--panel2); border-color: var(--border); color: var(--text); }
