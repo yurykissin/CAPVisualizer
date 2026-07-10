@@ -32,6 +32,14 @@
       if (v) n.textContent = fmtLocal(v);
     });
   }
+  // Localize a value that looks like a single ISO 8601 timestamp; otherwise
+  // return it unchanged (used for field-level diff values).
+  function fmtMaybeDate(v) {
+    if (v !== null && v !== undefined && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(String(v))) {
+      return fmtLocal(v);
+    }
+    return v;
+  }
   function esc(s) {
     if (s === null || s === undefined) return "";
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -255,7 +263,7 @@
         h += "<b class=\"badge-mod\">" + esc(m.displayName) + "</b> (" + m.changeCount + " changes)" +
           "<table><thead><tr><th>Field</th><th>From</th><th>To</th></tr></thead><tbody>" +
           arr(m.changes).map(function (c) {
-            return "<tr><td>" + esc(c.field) + "</td><td>" + esc(c.from) + "</td><td>" + esc(c.to) + "</td></tr>";
+            return "<tr><td>" + esc(c.field) + "</td><td>" + esc(fmtMaybeDate(c.from)) + "</td><td>" + esc(fmtMaybeDate(c.to)) + "</td></tr>";
           }).join("") + "</tbody></table>";
       });
     }
@@ -369,7 +377,7 @@
         h += "<b class=\"badge-mod\">" + esc(m.displayName || m.id) + "</b> (" + m.changeCount + " changes)" +
           "<table><thead><tr><th>Field</th><th>Source</th><th>Target</th></tr></thead><tbody>" +
           arr(m.changes).map(function (c) {
-            return "<tr><td>" + esc(c.field) + "</td><td>" + esc(c.from) + "</td><td>" + esc(c.to) + "</td></tr>";
+            return "<tr><td>" + esc(c.field) + "</td><td>" + esc(fmtMaybeDate(c.from)) + "</td><td>" + esc(fmtMaybeDate(c.to)) + "</td></tr>";
           }).join("") + "</tbody></table>";
       });
     }
