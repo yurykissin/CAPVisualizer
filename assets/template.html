@@ -11,7 +11,7 @@ __STYLES__
 <body>
 <header>
   <h1>CAPVisualizer &mdash; Conditional Access overview</h1>
-  <div class="meta">Tenant: <code>__TENANT__</code> &nbsp;·&nbsp; Generated (UTC): __GENERATED__ &nbsp;·&nbsp; __POLICYCOUNT__ policies</div>
+  <div class="meta">Tenant: <code>__TENANT__</code> &nbsp;·&nbsp; Generated: <span class="ts" data-utc="__GENERATED__">__GENERATED__</span> &nbsp;·&nbsp; __POLICYCOUNT__ policies</div>
   <div class="gsearch">
     <input id="gsearch" type="text" autocomplete="off" placeholder="Search everything - policies, findings, tests, compliance, users...">
     <div id="gresults" class="gresults hidden"></div>
@@ -65,9 +65,32 @@ __STYLES__
 <div id="pane-compare" class="hidden">
   <div class="main">
     <h2>Compare two exports</h2>
-    <p class="muted">Select two CAPVisualizer export JSON files (from any
-      <code>output/&lt;timestamp&gt;/raw/export.json</code>) to see what changed
-      between them. Everything runs in your browser - nothing is uploaded.</p>
+    <div class="cmp-help">
+      <p>Compare any two CAPVisualizer snapshots to see exactly what changed in
+        your Conditional Access configuration between them. Everything runs
+        locally in your browser - no file is uploaded and no network call is
+        made.</p>
+      <p><b>Which files to pick.</b> Each CAPVisualizer run writes a raw export
+        at <code>output/&lt;timestamp&gt;/raw/export.json</code>. Pick two of
+        these <code>export.json</code> files from different runs (the folder name
+        is the run date/time). You can also use any JSON file this tool
+        produced in that shape.</p>
+      <ol class="cmp-steps">
+        <li><b>Source (baseline)</b> - click <i>Choose File</i> and select the
+          <b>older</b> export you want to compare from.</li>
+        <li><b>Target (compare to)</b> - click <i>Choose File</i> and select the
+          <b>newer</b> export you want to compare against.</li>
+        <li>Click <b>Compare</b>. Use <b>Swap</b> to flip the two sides if you
+          picked them in the wrong order.</li>
+      </ol>
+      <p><b>What you get.</b> A summary of policies
+        <span class="badge-add">added</span> (only in the target),
+        <span class="badge-remove">removed</span> (only in the source), and
+        <span class="badge-mod">modified</span>, plus a field-by-field
+        <i>Source &rarr; Target</i> table for every changed policy. Policies are
+        matched by their id, so renames show up as a change rather than an
+        add/remove pair. All timestamps are shown in your local time.</p>
+    </div>
     <div class="cmp-pick">
       <div class="cmp-slot">
         <label for="cmpSource">Source (baseline)</label>

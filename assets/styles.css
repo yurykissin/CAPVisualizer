@@ -134,3 +134,10 @@ footer { padding: 14px 24px; color: var(--muted); font-size: 11px; border-top: 1
 .cmp-btn { padding: 7px 16px; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; font-size: 13px; }
 .cmp-btn:disabled { opacity: .45; cursor: not-allowed; }
 .cmp-btn-sec { background: var(--panel2); border-color: var(--border); color: var(--text); }
+
+/* Compare tab help block */
+.cmp-help { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 4px 18px; margin: 12px 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.cmp-help p { margin: 10px 0; }
+.cmp-help code { color: var(--text); }
+.cmp-steps { margin: 10px 0; padding-left: 22px; }
+.cmp-steps li { margin: 6px 0; }

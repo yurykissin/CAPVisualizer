@@ -16,6 +16,22 @@
   }
 
   function el(id) { return document.getElementById(id); }
+  // Format an ISO 8601 / UTC timestamp in the viewer's local time zone. Returns
+  // the original string unchanged when it is empty or not a parseable date.
+  function fmtLocal(iso) {
+    if (iso === null || iso === undefined || iso === "") return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString();
+  }
+  // Convert any server-injected timestamp (elements with class "ts" and a
+  // data-utc attribute) into local time once the DOM is ready.
+  function localizeStamps() {
+    document.querySelectorAll(".ts[data-utc]").forEach(function (n) {
+      var v = n.getAttribute("data-utc");
+      if (v) n.textContent = fmtLocal(v);
+    });
+  }
   function esc(s) {
     if (s === null || s === undefined) return "";
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -166,7 +182,7 @@
     var html = "" +
       '<h2>' + esc(p.displayName) + ' <span class="pill ' + (p.state === "enabled" ? "ok" : "") + '">' + esc(stateLabel(p.state)) + "</span></h2>" +
       '<div class="muted" style="margin-bottom:12px">id: <code>' + esc(p.id) + "</code>" +
-      (p.modifiedDateTime ? " &nbsp;·&nbsp; modified: " + esc(p.modifiedDateTime) : "") + link + "</div>" +
+      (p.modifiedDateTime ? " &nbsp;·&nbsp; modified: " + esc(fmtLocal(p.modifiedDateTime)) : "") + link + "</div>" +
       '<div class="flow">' +
         '<div class="flowcol"><h3>' + usersTitle + "</h3>" + incExc(userInc, userExc) + "</div>" +
         '<div class="arrow">&rarr;</div>' +
@@ -219,7 +235,7 @@
   function renderDelta() {
     var d = DATA.delta;
     if (!d) { el("deltaTab").classList.add("hidden"); return; }
-    var h = "<p>Compared against baseline <code>" + esc(d.baselineUtc) + "</code></p>" +
+    var h = "<p>Compared against baseline <code>" + esc(fmtLocal(d.baselineUtc)) + "</code></p>" +
       '<p><span class="badge-add">+' + d.addedCount + " added</span> &nbsp; " +
       '<span class="badge-remove">-' + d.removedCount + " removed</span> &nbsp; " +
       '<span class="badge-mod">~' + d.modifiedCount + " modified</span></p>";
@@ -326,8 +342,8 @@
   }
 
   function renderCompareResult(d) {
-    var h = "<p>Source <code>" + esc(d.baselineUtc) + "</code> &rarr; Target <code>" +
-      esc(d.currentUtc) + "</code></p>" +
+    var h = "<p>Source <code>" + esc(fmtLocal(d.baselineUtc)) + "</code> &rarr; Target <code>" +
+      esc(fmtLocal(d.currentUtc)) + "</code></p>" +
       '<p><span class="badge-add">+' + d.addedCount + " added</span> &nbsp; " +
       '<span class="badge-remove">-' + d.removedCount + " removed</span> &nbsp; " +
       '<span class="badge-mod">~' + d.modifiedCount + " modified</span></p>";
@@ -378,7 +394,7 @@
         if (which === "source") cmpSourceData = data; else cmpTargetData = data;
         var meta = data.metadata || {};
         if (infoEl) infoEl.textContent = file.name + " - " + (data.policies.length) +
-          " policies" + (meta.generatedUtc ? ", generated " + meta.generatedUtc : "");
+          " policies" + (meta.generatedUtc ? ", generated " + fmtLocal(meta.generatedUtc) : "");
       } catch (e) {
         if (which === "source") cmpSourceData = null; else cmpTargetData = null;
         if (infoEl) infoEl.textContent = "Could not read this file: " + e.message;
@@ -625,6 +641,7 @@
   }
 
   window.addEventListener("DOMContentLoaded", function () {
+    localizeStamps();
     renderSummaryCards();
     renderFindings();
     renderAllTable();
