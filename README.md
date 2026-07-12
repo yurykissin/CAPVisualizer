@@ -80,8 +80,9 @@ controls scored automatically, the rest listed as manual with official guidance:
 
 ![Tests tab](docs/images/05-tests.png)
 
-**Compare** - pick any two export files in the browser and see added, removed,
-and modified policies (works fully offline, nothing is uploaded):
+**Compare** - pick any two export files in the browser and get a comparison
+list: policies added, removed, and modified, with a field-level Source -> Target
+table (works fully offline, nothing is uploaded, timestamps shown in local time):
 
 ![Compare tab](docs/images/06-compare.png)
 
