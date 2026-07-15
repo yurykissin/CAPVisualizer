@@ -5,6 +5,7 @@
   function arr(v) { return Array.isArray(v) ? v : (v === null || v === undefined || v === "" ? [] : [v]); }
   var policies = arr(DATA.policies);
   var selected = null;
+  var pfilter = { effect: "all", principal: "all", app: "all", cond: "all", grant: "all" };
   var NAMES = DATA.nameMap || {};
   // Resolve a directory GUID (or "type:guid" pair) to a friendly name when known.
   function nm(v) {
@@ -77,20 +78,134 @@
     return s;
   }
 
+  // ---- Per-policy faceted filtering ----------------------------------------
+  var PRINC_MAP = {
+    User: ["includeUsers", "excludeUsers"],
+    Group: ["includeGroups", "excludeGroups"],
+    Role: ["includeRoles", "excludeRoles"]
+  };
+  var SEP = "\u0000";
+  function princRefs(p, type, side) { return arr(p[PRINC_MAP[type][side === "inc" ? 0 : 1]]); }
+  function princAll(p, side) {
+    return princRefs(p, "User", side).concat(princRefs(p, "Group", side), princRefs(p, "Role", side));
+  }
+  function condMatch(p, c) {
+    if (c === "location") return !!(arr(p.includeLocations).length || arr(p.excludeLocations).length);
+    if (c === "platform") return !!(arr(p.includePlatforms).length || arr(p.excludePlatforms).length);
+    if (c === "risk") return !!(arr(p.signInRiskLevels).length || arr(p.userRiskLevels).length);
+    if (c === "devicefilter") return !!(p.deviceFilter && String(p.deviceFilter).length);
+    if (c === "legacy") return arr(p.clientAppTypes).some(function (x) { return /Exchange ActiveSync|Other legacy/i.test(x); });
+    return true;
+  }
+  function policyMatches(p, ft) {
+    if (pfilter.effect === "block" && !p.isBlock) return false;
+    if (pfilter.effect === "grant" && p.isBlock) return false;
+    if (pfilter.principal !== "all") {
+      var parts = pfilter.principal.split(SEP), type = parts[0], name = parts[1];
+      if (princRefs(p, type, "inc").indexOf(name) === -1 && princRefs(p, type, "exc").indexOf(name) === -1) return false;
+    }
+    if (pfilter.app !== "all") {
+      if (arr(p.includeApplications).indexOf(pfilter.app) === -1 && arr(p.excludeApplications).indexOf(pfilter.app) === -1) return false;
+    }
+    if (pfilter.cond !== "all" && !condMatch(p, pfilter.cond)) return false;
+    if (pfilter.grant !== "all") {
+      var has = arr(p.grantControlLabels).indexOf(pfilter.grant) !== -1 ||
+        (pfilter.grant === "Authentication strength" && !!p.authenticationStrength);
+      if (!has) return false;
+    }
+    if (ft) {
+      var hay = (p.displayName || "") + " " + princAll(p, "inc").join(" ") + " " + princAll(p, "exc").join(" ") +
+        " " + arr(p.includeApplications).join(" ") + " " + arr(p.excludeApplications).join(" ");
+      if (hay.toLowerCase().indexOf(ft) === -1) return false;
+    }
+    return true;
+  }
+  function matchBadge(p) {
+    var b = {};
+    if (pfilter.principal !== "all") {
+      var parts = pfilter.principal.split(SEP), type = parts[0], name = parts[1];
+      if (princRefs(p, type, "inc").indexOf(name) !== -1) b.targets = 1;
+      if (princRefs(p, type, "exc").indexOf(name) !== -1) b.excluded = 1;
+    }
+    if (pfilter.app !== "all") {
+      if (arr(p.includeApplications).indexOf(pfilter.app) !== -1) b.targets = 1;
+      if (arr(p.excludeApplications).indexOf(pfilter.app) !== -1) b.excluded = 1;
+    }
+    var out = "";
+    if (b.targets) out += ' <span class="pill ok mbadge">targets</span>';
+    if (b.excluded) out += ' <span class="pill block mbadge">excluded</span>';
+    return out;
+  }
+
+  function populateFacets() {
+    var princ = {}, apps = {}, grants = {};
+    policies.forEach(function (p) {
+      ["User", "Group", "Role"].forEach(function (type) {
+        princRefs(p, type, "inc").concat(princRefs(p, type, "exc")).forEach(function (n) {
+          if (n) princ[type + SEP + n] = { type: type, name: n };
+        });
+      });
+      arr(p.includeApplications).concat(arr(p.excludeApplications)).forEach(function (n) { if (n) apps[n] = 1; });
+      arr(p.grantControlLabels).forEach(function (l) { if (l) grants[l] = 1; });
+      if (p.authenticationStrength) grants["Authentication strength"] = 1;
+    });
+    var psel = el("fprincipal");
+    if (psel) {
+      var pkeys = Object.keys(princ).sort(function (a, b) {
+        var x = princ[a], y = princ[b];
+        if (x.type !== y.type) return x.type < y.type ? -1 : 1;
+        return x.name.toLowerCase() < y.name.toLowerCase() ? -1 : 1;
+      });
+      pkeys.forEach(function (k) {
+        var o = document.createElement("option");
+        o.value = k; o.textContent = princ[k].type + ": " + nm(princ[k].name);
+        psel.appendChild(o);
+      });
+    }
+    var asel = el("fapp");
+    if (asel) {
+      Object.keys(apps).sort(function (a, b) { return String(nm(a)).toLowerCase() < String(nm(b)).toLowerCase() ? -1 : 1; })
+        .forEach(function (n) { var o = document.createElement("option"); o.value = n; o.textContent = nm(n); asel.appendChild(o); });
+    }
+    var gsel = el("fgrant");
+    if (gsel) {
+      Object.keys(grants).sort().forEach(function (g) {
+        var o = document.createElement("option"); o.value = g; o.textContent = g; gsel.appendChild(o);
+      });
+    }
+  }
+
+  function clearFilters() {
+    pfilter = { effect: "all", principal: "all", app: "all", cond: "all", grant: "all" };
+    ["feffect", "fprincipal", "fapp", "fcond", "fgrant", "fstate"].forEach(function (id) { if (el(id)) el(id).value = "all"; });
+    if (el("q")) el("q").value = "";
+    renderList("", "all");
+  }
+
   function renderList(filterText, filterState) {
     var ul = el("plist");
     ul.innerHTML = "";
     var ft = (filterText || "").toLowerCase();
+    var shown = 0;
     policies.forEach(function (p, i) {
       if (filterState && filterState !== "all" && p.state !== filterState) return;
-      if (ft && (p.displayName || "").toLowerCase().indexOf(ft) === -1) return;
+      if (!policyMatches(p, ft)) return;
+      shown++;
       var li = document.createElement("li");
       if (selected === i) li.className = "active";
       li.innerHTML = '<span class="dot ' + stateClass(p.state) + '"></span>' +
-        '<span>' + esc(p.displayName || "(no name)") + '</span>';
+        '<span>' + esc(p.displayName || "(no name)") + '</span>' + matchBadge(p);
       li.onclick = function () { selected = i; renderList(filterText, filterState); renderDetail(p); };
       ul.appendChild(li);
     });
+    if (!shown) {
+      var empty = document.createElement("li");
+      empty.className = "muted"; empty.style.cursor = "default";
+      empty.textContent = "No policies match the filters.";
+      ul.appendChild(empty);
+    }
+    var cnt = el("filterCount");
+    if (cnt) cnt.textContent = "Showing " + shown + " of " + policies.length;
   }
 
   function controlPills(p) {
@@ -812,11 +927,17 @@
     renderCompliance();
     renderTests();
     renderAuthMethods();
+    populateFacets();
     renderList("", "all");
     if (policies.length) { selected = 0; renderDetail(policies[0]); }
 
     el("q").addEventListener("input", function () { renderList(el("q").value, el("fstate").value); });
     el("fstate").addEventListener("change", function () { renderList(el("q").value, el("fstate").value); });
+    [["feffect", "effect"], ["fprincipal", "principal"], ["fapp", "app"], ["fcond", "cond"], ["fgrant", "grant"]].forEach(function (pair) {
+      var node = el(pair[0]);
+      if (node) node.addEventListener("change", function () { pfilter[pair[1]] = node.value; renderList(el("q").value, el("fstate").value); });
+    });
+    if (el("filterClear")) el("filterClear").addEventListener("click", clearFilters);
     if (el("fq")) el("fq").addEventListener("input", function () { renderRiskFindings(el("fq").value, el("fsev").value); });
     if (el("fsev")) el("fsev").addEventListener("change", function () { renderRiskFindings(el("fq").value, el("fsev").value); });
     document.querySelectorAll(".tab").forEach(function (t) {

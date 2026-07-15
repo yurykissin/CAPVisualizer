@@ -45,7 +45,7 @@ __STYLES__
   <div class="wrap">
     <div class="sidebar">
       <div class="search">
-        <input id="q" type="text" placeholder="Search policies...">
+        <input id="q" type="text" placeholder="Search policies, users, groups, apps...">
         <select id="fstate">
           <option value="all">All states</option>
           <option value="enabled">Enabled</option>
@@ -53,6 +53,41 @@ __STYLES__
           <option value="disabled">Disabled</option>
         </select>
       </div>
+      <details class="filters" id="filterPanel">
+        <summary>Filters</summary>
+        <div class="filter-grid">
+          <label>Effect
+            <select id="feffect">
+              <option value="all">Any</option>
+              <option value="block">Block</option>
+              <option value="grant">Grant</option>
+            </select>
+          </label>
+          <label>Target principal
+            <select id="fprincipal"><option value="all">Any</option></select>
+          </label>
+          <label>App
+            <select id="fapp"><option value="all">Any</option></select>
+          </label>
+          <label>Condition
+            <select id="fcond">
+              <option value="all">Any</option>
+              <option value="location">Has location</option>
+              <option value="platform">Has device platform</option>
+              <option value="risk">Has risk (sign-in/user)</option>
+              <option value="devicefilter">Has device filter</option>
+              <option value="legacy">Uses legacy-auth client apps</option>
+            </select>
+          </label>
+          <label>Grant control
+            <select id="fgrant"><option value="all">Any</option></select>
+          </label>
+        </div>
+        <div class="filter-actions">
+          <span id="filterCount" class="muted"></span>
+          <button type="button" id="filterClear" class="cmp-btn">Clear</button>
+        </div>
+      </details>
       <ul class="plist" id="plist"></ul>
     </div>
     <div class="main" id="detail"></div>

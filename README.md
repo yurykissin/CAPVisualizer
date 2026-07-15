@@ -62,7 +62,14 @@ images below are rendered from the bundled synthetic sample
 ![Overview tab](docs/images/01-overview.png)
 
 **Per-policy** - each policy as a Users -> Target resources -> Conditions ->
-Access controls flow, with every condition always shown (even when unset):
+Access controls flow, with every condition always shown (even when unset). For
+larger tenants the sidebar has a faceted filter panel: search across policy
+names and referenced users/groups/apps, and filter by state, effect
+(block/grant), a specific target principal (user, group, or directory role), a
+specific app, a condition type (location, device platform, risk, device filter,
+legacy-auth), or a grant control. Object filters match both include and exclude
+and badge each result (`targets` / `excluded`), with a live "Showing N of M"
+count:
 
 ![Per-policy tab](docs/images/02-per-policy.png)
 
