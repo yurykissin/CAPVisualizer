@@ -128,6 +128,7 @@ function Get-CapReferences {
     $userGroup = [System.Collections.Generic.HashSet[string]]::new()
     $roles     = [System.Collections.Generic.HashSet[string]]::new()
     $apps      = [System.Collections.Generic.HashSet[string]]::new()
+    $spObjects = [System.Collections.Generic.HashSet[string]]::new()
 
     foreach ($p in $Export.policies) {
         $cond = _K $p 'conditions'
@@ -142,16 +143,19 @@ function Get-CapReferences {
         foreach ($bucket in 'includeApplications','excludeApplications') {
             foreach ($v in @(_K $appsCond $bucket)) { if ("$v" -match '^[0-9a-fA-F-]{36}$') { [void]$apps.Add("$v") } }
         }
+        # Workload-identity policies reference service principals by their
+        # directory OBJECT id (not appId), so they must be resolved via getByIds.
         $clientApps = _K $cond 'clientApplications'
         foreach ($bucket in 'includeServicePrincipals','excludeServicePrincipals') {
-            foreach ($v in @(_K $clientApps $bucket)) { if ("$v" -match '^[0-9a-fA-F-]{36}$') { [void]$apps.Add("$v") } }
+            foreach ($v in @(_K $clientApps $bucket)) { if ("$v" -match '^[0-9a-fA-F-]{36}$') { [void]$spObjects.Add("$v") } }
         }
     }
 
     return [ordered]@{
-        UserGroupIds    = @($userGroup)
-        RoleTemplateIds = @($roles)
-        AppIds          = @($apps)
+        UserGroupIds        = @($userGroup)
+        RoleTemplateIds     = @($roles)
+        AppIds              = @($apps)
+        ServicePrincipalIds = @($spObjects)
     }
 }
 

@@ -96,8 +96,11 @@ table (works fully offline, nothing is uploaded, timestamps shown in local time)
 **Auth methods** - an authentication-method registration audit: tenant rollup
 (MFA registered/capable, passwordless, phishing-resistant, SSPR), prioritized
 gaps (admins without phishing-resistant methods, users not registered), a
-method breakdown, and a per-user table. Uses only the aggregate registration
-report, never a user's actual method secrets. See
+method breakdown, and a per-user table. The per-user table supports free-text
+search, sortable columns, a "show only" attribute filter (for example, show
+only users who are not MFA-capable), and one-click CSV export of the current
+(filtered) view. Uses only the aggregate registration report, never a user's
+actual method secrets. See
 [docs/AUTHMETHODS.md](docs/AUTHMETHODS.md):
 
 ![Auth methods tab](docs/images/07-authmethods.png)

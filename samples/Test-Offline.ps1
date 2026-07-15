@@ -76,6 +76,7 @@ Import-Module (Join-Path $modules 'CapAudit.psm1') -Force
 Import-Module (Join-Path $modules 'CapFindings.psm1') -Force
 Import-Module (Join-Path $modules 'CapCompliance.psm1') -Force
 Import-Module (Join-Path $modules 'CapTest.psm1') -Force
+Import-Module (Join-Path $modules 'CapAuthMethods.psm1') -Force
 Import-Module (Join-Path $modules 'CapExport.psm1') -Force
 
 $enrExport = Import-CapExportJson -Path (Join-Path $root 'samples/sample-export-enriched.json')
@@ -107,9 +108,21 @@ Write-Host "Compliance OK      : $($comp.summary.pass)/$($comp.summary.total) pa
 $test = Invoke-CapTest -NormalizedPolicies $norm -Enrichment $enr -ComplianceResult $comp -FindingsResult $risk
 Write-Host "Tests OK           : passed=$($test.summary.passed) failed=$($test.summary.failed) overall=$(if ($test.passed) { 'PASS' } else { 'FAIL' })" -ForegroundColor Green
 
+# Final showcase viewer: render the enriched 6-policy set (with embedded nameMap
+# so workload-identity service principals resolve to friendly names) to align
+# the Per-policy tab with the analysis tabs.
+$enrLocMap = @{}
+foreach ($nl in $enrExport.namedLocations) { $enrLocMap[$nl.id] = $nl.displayName }
+$enrNameMap = if ($enrExport.Contains('nameMap')) { $enrExport.nameMap } else { @{} }
+$friendly2 = @($enrExport.policies | ForEach-Object { ConvertTo-CapFriendlyPolicy -Policy $_ -LocationMap $enrLocMap -NameMap $enrNameMap })
+$findings2 = Get-CapHygieneFindings -FriendlyPolicies $friendly2
+$summary2  = New-CapSummary -Export $enrExport -FriendlyPolicies $friendly2 -Findings $findings2
+
+$authMethods = Invoke-CapAuthMethods -Enrichment $enr
+
 $out2 = Join-Path $root 'samples/sample-visual.html'
-New-CapVisual -FriendlyPolicies $friendly -Summary $summary -Findings $findings -Delta $delta `
-    -RiskFindings $risk.findings -Audit $audit -Compliance $comp -TestResult $test `
+New-CapVisual -FriendlyPolicies $friendly2 -Summary $summary2 -Findings $findings2 -Delta $delta `
+    -RiskFindings $risk.findings -Audit $audit -Compliance $comp -TestResult $test -AuthMethods $authMethods `
     -AssetsPath (Join-Path $root 'assets') -OutputFile $out2
 $h2 = Get-Content -Raw $out2
 foreach ($needle in 'MS.AAD.1.1','app-include-exclude-overlap','Assertion results') {

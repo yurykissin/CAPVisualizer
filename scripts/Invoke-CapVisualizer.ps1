@@ -254,7 +254,8 @@ try {
         if (@($refs.UserGroupIds).Count)    { (Get-CapDirectoryNameMap -Ids $refs.UserGroupIds).GetEnumerator()      | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
         if (@($refs.RoleTemplateIds).Count) { (Get-CapRoleTemplateMap).GetEnumerator()                                | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
         if (@($refs.AppIds).Count)          { (Get-CapServicePrincipalMap -AppIds $refs.AppIds).GetEnumerator()       | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
-        Write-CapLog "Resolved $($nameMap.Count) names (users/groups: $(@($refs.UserGroupIds).Count), roles: $(@($refs.RoleTemplateIds).Count), apps: $(@($refs.AppIds).Count))." 'OK'
+        if (@($refs.ServicePrincipalIds).Count) { (Get-CapDirectoryNameMap -Ids $refs.ServicePrincipalIds).GetEnumerator() | ForEach-Object { $nameMap[$_.Key] = $_.Value } }
+        Write-CapLog "Resolved $($nameMap.Count) names (users/groups: $(@($refs.UserGroupIds).Count), roles: $(@($refs.RoleTemplateIds).Count), apps: $(@($refs.AppIds).Count), service principals: $(@($refs.ServicePrincipalIds).Count))." 'OK'
     }
 
     # --- Friendly / report ---

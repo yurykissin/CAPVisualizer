@@ -761,19 +761,39 @@
     var users = arr(a.users);
     var perUser = "<h3 style=\"margin:18px 0 6px\">Per-user registration (" + users.length + ")</h3>" +
       '<details class="affmore"' + (users.length <= 25 ? " open" : "") + '><summary>Show per-user table</summary>' +
-      '<div class="search" style="margin:8px 0 4px"><input id="amq" type="text" placeholder="Filter users by name, UPN or method..."></div>' +
+      '<div class="am-controls">' +
+        '<input id="amq" type="text" placeholder="Filter users by name, UPN or method...">' +
+        '<label>Show only <select id="amcol">' +
+          '<option value="all">Any attribute</option>' +
+          '<option value="isMfaRegistered">MFA registered</option>' +
+          '<option value="isMfaCapable">MFA capable</option>' +
+          '<option value="hasPhishResistant">Phishing-resistant</option>' +
+          '<option value="isPasswordlessCapable">Passwordless capable</option>' +
+          '<option value="isSsprRegistered">SSPR registered</option>' +
+          '<option value="isAdmin">Admin</option>' +
+        '</select></label>' +
+        '<select id="amval"><option value="yes">= Yes</option><option value="no">= No</option></select>' +
+        '<span id="amCount" class="muted"></span>' +
+        '<button type="button" id="amCsv" class="cmp-btn">Export CSV</button>' +
+      '</div>' +
       '<div id="amUserTable"></div></details>';
 
     host.innerHTML = cards + gapsHtml + breakdown + perUser;
     renderAuthUserTable();
     var amq = el("amq");
     if (amq) amq.addEventListener("input", function () { amState.q = amq.value; renderAuthUserTable(); });
+    var amcol = el("amcol");
+    if (amcol) amcol.addEventListener("change", function () { amState.col = amcol.value; renderAuthUserTable(); });
+    var amval = el("amval");
+    if (amval) amval.addEventListener("change", function () { amState.val = amval.value; renderAuthUserTable(); });
+    var amCsv = el("amCsv");
+    if (amCsv) amCsv.addEventListener("click", exportAuthUsersCsv);
     localizeStamps();
   }
 
   // State + column model for the sortable/searchable per-user table.
-  var amUsers = [], amMethodLabel = {};
-  var amState = { sort: "displayName", dir: 1, q: "" };
+  var amUsers = [], amMethodLabel = {}, amFiltered = [];
+  var amState = { sort: "displayName", dir: 1, q: "", col: "all", val: "yes" };
   var AM_COLS = [
     { key: "displayName", label: "User", type: "user" },
     { key: "isMfaRegistered", label: "MFA reg.", type: "bool" },
@@ -796,8 +816,12 @@
     function yn(b) { return b ? '<span class="ok">Yes</span>' : '<span class="muted">No</span>'; }
     var q = (amState.q || "").trim().toLowerCase();
     var rows = amUsers.filter(function (u) {
-      if (!q) return true;
-      return (u.displayName + " " + u.upn + " " + u.methodsText).toLowerCase().indexOf(q) !== -1;
+      if (q && (u.displayName + " " + u.upn + " " + u.methodsText).toLowerCase().indexOf(q) === -1) return false;
+      if (amState.col !== "all") {
+        var want = amState.val === "yes";
+        if (!!u.row[amState.col] !== want) return false;
+      }
+      return true;
     });
     rows = rows.slice().sort(function (a, b) {
       var av = amSortVal(a, amState.sort), bv = amSortVal(b, amState.sort);
@@ -805,6 +829,9 @@
       if (av > bv) return 1 * amState.dir;
       return a.displayName.toLowerCase() < b.displayName.toLowerCase() ? -1 : 1;
     });
+    amFiltered = rows;
+    var cnt = el("amCount");
+    if (cnt) cnt.textContent = "Showing " + rows.length + " of " + amUsers.length;
     var heads = AM_COLS.map(function (c) {
       var active = amState.sort === c.key;
       var arrow = active ? (amState.dir === 1 ? " \u25B2" : " \u25BC") : "";
@@ -832,6 +859,37 @@
         renderAuthUserTable();
       };
     });
+  }
+
+  function csvCell(v) {
+    var s = (v === null || v === undefined) ? "" : String(v);
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function downloadCsv(filename, header, rows) {
+    var lines = [header.map(csvCell).join(",")];
+    rows.forEach(function (r) { lines.push(r.map(csvCell).join(",")); });
+    var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+  }
+  function exportAuthUsersCsv() {
+    var header = ["Display name", "User principal name", "User type", "Admin",
+      "MFA registered", "MFA capable", "Phishing-resistant", "Passwordless capable",
+      "SSPR registered", "Methods registered"];
+    var yn = function (b) { return b ? "Yes" : "No"; };
+    var rows = amFiltered.map(function (u) {
+      var r = u.row;
+      return [u.displayName, u.upn, r.userType || "", yn(r.isAdmin),
+        yn(r.isMfaRegistered), yn(r.isMfaCapable), yn(r.hasPhishResistant),
+        yn(r.isPasswordlessCapable), yn(r.isSsprRegistered), u.methodsText];
+    });
+    var stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    downloadCsv("authentication-methods-" + stamp + ".csv", header, rows);
   }
 
   function selectPolicy(i) {

@@ -203,6 +203,51 @@
         "termsOfUse": []
       },
       "sessionControls": null
+    },
+    {
+      "id": "aaaaaaaa-0000-0000-0000-000000000006",
+      "displayName": "CA006 - Block risky service principals",
+      "state": "enabled",
+      "createdDateTime": "2026-01-05T09:00:00Z",
+      "modifiedDateTime": "2026-01-05T09:00:00Z",
+      "conditions": {
+        "clientAppTypes": [
+          "all"
+        ],
+        "users": {
+          "includeUsers": [
+            "None"
+          ],
+          "excludeUsers": [],
+          "includeGroups": [],
+          "excludeGroups": [],
+          "includeRoles": [],
+          "excludeRoles": []
+        },
+        "applications": {
+          "includeApplications": [
+            "All"
+          ],
+          "excludeApplications": []
+        },
+        "clientApplications": {
+          "includeServicePrincipals": [
+            "f8b4af4d-2170-405e-ae48-e4249417ba87"
+          ],
+          "excludeServicePrincipals": []
+        },
+        "servicePrincipalRiskLevels": [
+          "high"
+        ]
+      },
+      "grantControls": {
+        "operator": "OR",
+        "builtInControls": [
+          "block"
+        ],
+        "termsOfUse": []
+      },
+      "sessionControls": null
     }
   ],
   "namedLocations": [
@@ -438,5 +483,8 @@
         }
       ]
     }
+  },
+  "nameMap": {
+    "f8b4af4d-2170-405e-ae48-e4249417ba87": "VictimApp-SIM"
   }
 }

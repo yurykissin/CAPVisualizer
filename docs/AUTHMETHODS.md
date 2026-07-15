@@ -74,6 +74,20 @@ A user is counted as phishing-resistant when they have registered any of:
 A gap group is emitted only when at least one user matches, so empty categories
 never appear.
 
+## Per-user table
+
+The per-user table is interactive and stays fully offline:
+
+- **Search** by display name, UPN, or registered method.
+- **Sort** any column by clicking its header (click again to reverse).
+- **Show only** filters the table to a single attribute value, for example show
+  only users who are not MFA-capable, not registered for MFA, without a
+  phishing-resistant method, or admins. Pick the attribute and Yes/No.
+- **Export CSV** downloads the current (filtered) view as a UTF-8 CSV with the
+  display name, UPN, user type, admin flag, MFA/passwordless/phishing-resistant/
+  SSPR state, and registered methods. Export happens client-side; no data leaves
+  the file.
+
 ## Relationship to Conditional Access
 
 Conditional Access enforces *policy intent* ("require MFA"); this audit reports

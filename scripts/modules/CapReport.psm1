@@ -125,6 +125,12 @@ function ConvertTo-CapFriendlyPolicy {
                     'AllAgentIdResources'   { $special = 'All agent resources' }
                 }
             }
+            elseif ($kind -eq 'sp') {
+                switch ($v) {
+                    'ServicePrincipalsInMyTenant' { $special = 'All service principals in the tenant' }
+                    'None'                        { $special = 'None' }
+                }
+            }
             if ($special) { $special }
             elseif ($NameMap.ContainsKey($v)) { $NameMap[$v] }
             else { $v }
@@ -187,8 +193,8 @@ function ConvertTo-CapFriendlyPolicy {
 
     # --- Workload identities (service principals) ---
     $clientApps = _Get $c 'clientApplications'
-    $inclSp = Names (_Get $clientApps 'includeServicePrincipals')
-    $exclSp = Names (_Get $clientApps 'excludeServicePrincipals')
+    $inclSp = _Resolve (_Get $clientApps 'includeServicePrincipals') 'sp'
+    $exclSp = _Resolve (_Get $clientApps 'excludeServicePrincipals') 'sp'
     $isWorkloadIdentity = [bool](@($inclSp).Count -or @($exclSp).Count)
 
     # --- Guest / external user types ---
