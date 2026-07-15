@@ -41,6 +41,7 @@ function New-CapVisual {
         $Audit,
         $Compliance,
         $TestResult,
+        $AuthMethods,
         [hashtable]$NameMap = @{},
         [Parameter(Mandatory)][string]$AssetsPath,
         [Parameter(Mandatory)][string]$OutputFile,
@@ -60,6 +61,7 @@ function New-CapVisual {
         audit        = $Audit
         compliance   = $Compliance
         test         = $TestResult
+        authMethods  = $AuthMethods
         nameMap      = $NameMap
     }
     # Embed as JSON. Escape </script to keep the inline <script> intact.

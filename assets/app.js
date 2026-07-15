@@ -1,7 +1,7 @@
 /* CAPVisualizer offline viewer. Vanilla JS, no external dependencies. */
 (function () {
   "use strict";
-  var DATA = window.__CAP_DATA__ || { policies: [], summary: {}, findings: [], delta: null, riskFindings: [], audit: null, compliance: null, test: null, nameMap: {} };
+  var DATA = window.__CAP_DATA__ || { policies: [], summary: {}, findings: [], delta: null, riskFindings: [], audit: null, compliance: null, test: null, authMethods: null, nameMap: {} };
   function arr(v) { return Array.isArray(v) ? v : (v === null || v === undefined || v === "" ? [] : [v]); }
   var policies = arr(DATA.policies);
   var selected = null;
@@ -271,7 +271,7 @@
   }
 
   function showTab(name) {
-    ["overview", "detailview", "riskfindings", "contradictions", "compliance", "tests", "delta", "compare"].forEach(function (t) {
+    ["overview", "detailview", "riskfindings", "contradictions", "compliance", "tests", "authmethods", "delta", "compare"].forEach(function (t) {
       var pane = el("pane-" + t);
       if (pane) pane.classList.toggle("hidden", t !== name);
     });
@@ -570,6 +570,93 @@
     el("tests").innerHTML = '<table><thead><tr><th>Result</th><th>Assertion</th><th>Type</th><th>Detail</th></tr></thead><tbody>' + rows + "</tbody></table>";
   }
 
+  function renderAuthMethods() {
+    var a = DATA.authMethods;
+    var tab = el("authMethodsTab");
+    if (!a) { if (tab) tab.classList.add("hidden"); return; }
+    if (tab) tab.classList.remove("hidden");
+    var meta = el("authMethodsMeta");
+    var host = el("authMethods");
+    if (!a.available) {
+      meta.innerHTML = "";
+      host.innerHTML = '<p class="muted">' + esc(a.reason || "Authentication method registration data was not collected.") + "</p>";
+      return;
+    }
+    var s = a.summary || {};
+    meta.innerHTML = "Source: aggregate authentication method registration report" +
+      (a.collectedUtc ? " &nbsp;·&nbsp; collected <span class=\"ts\" data-utc=\"" + esc(a.collectedUtc) + "\">" + esc(a.collectedUtc) + "</span>" : "") +
+      " &nbsp;·&nbsp; " + (s.totalUsers || 0) + " users";
+
+    function card(n, l) { return '<div class="card"><div class="n">' + n + '</div><div class="l">' + esc(l) + "</div></div>"; }
+    var cards = '<div class="cards">' +
+      card((s.mfaRegisteredPct || 0) + "%", "MFA registered (" + (s.mfaRegistered || 0) + "/" + (s.totalUsers || 0) + ")") +
+      card((s.mfaCapablePct || 0) + "%", "MFA capable (" + (s.mfaCapable || 0) + ")") +
+      card((s.passwordlessCapablePct || 0) + "%", "Passwordless capable (" + (s.passwordlessCapable || 0) + ")") +
+      card((s.phishResistantPct || 0) + "%", "Phishing-resistant (" + (s.phishResistant || 0) + ")") +
+      card((s.ssprRegisteredPct || 0) + "%", "SSPR registered (" + (s.ssprRegistered || 0) + ")") +
+      card((s.admins || 0) + "", "Admins (" + (s.adminsMfaRegistered || 0) + " MFA, " + (s.adminsPhishResistant || 0) + " phish-resistant)") +
+      "</div>";
+
+    // Method registration breakdown.
+    var mb = arr(s.methodBreakdown);
+    var breakdown = "";
+    if (mb.length) {
+      var brows = mb.map(function (x) {
+        return "<tr><td>" + esc(x.label || x.method) + "</td><td style=\"text-align:center\">" + (x.count || 0) + "</td></tr>";
+      }).join("");
+      breakdown = "<h3 style=\"margin:18px 0 6px\">Registered methods</h3>" +
+        '<table><thead><tr><th>Method</th><th># users</th></tr></thead><tbody>' + brows + "</tbody></table>";
+    }
+
+    // Gap findings grouped by severity.
+    var gaps = arr(a.gaps);
+    var gapsHtml;
+    if (!gaps.length) {
+      gapsHtml = '<h3 style="margin:18px 0 6px">Gaps</h3><p class="muted">No authentication-method gaps detected.</p>';
+    } else {
+      var sevRank = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+      gaps = gaps.slice().sort(function (x, y) {
+        return (sevRank[x.severity] === undefined ? 9 : sevRank[x.severity]) -
+               (sevRank[y.severity] === undefined ? 9 : sevRank[y.severity]);
+      });
+      var grows = gaps.map(function (x) {
+        var names = arr(x.users).map(function (u) { return esc(nm(u.displayName || u.userPrincipalName || u.id)); });
+        var affected = names.length ? listNamesCollapsible(arr(x.users).map(function (u) { return u.displayName || u.userPrincipalName || u.id; }), 5) : '<span class="muted">-</span>';
+        return "<tr><td class=\"sev-" + esc(x.severity) + "\">" + esc(x.severity) + "</td>" +
+          "<td><b>" + esc(x.title) + "</b> <span class=\"pill\">x" + (x.count || 0) + "</span>" +
+          "<div class=\"muted\">" + esc(x.detail) + "</div></td>" +
+          "<td>" + affected + "</td></tr>";
+      }).join("");
+      gapsHtml = "<h3 style=\"margin:18px 0 6px\">Gaps</h3>" +
+        '<table><thead><tr><th>Severity</th><th>Gap</th><th>Affected users</th></tr></thead><tbody>' + grows + "</tbody></table>";
+    }
+
+    // Per-user table (collapsible behind a details block, since it is sensitive).
+    var methodLabel = {};
+    mb.forEach(function (x) { methodLabel[x.method] = x.label || x.method; });
+    var users = arr(a.users);
+    function yn(b, cls) { return b ? '<span class="' + (cls || "ok") + '">Yes</span>' : '<span class="muted">No</span>'; }
+    var urows = users.map(function (u) {
+      var methods = arr(u.methodsRegistered).map(function (m) { return esc(methodLabel[m] || m); }).join(", ");
+      return "<tr>" +
+        "<td>" + esc(nm(u.displayName || u.userPrincipalName)) + (u.isAdmin ? ' <span class="pill">admin</span>' : "") +
+        (u.userPrincipalName && u.displayName !== u.userPrincipalName ? "<div class=\"muted\">" + esc(u.userPrincipalName) + "</div>" : "") + "</td>" +
+        "<td>" + yn(u.isMfaRegistered) + "</td>" +
+        "<td>" + yn(u.isMfaCapable) + "</td>" +
+        "<td>" + yn(u.hasPhishResistant) + "</td>" +
+        "<td>" + yn(u.isPasswordlessCapable) + "</td>" +
+        "<td>" + yn(u.isSsprRegistered) + "</td>" +
+        "<td>" + (methods || '<span class="muted">-</span>') + "</td></tr>";
+    }).join("");
+    var perUser = "<h3 style=\"margin:18px 0 6px\">Per-user registration (" + users.length + ")</h3>" +
+      '<details class="affmore"' + (users.length <= 25 ? " open" : "") + '><summary>Show per-user table</summary>' +
+      '<table><thead><tr><th>User</th><th>MFA reg.</th><th>MFA capable</th><th>Phish-resistant</th><th>Passwordless</th><th>SSPR reg.</th><th>Methods</th></tr></thead><tbody>' +
+      (urows || '<tr><td colspan="7" class="muted">No users.</td></tr>') + "</tbody></table></details>";
+
+    host.innerHTML = cards + gapsHtml + breakdown + perUser;
+    localizeStamps();
+  }
+
   function selectPolicy(i) {
     if (i < 0 || i >= policies.length) return;
     selected = i;
@@ -617,6 +704,10 @@
     if (DATA.test) arr(DATA.test.assertions).forEach(function (x) {
       push("Test", x.name, [x.name, x.message, x.type, x.result], function () { showTab("tests"); });
     });
+    if (DATA.authMethods && DATA.authMethods.available) arr(DATA.authMethods.gaps).forEach(function (x) {
+      push("Auth methods", x.title, [x.title, x.detail, x.severity].concat(arr(x.users).map(function (u) { return u.displayName || u.userPrincipalName; })),
+        function () { showTab("authmethods"); });
+    });
     return idx;
   }
 
@@ -658,6 +749,7 @@
     renderContradictions();
     renderCompliance();
     renderTests();
+    renderAuthMethods();
     renderList("", "all");
     if (policies.length) { selected = 0; renderDetail(policies[0]); }
 

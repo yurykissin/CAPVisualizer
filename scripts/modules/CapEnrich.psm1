@@ -192,21 +192,39 @@ function Get-CapUserEnrichment {
 function Get-CapMfaCapabilityEnrichment {
 <#
 .SYNOPSIS
-    Per-user MFA registration/capability from the beta reports API
-    (authenticationMethods userRegistrationDetails). Requires
+    Per-user authentication-method registration/capability from the beta reports
+    API (authenticationMethods userRegistrationDetails). Requires
     AuditLog.Read.All + UserAuthenticationMethod.Read.All (or Reports.Read.All).
-    Returns { userId, isMfaCapable, isMfaRegistered }.
+    Returns per-user registration state: MFA/passwordless/SSPR capability and
+    registration, the methods registered, default method, admin flag and type.
+    This is the reporting rollup only - it never reads a user's actual method
+    secrets (phone numbers, security-key names).
 #>
     [CmdletBinding()]
     param()
 
-    $details = @(Invoke-CapGraphGet -Beta -Uri 'reports/authenticationMethods/userRegistrationDetails?$select=id,userPrincipalName,isMfaCapable,isMfaRegistered')
+    $select = 'id,userPrincipalName,userDisplayName,isMfaCapable,isMfaRegistered,' +
+        'isPasswordlessCapable,isSsprCapable,isSsprRegistered,isSsprEnabled,' +
+        'methodsRegistered,defaultMfaMethod,systemPreferredAuthenticationMethods,' +
+        'isAdmin,userType,lastUpdatedDateTime'
+    $details = @(Invoke-CapGraphGet -Beta -Uri "reports/authenticationMethods/userRegistrationDetails?`$select=$select")
     $result = foreach ($d in $details) {
         [ordered]@{
-            userId          = "$($d.PSObject.Properties['id'].Value)"
-            userPrincipalName = "$($d.PSObject.Properties['userPrincipalName'].Value)"
-            isMfaCapable    = [bool]$d.PSObject.Properties['isMfaCapable'].Value
-            isMfaRegistered = [bool]$d.PSObject.Properties['isMfaRegistered'].Value
+            userId              = "$($d.PSObject.Properties['id'].Value)"
+            userPrincipalName   = "$($d.PSObject.Properties['userPrincipalName'].Value)"
+            userDisplayName     = "$($d.PSObject.Properties['userDisplayName'].Value)"
+            isMfaCapable        = [bool]$d.PSObject.Properties['isMfaCapable'].Value
+            isMfaRegistered     = [bool]$d.PSObject.Properties['isMfaRegistered'].Value
+            isPasswordlessCapable = [bool]$d.PSObject.Properties['isPasswordlessCapable'].Value
+            isSsprCapable       = [bool]$d.PSObject.Properties['isSsprCapable'].Value
+            isSsprRegistered    = [bool]$d.PSObject.Properties['isSsprRegistered'].Value
+            isSsprEnabled       = [bool]$d.PSObject.Properties['isSsprEnabled'].Value
+            methodsRegistered   = @($d.PSObject.Properties['methodsRegistered'].Value)
+            defaultMfaMethod    = "$($d.PSObject.Properties['defaultMfaMethod'].Value)"
+            systemPreferredAuthenticationMethods = @($d.PSObject.Properties['systemPreferredAuthenticationMethods'].Value)
+            isAdmin             = [bool]$d.PSObject.Properties['isAdmin'].Value
+            userType            = "$($d.PSObject.Properties['userType'].Value)"
+            lastUpdatedDateTime = "$($d.PSObject.Properties['lastUpdatedDateTime'].Value)"
         }
     }
     return @($result)

@@ -91,6 +91,11 @@ td.ok, .ok { color: #a8f0c2; }
 .badge-add { color: var(--ok); }
 .badge-remove { color: var(--block); }
 .badge-mod { color: var(--warn); }
+
+/* Callout / info banners */
+.callout { border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; padding: 10px 14px; font-size: 13px; background: var(--panel); }
+.callout-warn { border-left-color: var(--warn); }
+.callout strong { color: var(--text); }
 .tabs {
   display: flex; gap: 8px; margin-bottom: 12px;
   position: sticky; top: 0; z-index: 20;

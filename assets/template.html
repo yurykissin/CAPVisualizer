@@ -26,6 +26,7 @@ __STYLES__
   <div class="tab hidden" id="contraTab" data-tab="contradictions">Contradictions</div>
   <div class="tab hidden" id="complianceTab" data-tab="compliance">Compliance</div>
   <div class="tab hidden" id="testsTab" data-tab="tests">Tests</div>
+  <div class="tab hidden" id="authMethodsTab" data-tab="authmethods">Auth methods</div>
   <div class="tab hidden" id="deltaTab" data-tab="delta">Delta</div>
   <div class="tab" id="compareTab" data-tab="compare">Compare</div>
 </div>
@@ -152,6 +153,22 @@ __STYLES__
     <h2>Assertion results</h2>
     <div id="testsMeta" class="muted"></div>
     <div id="tests"></div>
+  </div>
+</div>
+
+<div id="pane-authmethods" class="hidden">
+  <div class="main">
+    <h2>Authentication methods audit</h2>
+    <div class="callout callout-warn" style="margin-bottom:14px">
+      <strong>Sensitivity note.</strong> This view uses only the aggregate
+      <em>authentication method registration</em> report (who is capable of and
+      registered for MFA, passwordless and SSPR). It never reads a user's actual
+      method secrets (phone numbers, security-key names). The per-user table below
+      still identifies individuals and their registration state - treat it as
+      sensitive and share accordingly.
+    </div>
+    <div id="authMethodsMeta" class="muted"></div>
+    <div id="authMethods"></div>
   </div>
 </div>
 

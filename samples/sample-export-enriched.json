@@ -6,7 +6,10 @@
     "tenantId": "11111111-1111-1111-1111-111111111111",
     "account": "admin@contoso.com",
     "authType": "Delegated",
-    "scopes": ["Policy.Read.All", "Directory.Read.All"],
+    "scopes": [
+      "Policy.Read.All",
+      "Directory.Read.All"
+    ],
     "policyCount": 5
   },
   "policies": [
@@ -17,20 +20,37 @@
       "createdDateTime": "2025-03-01T10:00:00Z",
       "modifiedDateTime": "2025-11-20T12:30:00Z",
       "conditions": {
-        "clientAppTypes": ["all"],
+        "clientAppTypes": [
+          "all"
+        ],
         "users": {
-          "includeUsers": ["All"],
+          "includeUsers": [
+            "All"
+          ],
           "excludeUsers": [],
           "includeGroups": [],
-          "excludeGroups": ["33333333-3333-3333-3333-333333333333"],
+          "excludeGroups": [
+            "33333333-3333-3333-3333-333333333333"
+          ],
           "includeRoles": [],
           "excludeRoles": []
         },
-        "applications": { "includeApplications": ["All"], "excludeApplications": [] },
+        "applications": {
+          "includeApplications": [
+            "All"
+          ],
+          "excludeApplications": []
+        },
         "platforms": null,
         "locations": null
       },
-      "grantControls": { "operator": "OR", "builtInControls": ["mfa"], "termsOfUse": [] },
+      "grantControls": {
+        "operator": "OR",
+        "builtInControls": [
+          "mfa"
+        ],
+        "termsOfUse": []
+      },
       "sessionControls": null
     },
     {
@@ -40,11 +60,34 @@
       "createdDateTime": "2025-03-01T10:05:00Z",
       "modifiedDateTime": "2025-03-01T10:05:00Z",
       "conditions": {
-        "clientAppTypes": ["exchangeActiveSync", "other"],
-        "users": { "includeUsers": ["All"], "excludeUsers": [], "includeGroups": [], "excludeGroups": [], "includeRoles": [], "excludeRoles": [] },
-        "applications": { "includeApplications": ["All"], "excludeApplications": [] }
+        "clientAppTypes": [
+          "exchangeActiveSync",
+          "other"
+        ],
+        "users": {
+          "includeUsers": [
+            "All"
+          ],
+          "excludeUsers": [],
+          "includeGroups": [],
+          "excludeGroups": [],
+          "includeRoles": [],
+          "excludeRoles": []
+        },
+        "applications": {
+          "includeApplications": [
+            "All"
+          ],
+          "excludeApplications": []
+        }
       },
-      "grantControls": { "operator": "OR", "builtInControls": ["block"], "termsOfUse": [] },
+      "grantControls": {
+        "operator": "OR",
+        "builtInControls": [
+          "block"
+        ],
+        "termsOfUse": []
+      },
       "sessionControls": null
     },
     {
@@ -54,12 +97,36 @@
       "createdDateTime": "2025-04-01T10:00:00Z",
       "modifiedDateTime": "2025-04-01T10:00:00Z",
       "conditions": {
-        "clientAppTypes": ["all"],
-        "userRiskLevels": ["high"],
-        "users": { "includeUsers": ["All"], "excludeUsers": [], "includeGroups": [], "excludeGroups": [], "includeRoles": [], "excludeRoles": [] },
-        "applications": { "includeApplications": ["All"], "excludeApplications": [] }
+        "clientAppTypes": [
+          "all"
+        ],
+        "userRiskLevels": [
+          "high"
+        ],
+        "users": {
+          "includeUsers": [
+            "All"
+          ],
+          "excludeUsers": [],
+          "includeGroups": [],
+          "excludeGroups": [],
+          "includeRoles": [],
+          "excludeRoles": []
+        },
+        "applications": {
+          "includeApplications": [
+            "All"
+          ],
+          "excludeApplications": []
+        }
       },
-      "grantControls": { "operator": "OR", "builtInControls": ["block"], "termsOfUse": [] },
+      "grantControls": {
+        "operator": "OR",
+        "builtInControls": [
+          "block"
+        ],
+        "termsOfUse": []
+      },
       "sessionControls": null
     },
     {
@@ -69,14 +136,36 @@
       "createdDateTime": "2025-05-01T10:00:00Z",
       "modifiedDateTime": "2025-05-01T10:00:00Z",
       "conditions": {
-        "clientAppTypes": ["browser", "mobileAppsAndDesktopClients"],
-        "users": { "includeUsers": ["All"], "excludeUsers": [], "includeGroups": [], "excludeGroups": [], "includeRoles": [], "excludeRoles": [] },
+        "clientAppTypes": [
+          "browser",
+          "mobileAppsAndDesktopClients"
+        ],
+        "users": {
+          "includeUsers": [
+            "All"
+          ],
+          "excludeUsers": [],
+          "includeGroups": [],
+          "excludeGroups": [],
+          "includeRoles": [],
+          "excludeRoles": []
+        },
         "applications": {
-          "includeApplications": ["00000002-0000-0ff1-ce00-000000000000"],
-          "excludeApplications": ["Office365"]
+          "includeApplications": [
+            "00000002-0000-0ff1-ce00-000000000000"
+          ],
+          "excludeApplications": [
+            "Office365"
+          ]
         }
       },
-      "grantControls": { "operator": "OR", "builtInControls": ["mfa"], "termsOfUse": [] },
+      "grantControls": {
+        "operator": "OR",
+        "builtInControls": [
+          "mfa"
+        ],
+        "termsOfUse": []
+      },
       "sessionControls": null
     },
     {
@@ -86,26 +175,49 @@
       "createdDateTime": "2025-06-10T08:00:00Z",
       "modifiedDateTime": "2025-10-01T09:00:00Z",
       "conditions": {
-        "clientAppTypes": ["all"],
+        "clientAppTypes": [
+          "all"
+        ],
         "users": {
           "includeUsers": [],
           "excludeUsers": [],
           "includeGroups": [],
           "excludeGroups": [],
-          "includeRoles": ["62e90394-69f5-4237-9190-012177145e10"],
+          "includeRoles": [
+            "62e90394-69f5-4237-9190-012177145e10"
+          ],
           "excludeRoles": []
         },
-        "applications": { "includeApplications": ["All"], "excludeApplications": [] }
+        "applications": {
+          "includeApplications": [
+            "All"
+          ],
+          "excludeApplications": []
+        }
       },
-      "grantControls": { "operator": "OR", "builtInControls": ["compliantDevice"], "termsOfUse": [] },
+      "grantControls": {
+        "operator": "OR",
+        "builtInControls": [
+          "compliantDevice"
+        ],
+        "termsOfUse": []
+      },
       "sessionControls": null
     }
   ],
   "namedLocations": [
-    { "id": "loc-trusted-hq", "displayName": "Corporate HQ", "@odata.type": "#microsoft.graph.ipNamedLocation", "isTrusted": true }
+    {
+      "id": "loc-trusted-hq",
+      "displayName": "Corporate HQ",
+      "@odata.type": "#microsoft.graph.ipNamedLocation",
+      "isTrusted": true
+    }
   ],
   "authenticationStrengths": [
-    { "id": "str-1", "displayName": "Phishing-resistant MFA" }
+    {
+      "id": "str-1",
+      "displayName": "Phishing-resistant MFA"
+    }
   ],
   "authenticationContexts": [],
   "enrichment": {
@@ -124,7 +236,9 @@
           "ownerIds": [],
           "ownerless": true,
           "membersKnown": true,
-          "memberIds": ["22222222-2222-2222-2222-222222222222"]
+          "memberIds": [
+            "22222222-2222-2222-2222-222222222222"
+          ]
         },
         {
           "id": "44444444-4444-4444-4444-444444444444",
@@ -133,10 +247,14 @@
           "isDynamic": true,
           "securityEnabled": true,
           "ownersKnown": true,
-          "ownerIds": ["55555555-5555-5555-5555-555555555555"],
+          "ownerIds": [
+            "55555555-5555-5555-5555-555555555555"
+          ],
           "ownerless": false,
           "membersKnown": true,
-          "memberIds": ["77777777-7777-7777-7777-777777777777"]
+          "memberIds": [
+            "77777777-7777-7777-7777-777777777777"
+          ]
         }
       ]
     },
@@ -144,26 +262,180 @@
       "available": true,
       "error": null,
       "data": [
-        { "principalId": "22222222-2222-2222-2222-222222222222", "roleTemplateId": "62e90394-69f5-4237-9190-012177145e10", "roleName": "Global Administrator", "assignmentType": "active" },
-        { "principalId": "66666666-6666-6666-6666-666666666666", "roleTemplateId": "62e90394-69f5-4237-9190-012177145e10", "roleName": "Global Administrator", "assignmentType": "active" }
+        {
+          "principalId": "22222222-2222-2222-2222-222222222222",
+          "roleTemplateId": "62e90394-69f5-4237-9190-012177145e10",
+          "roleName": "Global Administrator",
+          "assignmentType": "active"
+        },
+        {
+          "principalId": "66666666-6666-6666-6666-666666666666",
+          "roleTemplateId": "62e90394-69f5-4237-9190-012177145e10",
+          "roleName": "Global Administrator",
+          "assignmentType": "active"
+        }
       ]
     },
     "users": {
       "available": true,
       "error": null,
       "data": [
-        { "id": "22222222-2222-2222-2222-222222222222", "userPrincipalName": "breakglass@contoso.com", "displayName": "Break Glass Admin", "accountEnabled": true, "userType": "Member", "onPremisesSyncEnabled": false, "lastSignInDateTime": "2026-02-19T08:00:00Z" },
-        { "id": "66666666-6666-6666-6666-666666666666", "userPrincipalName": "olddba@contoso.com", "displayName": "Old DBA", "accountEnabled": true, "userType": "Member", "onPremisesSyncEnabled": true, "lastSignInDateTime": "2025-05-01T08:00:00Z" },
-        { "id": "77777777-7777-7777-7777-777777777777", "userPrincipalName": "nomfa@contoso.com", "displayName": "No MFA User", "accountEnabled": true, "userType": "Member", "onPremisesSyncEnabled": false, "lastSignInDateTime": "2026-02-18T08:00:00Z" }
+        {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "userPrincipalName": "breakglass@contoso.com",
+          "displayName": "Break Glass Admin",
+          "accountEnabled": true,
+          "userType": "Member",
+          "onPremisesSyncEnabled": false,
+          "lastSignInDateTime": "2026-02-19T08:00:00Z"
+        },
+        {
+          "id": "66666666-6666-6666-6666-666666666666",
+          "userPrincipalName": "olddba@contoso.com",
+          "displayName": "Old DBA",
+          "accountEnabled": true,
+          "userType": "Member",
+          "onPremisesSyncEnabled": true,
+          "lastSignInDateTime": "2025-05-01T08:00:00Z"
+        },
+        {
+          "id": "77777777-7777-7777-7777-777777777777",
+          "userPrincipalName": "nomfa@contoso.com",
+          "displayName": "No MFA User",
+          "accountEnabled": true,
+          "userType": "Member",
+          "onPremisesSyncEnabled": false,
+          "lastSignInDateTime": "2026-02-18T08:00:00Z"
+        }
       ]
     },
     "mfaCapability": {
       "available": true,
       "error": null,
       "data": [
-        { "userId": "22222222-2222-2222-2222-222222222222", "userPrincipalName": "breakglass@contoso.com", "isMfaCapable": true, "isMfaRegistered": true },
-        { "userId": "66666666-6666-6666-6666-666666666666", "userPrincipalName": "olddba@contoso.com", "isMfaCapable": true, "isMfaRegistered": true },
-        { "userId": "77777777-7777-7777-7777-777777777777", "userPrincipalName": "nomfa@contoso.com", "isMfaCapable": false, "isMfaRegistered": false }
+        {
+          "userId": "22222222-2222-2222-2222-222222222222",
+          "userPrincipalName": "breakglass@contoso.com",
+          "userDisplayName": "Break Glass Admin",
+          "userType": "Member",
+          "isAdmin": true,
+          "isMfaCapable": true,
+          "isMfaRegistered": true,
+          "isPasswordlessCapable": true,
+          "isSsprCapable": true,
+          "isSsprRegistered": true,
+          "isSsprEnabled": true,
+          "methodsRegistered": [
+            "fido2SecurityKey",
+            "microsoftAuthenticatorPush"
+          ],
+          "defaultMfaMethod": "fido2SecurityKey",
+          "systemPreferredAuthenticationMethods": [
+            "fido2SecurityKey"
+          ],
+          "lastUpdatedDateTime": "2026-02-19T08:00:00Z"
+        },
+        {
+          "userId": "66666666-6666-6666-6666-666666666666",
+          "userPrincipalName": "olddba@contoso.com",
+          "userDisplayName": "Old DBA",
+          "userType": "Member",
+          "isAdmin": true,
+          "isMfaCapable": true,
+          "isMfaRegistered": true,
+          "isPasswordlessCapable": false,
+          "isSsprCapable": true,
+          "isSsprRegistered": false,
+          "isSsprEnabled": true,
+          "methodsRegistered": [
+            "mobilePhone",
+            "microsoftAuthenticatorPush"
+          ],
+          "defaultMfaMethod": "microsoftAuthenticatorPush",
+          "systemPreferredAuthenticationMethods": [
+            "microsoftAuthenticatorPush"
+          ],
+          "lastUpdatedDateTime": "2025-05-01T08:00:00Z"
+        },
+        {
+          "userId": "77777777-7777-7777-7777-777777777777",
+          "userPrincipalName": "nomfa@contoso.com",
+          "userDisplayName": "No MFA User",
+          "userType": "Member",
+          "isAdmin": false,
+          "isMfaCapable": false,
+          "isMfaRegistered": false,
+          "isPasswordlessCapable": false,
+          "isSsprCapable": false,
+          "isSsprRegistered": false,
+          "isSsprEnabled": false,
+          "methodsRegistered": [],
+          "defaultMfaMethod": "",
+          "systemPreferredAuthenticationMethods": [],
+          "lastUpdatedDateTime": "2026-02-18T08:00:00Z"
+        },
+        {
+          "userId": "33333333-3333-3333-3333-333333333333",
+          "userPrincipalName": "alice@contoso.com",
+          "userDisplayName": "Alice Analyst",
+          "userType": "Member",
+          "isAdmin": false,
+          "isMfaCapable": true,
+          "isMfaRegistered": true,
+          "isPasswordlessCapable": true,
+          "isSsprCapable": true,
+          "isSsprRegistered": true,
+          "isSsprEnabled": true,
+          "methodsRegistered": [
+            "microsoftAuthenticatorPush",
+            "windowsHelloForBusiness"
+          ],
+          "defaultMfaMethod": "microsoftAuthenticatorPush",
+          "systemPreferredAuthenticationMethods": [
+            "microsoftAuthenticatorPush"
+          ],
+          "lastUpdatedDateTime": "2026-02-15T08:00:00Z"
+        },
+        {
+          "userId": "44444444-4444-4444-4444-444444444444",
+          "userPrincipalName": "bob@contoso.com",
+          "userDisplayName": "Bob Builder",
+          "userType": "Member",
+          "isAdmin": false,
+          "isMfaCapable": true,
+          "isMfaRegistered": false,
+          "isPasswordlessCapable": false,
+          "isSsprCapable": true,
+          "isSsprRegistered": false,
+          "isSsprEnabled": true,
+          "methodsRegistered": [
+            "mobilePhone"
+          ],
+          "defaultMfaMethod": "",
+          "systemPreferredAuthenticationMethods": [],
+          "lastUpdatedDateTime": "2026-01-10T08:00:00Z"
+        },
+        {
+          "userId": "55555555-5555-5555-5555-555555555555",
+          "userPrincipalName": "guest_ext@contoso.com",
+          "userDisplayName": "External Guest",
+          "userType": "Guest",
+          "isAdmin": false,
+          "isMfaCapable": true,
+          "isMfaRegistered": true,
+          "isPasswordlessCapable": false,
+          "isSsprCapable": false,
+          "isSsprRegistered": false,
+          "isSsprEnabled": false,
+          "methodsRegistered": [
+            "microsoftAuthenticatorPush"
+          ],
+          "defaultMfaMethod": "microsoftAuthenticatorPush",
+          "systemPreferredAuthenticationMethods": [
+            "microsoftAuthenticatorPush"
+          ],
+          "lastUpdatedDateTime": "2026-02-01T08:00:00Z"
+        }
       ]
     }
   }

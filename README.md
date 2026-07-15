@@ -86,6 +86,15 @@ table (works fully offline, nothing is uploaded, timestamps shown in local time)
 
 ![Compare tab](docs/images/06-compare.png)
 
+**Auth methods** - an authentication-method registration audit: tenant rollup
+(MFA registered/capable, passwordless, phishing-resistant, SSPR), prioritized
+gaps (admins without phishing-resistant methods, users not registered), a
+method breakdown, and a per-user table. Uses only the aggregate registration
+report, never a user's actual method secrets. See
+[docs/AUTHMETHODS.md](docs/AUTHMETHODS.md):
+
+![Auth methods tab](docs/images/07-authmethods.png)
+
 ## Quickstart
 
 ```bash
@@ -192,6 +201,10 @@ network, reproducible from a JSON export via `-FromJson`:
 - **Assertion engine** ([docs/TESTING.md](docs/TESTING.md)) - declarative JSON
   assertions with JUnit / SARIF / JSON output and CI exit codes.
   `Invoke-CapTest.ps1`.
+- **Auth methods audit** ([docs/AUTHMETHODS.md](docs/AUTHMETHODS.md)) - who is
+  registered/capable for MFA, passwordless, phishing-resistant methods and SSPR,
+  with prioritized gaps and a per-user table, from the aggregate registration
+  report (never a user's actual method secrets).
 
 These are surfaced as extra tabs in the offline viewer and as `analysis/*.json`
 files.
@@ -281,6 +294,7 @@ scripts/
     CapAudit.psm1              # contradiction & exemption audit
     CapFindings.psm1           # risk-scored findings model
     CapCompliance.psm1         # CISA SCuBA baseline evaluation
+    CapAuthMethods.psm1        # authentication-method registration audit
     CapTest.psm1               # assertion engine (JUnit/SARIF/JSON)
     CapVisual.psm1             # render self-contained offline HTML
     CapDelta.psm1              # snapshot comparison engine

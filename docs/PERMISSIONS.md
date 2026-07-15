@@ -44,6 +44,14 @@ of failing the run.
 | Last sign-in activity (`signInActivity`) | `AuditLog.Read.All` | Delegated **or** Application |
 | Per-user MFA capability (`reports/authenticationMethods/userRegistrationDetails`) | `AuditLog.Read.All` + `UserAuthenticationMethod.Read.All` (or `Reports.Read.All`) | Delegated **or** Application |
 
+This same aggregate registration report powers the **Auth methods** audit tab
+(MFA / passwordless / phishing-resistant / SSPR rollup, gaps, and per-user
+table). No additional scope is needed: the tool only reads the aggregate
+`userRegistrationDetails` report and never calls the per-user
+`/users/{id}/authentication/methods` endpoint, so it never sees actual method
+secrets such as phone numbers or security-key names. See
+[AUTHMETHODS.md](AUTHMETHODS.md).
+
 The collected enrichment is embedded in `raw/export.json`, so a later
 `-FromJson` render (and all analysis engines) run **fully offline** against the
 snapshot with no further permissions.

@@ -143,6 +143,7 @@ Import-Module (Join-Path $modules 'CapWhatIf.psm1') -Force
 Import-Module (Join-Path $modules 'CapAudit.psm1') -Force
 Import-Module (Join-Path $modules 'CapFindings.psm1') -Force
 Import-Module (Join-Path $modules 'CapCompliance.psm1') -Force
+Import-Module (Join-Path $modules 'CapAuthMethods.psm1') -Force
 Import-Module (Join-Path $modules 'CapTest.psm1') -Force
 Import-Module (Join-Path $modules 'CapReport.psm1') -Force
 Import-Module (Join-Path $modules 'CapVisual.psm1') -Force
@@ -262,7 +263,7 @@ try {
     $summary  = New-CapSummary -Export $export -FriendlyPolicies $friendly -Findings $findings
 
     # --- Offline analysis engines (normalize -> audit/findings/compliance/test) ---
-    $riskFindings = $null; $auditResult = $null; $complianceResult = $null; $testResult = $null
+    $riskFindings = $null; $auditResult = $null; $complianceResult = $null; $testResult = $null; $authMethods = $null
     if (-not $SkipAnalysis) {
         Write-CapLog "Running offline analysis engines (normalize, audit, findings, compliance, tests)..." 'INFO'
         $grouping   = Get-CapAppGroupingMap
@@ -272,6 +273,7 @@ try {
         $auditResult      = Invoke-CapAudit -NormalizedPolicies $normalized -Enrichment $enrichment
         $riskFindings     = Invoke-CapFindings -NormalizedPolicies $normalized -Enrichment $enrichment -AuditResult $auditResult
         $complianceResult = Invoke-CapCompliance -NormalizedPolicies $normalized
+        $authMethods      = Invoke-CapAuthMethods -Enrichment $enrichment
         $testArgs = @{ NormalizedPolicies = $normalized; Enrichment = $enrichment; ComplianceResult = $complianceResult; FindingsResult = $riskFindings }
         if ($AssertionPath) { $testArgs['AssertionPath'] = $AssertionPath }
         $testResult = Invoke-CapTest @testArgs
@@ -293,6 +295,7 @@ try {
             $riskFindings     = Protect-CapObject -Object $riskFindings
             $complianceResult = Protect-CapObject -Object $complianceResult
             $testResult       = Protect-CapObject -Object $testResult
+            if ($authMethods) { $authMethods = Protect-CapObject -Object $authMethods }
         }
     }
 
@@ -309,6 +312,7 @@ try {
         Save-CapJson -InputObject $auditResult      -Path (Join-Path $snapshot 'analysis/audit.json')
         Save-CapJson -InputObject $riskFindings     -Path (Join-Path $snapshot 'analysis/findings.json')
         Save-CapJson -InputObject $complianceResult -Path (Join-Path $snapshot 'analysis/compliance.json')
+        if ($authMethods) { Save-CapJson -InputObject $authMethods -Path (Join-Path $snapshot 'analysis/authmethods.json') }
         Save-CapJson -InputObject $testResult       -Path (Join-Path $snapshot 'analysis/tests.json')
         if ($testResult) {
             ConvertTo-CapJUnit -TestResult $testResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.junit.xml') -Encoding utf8
@@ -350,7 +354,7 @@ try {
     if (-not $NoVisual) {
         New-CapVisual -FriendlyPolicies $friendly -Summary $summary -Findings $findings -Delta $delta `
             -RiskFindings $(if ($riskFindings) { $riskFindings.findings } else { $null }) `
-            -Audit $auditResult -Compliance $complianceResult -TestResult $testResult -NameMap $(if ($Redact) { @{} } else { $nameMap }) `
+            -Audit $auditResult -Compliance $complianceResult -TestResult $testResult -AuthMethods $authMethods -NameMap $(if ($Redact) { @{} } else { $nameMap }) `
             -AssetsPath $assetsPath -OutputFile (Join-Path $snapshot 'visual/index.html')
     }
 
