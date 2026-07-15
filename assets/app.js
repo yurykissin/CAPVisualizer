@@ -634,27 +634,89 @@
     // Per-user table (collapsible behind a details block, since it is sensitive).
     var methodLabel = {};
     mb.forEach(function (x) { methodLabel[x.method] = x.label || x.method; });
+    amMethodLabel = methodLabel;
+    amUsers = arr(a.users).map(function (u) {
+      return {
+        row: u,
+        displayName: String(nm(u.displayName || u.userPrincipalName || "")),
+        upn: String(u.userPrincipalName || ""),
+        methodsText: arr(u.methodsRegistered).map(function (m) { return methodLabel[m] || m; }).join(", ")
+      };
+    });
     var users = arr(a.users);
-    function yn(b, cls) { return b ? '<span class="' + (cls || "ok") + '">Yes</span>' : '<span class="muted">No</span>'; }
-    var urows = users.map(function (u) {
-      var methods = arr(u.methodsRegistered).map(function (m) { return esc(methodLabel[m] || m); }).join(", ");
-      return "<tr>" +
-        "<td>" + esc(nm(u.displayName || u.userPrincipalName)) + (u.isAdmin ? ' <span class="pill">admin</span>' : "") +
-        (u.userPrincipalName && u.displayName !== u.userPrincipalName ? "<div class=\"muted\">" + esc(u.userPrincipalName) + "</div>" : "") + "</td>" +
-        "<td>" + yn(u.isMfaRegistered) + "</td>" +
-        "<td>" + yn(u.isMfaCapable) + "</td>" +
-        "<td>" + yn(u.hasPhishResistant) + "</td>" +
-        "<td>" + yn(u.isPasswordlessCapable) + "</td>" +
-        "<td>" + yn(u.isSsprRegistered) + "</td>" +
-        "<td>" + (methods || '<span class="muted">-</span>') + "</td></tr>";
-    }).join("");
     var perUser = "<h3 style=\"margin:18px 0 6px\">Per-user registration (" + users.length + ")</h3>" +
       '<details class="affmore"' + (users.length <= 25 ? " open" : "") + '><summary>Show per-user table</summary>' +
-      '<table><thead><tr><th>User</th><th>MFA reg.</th><th>MFA capable</th><th>Phish-resistant</th><th>Passwordless</th><th>SSPR reg.</th><th>Methods</th></tr></thead><tbody>' +
-      (urows || '<tr><td colspan="7" class="muted">No users.</td></tr>') + "</tbody></table></details>";
+      '<div class="search" style="margin:8px 0 4px"><input id="amq" type="text" placeholder="Filter users by name, UPN or method..."></div>' +
+      '<div id="amUserTable"></div></details>';
 
     host.innerHTML = cards + gapsHtml + breakdown + perUser;
+    renderAuthUserTable();
+    var amq = el("amq");
+    if (amq) amq.addEventListener("input", function () { amState.q = amq.value; renderAuthUserTable(); });
     localizeStamps();
+  }
+
+  // State + column model for the sortable/searchable per-user table.
+  var amUsers = [], amMethodLabel = {};
+  var amState = { sort: "displayName", dir: 1, q: "" };
+  var AM_COLS = [
+    { key: "displayName", label: "User", type: "user" },
+    { key: "isMfaRegistered", label: "MFA reg.", type: "bool" },
+    { key: "isMfaCapable", label: "MFA capable", type: "bool" },
+    { key: "hasPhishResistant", label: "Phish-resistant", type: "bool" },
+    { key: "isPasswordlessCapable", label: "Passwordless", type: "bool" },
+    { key: "isSsprRegistered", label: "SSPR reg.", type: "bool" },
+    { key: "methodsText", label: "Methods", type: "methods" }
+  ];
+
+  function amSortVal(u, key) {
+    if (key === "displayName") return u.displayName.toLowerCase();
+    if (key === "methodsText") return u.row.methodCount || arr(u.row.methodsRegistered).length;
+    return u.row[key] ? 1 : 0;
+  }
+
+  function renderAuthUserTable() {
+    var host = el("amUserTable");
+    if (!host) return;
+    function yn(b) { return b ? '<span class="ok">Yes</span>' : '<span class="muted">No</span>'; }
+    var q = (amState.q || "").trim().toLowerCase();
+    var rows = amUsers.filter(function (u) {
+      if (!q) return true;
+      return (u.displayName + " " + u.upn + " " + u.methodsText).toLowerCase().indexOf(q) !== -1;
+    });
+    rows = rows.slice().sort(function (a, b) {
+      var av = amSortVal(a, amState.sort), bv = amSortVal(b, amState.sort);
+      if (av < bv) return -1 * amState.dir;
+      if (av > bv) return 1 * amState.dir;
+      return a.displayName.toLowerCase() < b.displayName.toLowerCase() ? -1 : 1;
+    });
+    var heads = AM_COLS.map(function (c) {
+      var active = amState.sort === c.key;
+      var arrow = active ? (amState.dir === 1 ? " \u25B2" : " \u25BC") : "";
+      return '<th class="amsort" data-key="' + esc(c.key) + '" style="cursor:pointer">' + esc(c.label) + arrow + "</th>";
+    }).join("");
+    var body = rows.map(function (u) {
+      var r = u.row;
+      return "<tr>" +
+        "<td>" + esc(u.displayName) + (r.isAdmin ? ' <span class="pill">admin</span>' : "") +
+        (u.upn && u.displayName !== u.upn ? "<div class=\"muted\">" + esc(u.upn) + "</div>" : "") + "</td>" +
+        "<td>" + yn(r.isMfaRegistered) + "</td>" +
+        "<td>" + yn(r.isMfaCapable) + "</td>" +
+        "<td>" + yn(r.hasPhishResistant) + "</td>" +
+        "<td>" + yn(r.isPasswordlessCapable) + "</td>" +
+        "<td>" + yn(r.isSsprRegistered) + "</td>" +
+        "<td>" + (u.methodsText ? esc(u.methodsText) : '<span class="muted">-</span>') + "</td></tr>";
+    }).join("");
+    host.innerHTML = '<table><thead><tr>' + heads + "</tr></thead><tbody>" +
+      (body || '<tr><td colspan="7" class="muted">No users match the filter.</td></tr>') + "</tbody></table>";
+    host.querySelectorAll(".amsort").forEach(function (th) {
+      th.onclick = function () {
+        var k = th.getAttribute("data-key");
+        if (amState.sort === k) { amState.dir = -amState.dir; }
+        else { amState.sort = k; amState.dir = (k === "displayName" || k === "methodsText") ? 1 : -1; }
+        renderAuthUserTable();
+      };
+    });
   }
 
   function selectPolicy(i) {
