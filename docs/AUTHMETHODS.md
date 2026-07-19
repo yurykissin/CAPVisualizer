@@ -35,7 +35,8 @@ accordingly. The viewer shows a sensitivity banner above the audit.
     passwordlessCapable, passwordlessCapablePct,
     phishResistant, phishResistantPct,
     ssprRegistered, ssprRegisteredPct,
-    admins, adminsMfaRegistered, adminsPhishResistant,
+    smsVoiceUsers, smsVoiceUsersPct,
+    admins, adminsMfaRegistered, adminsPhishResistant, adminsSmsVoice,
     methodBreakdown: [ { method, label, count } ]
   },
   gaps: [ { id, title, severity, detail, count, users: [ { id, displayName, userPrincipalName } ] } ],
@@ -43,7 +44,8 @@ accordingly. The viewer shows a sensitivity banner above the audit.
     userId, displayName, userPrincipalName, userType, isAdmin,
     isMfaCapable, isMfaRegistered, isPasswordlessCapable,
     isSsprCapable, isSsprRegistered, isSsprEnabled,
-    methodsRegistered[], methodCount, hasPhishResistant, defaultMfaMethod
+    methodsRegistered[], methodCount, hasPhishResistant,
+    usesTelephonyMfa, telephonyMethods[], defaultMfaMethod
   } ]
 }
 ```
@@ -60,13 +62,24 @@ A user is counted as phishing-resistant when they have registered any of:
 `passKeyDeviceBoundAuthenticator`, `passKeyDeviceBoundWindowsHello`, or
 `certificateBasedAuthentication`. This set follows Microsoft and CISA guidance.
 
+## Telephony (SMS/voice) methods
+
+Microsoft is retiring SMS text message and voice call as MFA methods. A user is
+flagged with `usesTelephonyMfa` when they have registered any of `mobilePhone`,
+`alternateMobilePhone`, or `officePhone`. The registered telephony identifiers
+are listed in `telephonyMethods`, and the summary rolls the counts up into
+`smsVoiceUsers` / `smsVoiceUsersPct` (and `adminsSmsVoice` for privileged
+accounts) so you can size a migration to stronger methods before retirement.
+
 ## Gaps
 
 | Gap id | Severity | Meaning |
 | ------ | -------- | ------- |
 | `admin-not-mfa-registered`        | critical | Admin has no registered MFA method (single-factor capable). |
 | `admin-no-phishing-resistant`     | high     | Admin is MFA-registered but has no phishing-resistant method. |
+| `admin-uses-sms-voice-mfa`        | high     | Admin still uses a retiring SMS/voice (telephony) method. |
 | `user-no-mfa-method`              | high     | User has no MFA-capable method (lockout or single-factor risk). |
+| `user-uses-sms-voice-mfa`         | medium   | Non-admin user still uses a retiring SMS/voice (telephony) method. |
 | `user-mfa-capable-not-registered` | medium   | User can register a strong method but has not. |
 | `user-no-methods`                 | medium   | User has registered no authentication method at all. |
 | `user-sspr-not-registered`        | low      | User is SSPR-capable but not registered. |
@@ -82,11 +95,12 @@ The per-user table is interactive and stays fully offline:
 - **Sort** any column by clicking its header (click again to reverse).
 - **Show only** filters the table to a single attribute value, for example show
   only users who are not MFA-capable, not registered for MFA, without a
-  phishing-resistant method, or admins. Pick the attribute and Yes/No.
+  phishing-resistant method, still using SMS/voice MFA, or admins. Pick the
+  attribute and Yes/No.
 - **Export CSV** downloads the current (filtered) view as a UTF-8 CSV with the
   display name, UPN, user type, admin flag, MFA/passwordless/phishing-resistant/
-  SSPR state, and registered methods. Export happens client-side; no data leaves
-  the file.
+  SSPR state, SMS/voice usage, and registered methods. Export happens
+  client-side; no data leaves the file.
 
 ## Relationship to Conditional Access
 

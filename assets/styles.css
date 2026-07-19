@@ -99,6 +99,7 @@ tr:hover td { background: var(--panel2); }
 .sev-medium { color: var(--warn); }
 .sev-low { color: #9bbcff; }
 td.ok, .ok { color: #a8f0c2; }
+.warn { color: var(--warn); font-weight: 600; }
 .badge-add { color: var(--ok); }
 .badge-remove { color: var(--block); }
 .badge-mod { color: var(--warn); }

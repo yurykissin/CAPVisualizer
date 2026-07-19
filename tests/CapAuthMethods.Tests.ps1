@@ -56,6 +56,11 @@ Describe 'Summary rollup' {
         $script:Result.summary.passwordlessCapable | Should -Be 2
     }
 
+    It 'counts users still registered for SMS/voice (telephony) MFA' {
+        $script:Result.summary.smsVoiceUsers | Should -Be 2
+        $script:Result.summary.adminsSmsVoice | Should -Be 1
+    }
+
     It 'produces a method breakdown sorted by count' {
         $mb = @($script:Result.summary.methodBreakdown)
         @($mb).Count | Should -BeGreaterThan 0
@@ -91,6 +96,22 @@ Describe 'Gap findings' {
         $g[0].severity | Should -Be 'low'
     }
 
+    It 'flags an admin still using SMS/voice MFA as high' {
+        $g = @($script:Result.gaps | Where-Object { $_.id -eq 'admin-uses-sms-voice-mfa' })
+        @($g).Count | Should -Be 1
+        $g[0].severity | Should -Be 'high'
+        $g[0].count | Should -Be 1
+        @($g[0].users).userPrincipalName | Should -Contain 'olddba@contoso.com'
+    }
+
+    It 'flags a non-admin still using SMS/voice MFA as medium' {
+        $g = @($script:Result.gaps | Where-Object { $_.id -eq 'user-uses-sms-voice-mfa' })
+        @($g).Count | Should -Be 1
+        $g[0].severity | Should -Be 'medium'
+        @($g[0].users).userPrincipalName | Should -Contain 'bob@contoso.com'
+        @($g[0].users).userPrincipalName | Should -Not -Contain 'olddba@contoso.com'
+    }
+
     It 'does not emit a gap group with zero matched users' {
         foreach ($g in $script:Result.gaps) { $g.count | Should -BeGreaterThan 0 }
     }
@@ -106,6 +127,14 @@ Describe 'Per-user rows' {
         $bg.hasPhishResistant | Should -BeTrue
         $dba = @($script:Result.users | Where-Object { $_.userPrincipalName -eq 'olddba@contoso.com' })[0]
         $dba.hasPhishResistant | Should -BeFalse
+    }
+
+    It 'derives usesTelephonyMfa from registered methods' {
+        $dba = @($script:Result.users | Where-Object { $_.userPrincipalName -eq 'olddba@contoso.com' })[0]
+        $dba.usesTelephonyMfa | Should -BeTrue
+        $dba.telephonyMethods | Should -Contain 'mobilePhone'
+        $bg = @($script:Result.users | Where-Object { $_.userPrincipalName -eq 'breakglass@contoso.com' })[0]
+        $bg.usesTelephonyMfa | Should -BeFalse
     }
 
     It 'does not expose raw method secrets, only method identifiers' {
