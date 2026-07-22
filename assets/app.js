@@ -251,10 +251,9 @@
   }
   function flag(label, on) { return on ? "<div class=\"kv\"><span class=\"k\">" + label + "</span><span class=\"v\">Yes</span></div>" : ""; }
 
-  function renderDetail(p) {
-    var blockCls = p.isBlock ? " block" : "";
-    var usersTitle = p.isWorkloadIdentity ? "Workload identities" : "Users";
-
+  // Build the four per-policy card bodies (Users / Target / Conditions / Access
+  // controls). Shared by the Per-policy tab and the Compare-policies tab.
+  function policyCardBodies(p) {
     var userInc = [
       row("Users", p.includeUsers),
       row("Groups", p.includeGroups),
@@ -300,20 +299,34 @@
     var sess = arr(p.sessionControls);
     controls += sess.length ? "<div class=\"kv\"><span class=\"k\">Session</span><span class=\"v\">" + sess.map(esc).join("<br>") + "</span></div>" : "";
 
-    var link = p.portalLink ? ' &nbsp;·&nbsp; <a href="' + esc(p.portalLink) + '" target="_blank" rel="noopener">open in Entra portal &#8599;</a>' : "";
+    return {
+      usersTitle: p.isWorkloadIdentity ? "Workload identities" : "Users",
+      blockCls: p.isBlock ? " block" : "",
+      users: incExc(userInc, userExc),
+      target: incExc(appInc, appExc),
+      conditions: conditions,
+      controls: controls
+    };
+  }
 
-    var html = "" +
-      '<h2>' + esc(p.displayName) + ' <span class="pill ' + (p.state === "enabled" ? "ok" : "") + '">' + esc(stateLabel(p.state)) + "</span></h2>" +
+  function policyHeadHtml(p) {
+    var link = p.portalLink ? ' &nbsp;·&nbsp; <a href="' + esc(p.portalLink) + '" target="_blank" rel="noopener">open in Entra portal &#8599;</a>' : "";
+    return '<h2>' + esc(p.displayName) + ' <span class="pill ' + (p.state === "enabled" ? "ok" : "") + '">' + esc(stateLabel(p.state)) + "</span></h2>" +
       '<div class="muted" style="margin-bottom:12px">id: <code>' + esc(p.id) + "</code>" +
-      (p.modifiedDateTime ? " &nbsp;·&nbsp; modified: " + esc(fmtLocal(p.modifiedDateTime)) : "") + link + "</div>" +
+      (p.modifiedDateTime ? " &nbsp;·&nbsp; modified: " + esc(fmtLocal(p.modifiedDateTime)) : "") + link + "</div>";
+  }
+
+  function renderDetail(p) {
+    var b = policyCardBodies(p);
+    var html = policyHeadHtml(p) +
       '<div class="flow">' +
-        '<div class="flowcol"><h3>' + usersTitle + "</h3>" + incExc(userInc, userExc) + "</div>" +
+        '<div class="flowcol"><h3>' + b.usersTitle + "</h3>" + b.users + "</div>" +
         '<div class="arrow">&rarr;</div>' +
-        '<div class="flowcol"><h3>Target resources</h3>' + incExc(appInc, appExc) + "</div>" +
+        '<div class="flowcol"><h3>Target resources</h3>' + b.target + "</div>" +
         '<div class="arrow">&rarr;</div>' +
-        '<div class="flowcol"><h3>Conditions</h3>' + conditions + "</div>" +
+        '<div class="flowcol"><h3>Conditions</h3>' + b.conditions + "</div>" +
         '<div class="arrow">&rArr;</div>' +
-        '<div class="flowcol controls' + blockCls + '"><h3>Access controls</h3>' + controls + "</div>" +
+        '<div class="flowcol controls' + b.blockCls + '"><h3>Access controls</h3>' + b.controls + "</div>" +
       "</div>";
     el("detail").innerHTML = html;
   }
@@ -386,7 +399,7 @@
   }
 
   function showTab(name) {
-    ["overview", "detailview", "riskfindings", "contradictions", "compliance", "tests", "authmethods", "delta", "compare"].forEach(function (t) {
+    ["overview", "detailview", "riskfindings", "contradictions", "compliance", "tests", "authmethods", "delta", "compare", "cmppolicies"].forEach(function (t) {
       var pane = el("pane-" + t);
       if (pane) pane.classList.toggle("hidden", t !== name);
     });
@@ -544,7 +557,8 @@
       if (!map[k]) {
         map[k] = {
           checkId: x.checkId, title: x.title, severity: x.severity, riskScore: x.riskScore,
-          description: x.description, remediation: x.remediation, references: x.references,
+          description: x.description, summary: x.summary, logic: x.logic, threat: x.threat,
+          remediation: x.remediation, references: x.references,
           affectedObjects: [], count: 0
         };
         order.push(k);
@@ -574,14 +588,21 @@
     });
     var rows = groupFindings(filtered).map(function (x) {
       var refs = arr(x.references).map(esc).join(", ");
-      var desc = x.count > 1
-        ? esc(x.count + " objects affected - see the Affected column.")
-        : esc(x.description);
+      // Always show a meaningful description. When several objects share a
+      // finding, prefer the generic summary (per-object detail is in Affected);
+      // otherwise fall back to the per-object description.
+      var descText = x.count > 1 ? (x.summary || x.description) : (x.description || x.summary);
+      var desc = descText ? "<div class=\"muted\">" + esc(descText) + "</div>" : "";
+      var affNote = x.count > 1
+        ? "<div class=\"muted\"><i>" + esc(x.count + " objects affected - see the Affected column.") + "</i></div>"
+        : "";
       var badge = x.count > 1 ? ' <span class="pill">x' + x.count + "</span>" : "";
+      var why = x.threat ? "<div class=\"muted\"><i>Why it matters:</i> " + esc(x.threat) + "</div>" : "";
+      var how = x.logic ? "<div class=\"muted\"><i>How detected:</i> " + esc(x.logic) + "</div>" : "";
       return "<tr>" +
         "<td class=\"sev-" + esc(x.severity) + "\">" + esc(x.severity) + "</td>" +
         "<td style=\"text-align:center\">" + esc(x.riskScore) + "</td>" +
-        "<td><b>" + esc(x.title) + "</b>" + badge + "<div class=\"muted\">" + desc + "</div>" +
+        "<td><b>" + esc(x.title) + "</b>" + badge + desc + affNote + why + how +
         (x.remediation ? "<div class=\"muted\"><i>Fix:</i> " + esc(x.remediation) + "</div>" : "") +
         (refs ? "<div class=\"muted\"><i>Refs:</i> " + refs + "</div>" : "") + "</td>" +
         "<td>" + listNamesCollapsible(x.affectedObjects, 5) + "</td></tr>";
@@ -978,6 +999,230 @@
     });
   }
 
+  // ---- In-browser two-policy comparison (within a single export) ----
+  // Curated field set mirroring the per-policy cards, so the diff table reads the
+  // same way as the config panels and matches on resolved names (GUID vs name
+  // never registers as a difference).
+  var CMP_POL_FIELDS = [
+    ["Users", "Include users", function (p) { return p.includeUsers; }],
+    ["Users", "Include groups", function (p) { return p.includeGroups; }],
+    ["Users", "Include directory roles", function (p) { return p.includeRoles; }],
+    ["Users", "Include guests / external", function (p) { return !!p.includeGuestsExternal; }],
+    ["Users", "Include guest/external types", function (p) { return p.includeGuestTypes; }],
+    ["Users", "Include service principals", function (p) { return p.includeServicePrincipals; }],
+    ["Users", "Exclude users", function (p) { return p.excludeUsers; }],
+    ["Users", "Exclude groups", function (p) { return p.excludeGroups; }],
+    ["Users", "Exclude directory roles", function (p) { return p.excludeRoles; }],
+    ["Users", "Exclude guests / external", function (p) { return !!p.excludeGuestsExternal; }],
+    ["Users", "Exclude guest/external types", function (p) { return p.excludeGuestTypes; }],
+    ["Users", "Exclude service principals", function (p) { return p.excludeServicePrincipals; }],
+    ["Target resources", "Cloud apps (include)", function (p) { return p.includeApplications; }],
+    ["Target resources", "User actions", function (p) { return p.includeUserActions; }],
+    ["Target resources", "Authentication context", function (p) { return p.authenticationContext; }],
+    ["Target resources", "App filter", function (p) { return p.applicationFilter; }],
+    ["Target resources", "Cloud apps (exclude)", function (p) { return p.excludeApplications; }],
+    ["Conditions", "Client apps", function (p) { return p.clientAppTypes; }],
+    ["Conditions", "Device platforms (include)", function (p) { return p.includePlatforms; }],
+    ["Conditions", "Device platforms (exclude)", function (p) { return p.excludePlatforms; }],
+    ["Conditions", "Locations (include)", function (p) { return p.includeLocations; }],
+    ["Conditions", "Locations (exclude)", function (p) { return p.excludeLocations; }],
+    ["Conditions", "Sign-in risk", function (p) { return p.signInRiskLevels; }],
+    ["Conditions", "User risk", function (p) { return p.userRiskLevels; }],
+    ["Conditions", "Service principal risk", function (p) { return p.servicePrincipalRiskLevels; }],
+    ["Conditions", "Insider risk", function (p) { return p.insiderRiskLevels; }],
+    ["Conditions", "Agent risk", function (p) { return p.agentRiskLevels; }],
+    ["Conditions", "Authentication flows", function (p) { return p.authenticationFlows; }],
+    ["Conditions", "Filter for devices", function (p) { return p.deviceFilter; }],
+    ["Access controls", "Effect", function (p) { return p.isBlock ? "Block" : "Grant"; }],
+    ["Access controls", "Grant operator", function (p) { return p.grantOperator; }],
+    ["Access controls", "Grant controls", function (p) { return arr(p.grantControlLabels || p.grantControls).concat(arr(p.customAuthenticationFactors)); }],
+    ["Access controls", "Authentication strength", function (p) { return p.authenticationStrength; }],
+    ["Access controls", "Terms of use", function (p) { return p.termsOfUse; }],
+    ["Access controls", "Session controls", function (p) { return p.sessionControls; }],
+    ["Policy", "State", function (p) { return stateLabel(p.state); }]
+  ];
+
+  // Normalized key for equality (order-independent, name-resolved).
+  function cmpValKey(v) {
+    if (typeof v === "boolean") return v ? "1" : "0";
+    var a = arr(v).filter(function (x) { return x !== null && x !== undefined && x !== ""; });
+    return a.map(function (x) { return String(nm(x)); }).sort().join("|");
+  }
+  // Human display (names, Yes/No), "-" when empty.
+  function cmpValDisplay(v) {
+    if (typeof v === "boolean") return v ? "Yes" : "No";
+    var a = arr(v).filter(function (x) { return x !== null && x !== undefined && x !== ""; });
+    return a.length ? a.map(function (x) { return esc(nm(x)); }).join("<br>") : '<span class="muted">-</span>';
+  }
+
+  var cmpPolState = { left: null, right: null, open: "users", diffOnly: false, sameUsers: false };
+
+  // Normalized signature of who a policy targets (include side): used to find
+  // policies that target the same users - a strong duplicate/overlap signal.
+  function cmpPolUserKey(p) {
+    if (!p) return "";
+    return [
+      "u:" + cmpValKey(p.includeUsers),
+      "g:" + cmpValKey(p.includeGroups),
+      "r:" + cmpValKey(p.includeRoles),
+      "x:" + cmpValKey(!!p.includeGuestsExternal),
+      "t:" + cmpValKey(p.includeGuestTypes),
+      "s:" + cmpValKey(p.includeServicePrincipals)
+    ].join("||");
+  }
+  var CMP_POL_SECTIONS = [
+    { key: "users", title: function (b) { return b.usersTitle; }, body: function (b) { return b.users; } },
+    { key: "target", title: function () { return "Target resources"; }, body: function (b) { return b.target; } },
+    { key: "conditions", title: function () { return "Conditions"; }, body: function (b) { return b.conditions; } },
+    { key: "controls", title: function () { return "Access controls"; }, body: function (b) { return b.controls; } }
+  ];
+
+  function cmpPolFilteredOptions(filter, refUserKey, excludeIdx) {
+    var f = (filter || "").trim().toLowerCase();
+    var out = [];
+    policies.forEach(function (p, i) {
+      if (f && (String(p.displayName) + " " + String(p.id)).toLowerCase().indexOf(f) === -1) return;
+      if (refUserKey !== null && refUserKey !== undefined) {
+        if (i === excludeIdx) return;
+        if (cmpPolUserKey(p) !== refUserKey) return;
+      }
+      out.push(i);
+    });
+    return out;
+  }
+
+  function cmpPolPopulate(sel, filter, current, refUserKey, excludeIdx) {
+    if (!sel) return;
+    var idxs = cmpPolFilteredOptions(filter, refUserKey, excludeIdx);
+    var html = '<option value="">&mdash; select a policy &mdash;</option>';
+    idxs.forEach(function (i) {
+      var p = policies[i];
+      html += '<option value="' + i + '">' + esc(p.displayName) + " (" + esc(stateLabel(p.state)) + ")</option>";
+    });
+    sel.innerHTML = html;
+    if (current !== null && current !== undefined && idxs.indexOf(current) !== -1) sel.value = String(current);
+    else if (idxs.length === 1) sel.value = String(idxs[0]);
+  }
+
+  // The right dropdown is optionally restricted to policies targeting the same
+  // users as the left policy. Returns the reference key (or null when off).
+  function cmpPolRightRefKey() {
+    if (!cmpPolState.sameUsers) return null;
+    if (cmpPolState.left === null || cmpPolState.left === undefined) return null;
+    return cmpPolUserKey(policies[cmpPolState.left]);
+  }
+  function cmpPolRepopulateRight() {
+    var rs = el("cmpPolRight"), rq = el("cmpPolRightQ"), hint = el("cmpPolSameHint");
+    if (!rs) return;
+    var ref = cmpPolRightRefKey();
+    cmpPolPopulate(rs, rq ? rq.value : "", cmpPolState.right, ref, cmpPolState.left);
+    cmpPolState.right = rs.value === "" ? null : parseInt(rs.value, 10);
+    if (hint) {
+      if (ref === null) { hint.textContent = ""; }
+      else {
+        var n = cmpPolFilteredOptions("", ref, cmpPolState.left).length;
+        hint.textContent = n + " other policy(ies) target the same users.";
+      }
+    }
+  }
+
+  function cmpPolColumn(p, side) {
+    if (!p) return '<div class="cmppol-col"><p class="muted">Select a policy above.</p></div>';
+    var b = policyCardBodies(p);
+    var secs = CMP_POL_SECTIONS.map(function (s) {
+      var open = cmpPolState.open === s.key;
+      return '<div class="acc' + (open ? " open" : "") + '">' +
+        '<button type="button" class="acc-h" data-sec="' + s.key + '">' + esc(s.title(b)) + "</button>" +
+        (open ? '<div class="acc-b">' + s.body(b) + "</div>" : "") + "</div>";
+    }).join("");
+    return '<div class="cmppol-col ' + side + '">' + policyHeadHtml(p) + secs + "</div>";
+  }
+
+  function cmpPolTable(l, r) {
+    var groups = {}, order = [], nDiff = 0, nCmp = 0;
+    CMP_POL_FIELDS.forEach(function (f) {
+      var sec = f[0], label = f[1], get = f[2];
+      var lv = get(l), rv = get(r);
+      var diff = cmpValKey(lv) !== cmpValKey(rv);
+      nCmp++; if (diff) nDiff++;
+      if (cmpPolState.diffOnly && !diff) return;
+      if (!groups[sec]) { groups[sec] = []; order.push(sec); }
+      groups[sec].push(
+        '<tr class="' + (diff ? "row-diff" : "row-same") + '">' +
+          "<td>" + esc(label) + "</td>" +
+          "<td>" + cmpValDisplay(lv) + "</td>" +
+          "<td>" + cmpValDisplay(rv) + "</td></tr>"
+      );
+    });
+    var head = '<thead><tr><th>Field</th><th>' + esc(l.displayName) + "</th><th>" + esc(r.displayName) + "</th></tr></thead>";
+    var body = order.map(function (sec) {
+      return '<tr class="cmp-sec"><td colspan="3">' + esc(sec) + "</td></tr>" + groups[sec].join("");
+    }).join("");
+    if (!body) body = '<tr><td colspan="3" class="muted">No fields to show.</td></tr>';
+    var summary = '<p class="cmppol-summary"><b>' + nDiff + "</b> of " + nCmp +
+      " comparable fields differ. <span class=\"muted\">Differences are highlighted.</span></p>";
+    return summary + "<table>" + head + "<tbody>" + body + "</tbody></table>";
+  }
+
+  function renderCmpPolicies() {
+    var host = el("cmpPolCards"), tbl = el("cmpPolTable");
+    if (!host) return;
+    var l = (cmpPolState.left !== null) ? policies[cmpPolState.left] : null;
+    var r = (cmpPolState.right !== null) ? policies[cmpPolState.right] : null;
+    host.innerHTML = '<div class="cmppol-cols">' + cmpPolColumn(l, "left") + cmpPolColumn(r, "right") + "</div>";
+    // Section headers act as a synced accordion across both columns.
+    host.querySelectorAll(".acc-h").forEach(function (btn) {
+      btn.onclick = function () { cmpPolState.open = btn.getAttribute("data-sec"); renderCmpPolicies(); };
+    });
+    if (tbl) {
+      if (l && r) tbl.innerHTML = cmpPolTable(l, r);
+      else tbl.innerHTML = '<p class="muted">Pick a policy on the left and right to see a field-by-field comparison.</p>';
+    }
+    localizeStamps();
+  }
+
+  function initComparePolicies() {
+    var ls = el("cmpPolLeft"), rs = el("cmpPolRight");
+    if (!ls || !rs) return;
+    if (policies.length) cmpPolState.left = 0;
+    if (policies.length > 1) cmpPolState.right = 1;
+    cmpPolPopulate(ls, "", cmpPolState.left);
+    cmpPolPopulate(rs, "", cmpPolState.right);
+    var lq = el("cmpPolLeftQ"), rq = el("cmpPolRightQ");
+    if (lq) lq.addEventListener("input", function () {
+      cmpPolPopulate(ls, lq.value, cmpPolState.left);
+      cmpPolState.left = ls.value === "" ? null : parseInt(ls.value, 10);
+      cmpPolRepopulateRight();
+      renderCmpPolicies();
+    });
+    if (rq) rq.addEventListener("input", function () {
+      cmpPolRepopulateRight();
+      renderCmpPolicies();
+    });
+    ls.addEventListener("change", function () {
+      cmpPolState.left = ls.value === "" ? null : parseInt(ls.value, 10);
+      cmpPolRepopulateRight();
+      renderCmpPolicies();
+    });
+    rs.addEventListener("change", function () { cmpPolState.right = rs.value === "" ? null : parseInt(rs.value, 10); renderCmpPolicies(); });
+    var swap = el("cmpPolSwap");
+    if (swap) swap.addEventListener("click", function () {
+      var t = cmpPolState.left; cmpPolState.left = cmpPolState.right; cmpPolState.right = t;
+      cmpPolPopulate(ls, lq ? lq.value : "", cmpPolState.left);
+      cmpPolRepopulateRight();
+      renderCmpPolicies();
+    });
+    var diffOnly = el("cmpPolDiffOnly");
+    if (diffOnly) diffOnly.addEventListener("change", function () { cmpPolState.diffOnly = diffOnly.checked; renderCmpPolicies(); });
+    var sameUsers = el("cmpPolSameUsers");
+    if (sameUsers) sameUsers.addEventListener("change", function () {
+      cmpPolState.sameUsers = sameUsers.checked;
+      cmpPolRepopulateRight();
+      renderCmpPolicies();
+    });
+    renderCmpPolicies();
+  }
+
   window.addEventListener("DOMContentLoaded", function () {
     localizeStamps();
     renderSummaryCards();
@@ -991,6 +1236,7 @@
     renderAuthMethods();
     populateFacets();
     renderList("", "all");
+    initComparePolicies();
     if (policies.length) { selected = 0; renderDetail(policies[0]); }
 
     el("q").addEventListener("input", function () { renderList(el("q").value, el("fstate").value); });

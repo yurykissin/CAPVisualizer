@@ -76,7 +76,7 @@ $script:CapComplianceChecks = @{
         _BroadBlock $Policies {
             param($p)
             (-not $p.conditions.clientApps.isAll) -and
-            (@(_CoArr $p.conditions.clientApps.effective) | Where-Object { @('exchangeActiveSync', 'other') -contains $_ }).Count -ge 1
+            @(_CoArr $p.conditions.clientApps.effective | Where-Object { @('exchangeActiveSync', 'other') -contains $_ }).Count -ge 1
         }
     }
     'block-high-risk-user' = {
@@ -120,7 +120,7 @@ $script:CapComplianceChecks = @{
         param($Policies)
         $matches = @($Policies | Where-Object {
             $_.enforced -and $_.grant.block -and $_.conditions.users.includeAll -and
-            @(@(_CoArr $_.conditions.authFlows) | Where-Object { "$_" -eq 'deviceCodeFlow' }).Count -ge 1
+            @(_CoArr $_.conditions.authFlows | Where-Object { "$_" -eq 'deviceCodeFlow' }).Count -ge 1
         })
         @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
     }
@@ -128,7 +128,7 @@ $script:CapComplianceChecks = @{
         param($Policies)
         $matches = @($Policies | Where-Object {
             $_.enforced -and $_.grant.block -and
-            @(@(_CoArr $_.conditions.agentRisk) | Where-Object { "$_" -eq 'high' }).Count -ge 1
+            @(_CoArr $_.conditions.agentRisk | Where-Object { "$_" -eq 'high' }).Count -ge 1
         })
         @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
     }

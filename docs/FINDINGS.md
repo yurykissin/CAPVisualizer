@@ -10,8 +10,21 @@ Each finding:
 
 ```
 { id, checkId, title, severity, impact, likelihood, riskScore,
-  description, threat, remediation, affectedObjects[], references[] }
+  description, summary, logic, threat, remediation, affectedObjects[], references[] }
 ```
+
+- **`description`** - the specific, per-object detail (e.g. *"Alice holds Global
+  Administrator but has not signed in for 214 day(s)"*).
+- **`summary`** - a generic, object-independent one-line description of the
+  finding type. The viewer shows this when many objects share one finding (so a
+  collapsed *"x29"* row still explains itself), while the per-object detail stays
+  in the **Affected** column.
+- **`logic`** - the exact detection rule ("how detected"): the condition that
+  caused this finding to fire. Rendered in the viewer as *How detected* so a
+  reviewer never has to reverse-engineer why a finding appears.
+- **`threat`** - why it matters (the risk if left unaddressed). Rendered as
+  *Why it matters*.
+- **`remediation`** - the fix. **`references`** - public standards (see below).
 
 ## Scoring model
 
@@ -34,13 +47,27 @@ likely to bite).
 
 - **Directory** - ownerless group used as a CA exclusion; user not MFA-capable
   (weighted higher if privileged or if an all-users MFA policy applies); inactive
-  privileged account (last sign-in older than the threshold, default 90 days).
+  privileged account (last sign-in older than the threshold, default 30 days);
+  disabled privileged account (an account that still holds a privileged directory
+  role while `accountEnabled = false`, leaving a dormant grant that can be
+  reactivated).
 - **Policy state** - enabled policy with no controls; grant policy with neither
   strong auth nor device compliance; critical (block / MFA / device) policy left
-  disabled or report-only.
+  disabled or report-only; device code / authentication-transfer flow not blocked
+  tenant-wide.
 - **Promoted audit issues** - every contradiction/exemption issue from
   [AUDIT.md](AUDIT.md), mapped into this schema with impact/likelihood and
   standards references.
+
+The inactivity threshold is configurable via `-InactiveDays` (default 30).
+
+## Every finding is self-explaining
+
+Each finding carries both **why it matters** (`threat`) and **how it was
+detected** (`logic`) in addition to the description and remediation, so the
+report can be read without cross-referencing the source. Findings that affect
+many objects collapse into a single row (`x<n>`) that still shows the generic
+`summary` and lists the affected objects in a dedicated column.
 
 ## References
 

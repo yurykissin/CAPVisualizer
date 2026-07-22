@@ -22,6 +22,7 @@ __STYLES__
 <div class="tabs" style="padding: 12px 24px;">
   <div class="tab" data-tab="overview">Overview</div>
   <div class="tab" data-tab="detailview">Per-policy</div>
+  <div class="tab" id="cmpPolTab" data-tab="cmppolicies">Compare policies</div>
   <div class="tab hidden" id="findingsTab" data-tab="riskfindings">Findings</div>
   <div class="tab hidden" id="contraTab" data-tab="contradictions">Contradictions</div>
   <div class="tab hidden" id="complianceTab" data-tab="compliance">Compliance</div>
@@ -145,6 +146,37 @@ __STYLES__
       <span id="cmpMsg" class="muted"></span>
     </div>
     <div id="cmpResult"></div>
+  </div>
+</div>
+
+<div id="pane-cmppolicies" class="hidden">
+  <div class="main">
+    <h2>Compare two policies</h2>
+    <p class="muted" style="margin:6px 0 14px">Pick any two Conditional Access
+      policies from this export to see their configuration side by side and a
+      field-by-field comparison. Each config panel is collapsible - open one
+      section (Users, Target resources, Conditions, Access controls) and it opens
+      on both sides so they line up. Everything runs locally in your browser.</p>
+    <div class="cmp-pick">
+      <div class="cmp-slot">
+        <label for="cmpPolLeft">Left policy</label>
+        <input id="cmpPolLeftQ" type="text" placeholder="Search policies by name or id...">
+        <select id="cmpPolLeft"></select>
+      </div>
+      <div class="cmp-slot">
+        <label for="cmpPolRight">Right policy</label>
+        <input id="cmpPolRightQ" type="text" placeholder="Search policies by name or id...">
+        <select id="cmpPolRight"></select>
+      </div>
+    </div>
+    <div class="cmp-actions">
+      <button id="cmpPolSwap" type="button" class="cmp-btn cmp-btn-sec">Swap sides</button>
+      <label class="cmppol-toggle"><input id="cmpPolDiffOnly" type="checkbox"> Show only differences</label>
+      <label class="cmppol-toggle"><input id="cmpPolSameUsers" type="checkbox"> Only policies targeting the same users as left <span id="cmpPolSameHint" class="muted"></span></label>
+    </div>
+    <div id="cmpPolCards"></div>
+    <h2 style="margin-top:20px">Field-by-field comparison</h2>
+    <div id="cmpPolTable"></div>
   </div>
 </div>
 

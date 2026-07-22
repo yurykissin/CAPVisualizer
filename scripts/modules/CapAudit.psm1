@@ -137,7 +137,7 @@ function Test-CapLegacyAuthCoverage {
         $_.enforced -and $_.grant.block -and
         $_.conditions.users.includeAll -and
         ($_.conditions.applications.includeAll) -and
-        (@(_AuArr $_.conditions.clientApps.effective) | Where-Object { @('exchangeActiveSync', 'other') -contains $_ }).Count -ge 1 -and
+        @(_AuArr $_.conditions.clientApps.effective | Where-Object { @('exchangeActiveSync', 'other') -contains $_ }).Count -ge 1 -and
         (-not $_.conditions.clientApps.isAll)
     })
 

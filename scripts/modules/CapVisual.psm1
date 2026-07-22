@@ -77,6 +77,7 @@ function New-CapVisual {
         Replace('__GENERATED__', [string]$Summary.generatedUtc).
         Replace('__POLICYCOUNT__', [string]$Summary.totalPolicies)
 
+    $OutputFile = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputFile)
     $dir = Split-Path -Parent $OutputFile
     if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
     [System.IO.File]::WriteAllText($OutputFile, $html, [System.Text.UTF8Encoding]::new($false))

@@ -68,6 +68,8 @@ function New-CapFinding {
         [Parameter(Mandatory)][ValidateRange(1, 5)][int]$Impact,
         [Parameter(Mandatory)][ValidateRange(1, 5)][int]$Likelihood,
         [Parameter(Mandatory)][string]$Description,
+        [string]$Summary = '',
+        [string]$Logic = '',
         [string]$Threat = '',
         [string]$Remediation = '',
         [object[]]$AffectedObjects = @(),
@@ -83,6 +85,8 @@ function New-CapFinding {
         likelihood      = $Likelihood
         riskScore       = $score
         description     = $Description
+        summary         = $Summary
+        logic           = $Logic
         threat          = $Threat
         remediation     = $Remediation
         affectedObjects = @($AffectedObjects)
@@ -92,12 +96,12 @@ function New-CapFinding {
 
 # Metadata used when promoting Phase 5 audit issues into the finding schema.
 $script:CapAuditFindingMeta = @{
-    'app-include-exclude-overlap'  = @{ impact = 4; likelihood = 4; threat = 'Resource assumed protected is silently uncovered, allowing unconditioned access.'; remediation = 'Remove the conflicting exclusion or the redundant explicit include so the intended app is actually in scope.'; references = @('MITRE ATT&CK T1078') }
-    'platform-include-exclude-overlap' = @{ impact = 2; likelihood = 3; threat = 'Platform intended to be in scope is excluded, weakening coverage.'; remediation = 'Reconcile the platform include and exclude lists.'; references = @() }
-    'principal-include-exclude-overlap' = @{ impact = 2; likelihood = 2; threat = 'Principal is excluded despite being named for inclusion; the inclusion is a no-op.'; remediation = 'Remove the principal from either the include or the exclude list to reflect intent.'; references = @() }
-    'legacy-auth-not-blocked'      = @{ impact = 5; likelihood = 4; threat = 'Legacy protocols bypass MFA and modern controls, enabling password spray / credential stuffing.'; remediation = 'Add an enabled Block policy for All users / All apps with client apps = exchangeActiveSync + other.'; references = @('MITRE ATT&CK T1110', 'CISA SCuBA MS.AAD.1.1', 'NIST 800-53 IA-2') }
-    'privileged-user-exempt'       = @{ impact = 5; likelihood = 3; threat = 'A privileged account is exempt from protection; compromise grants tenant-wide control.'; remediation = 'Remove the privileged account from the exclusion, or restrict the exclusion to dedicated break-glass identities only.'; references = @('MITRE ATT&CK T1078.004', 'CISA SCuBA MS.AAD.3.1') }
-    'privileged-via-excluded-group' = @{ impact = 5; likelihood = 3; threat = 'Privileged members inherit an exclusion through group membership, escaping protection non-obviously.'; remediation = 'Ensure exclusion groups contain only intended break-glass accounts and are tightly governed.'; references = @('MITRE ATT&CK T1078.004', 'CISA SCuBA MS.AAD.3.1') }
+    'app-include-exclude-overlap'  = @{ impact = 4; likelihood = 4; threat = 'Resource assumed protected is silently uncovered, allowing unconditioned access.'; remediation = 'Remove the conflicting exclusion or the redundant explicit include so the intended app is actually in scope.'; references = @('MITRE ATT&CK T1078'); logic = 'Detected when the same application appears in both the include and exclude application lists of a policy; the exclude wins, so the app is not actually protected.' }
+    'platform-include-exclude-overlap' = @{ impact = 2; likelihood = 3; threat = 'Platform intended to be in scope is excluded, weakening coverage.'; remediation = 'Reconcile the platform include and exclude lists.'; references = @(); logic = 'Detected when the same device platform appears in both the include and exclude platform lists of a policy.' }
+    'principal-include-exclude-overlap' = @{ impact = 2; likelihood = 2; threat = 'Principal is excluded despite being named for inclusion; the inclusion is a no-op.'; remediation = 'Remove the principal from either the include or the exclude list to reflect intent.'; references = @(); logic = 'Detected when the same user, group or role appears in both the include and exclude principal lists of a policy.' }
+    'legacy-auth-not-blocked'      = @{ impact = 5; likelihood = 4; threat = 'Legacy protocols bypass MFA and modern controls, enabling password spray / credential stuffing.'; remediation = 'Add an enabled Block policy for All users / All apps with client apps = exchangeActiveSync + other.'; references = @('MITRE ATT&CK T1110', 'CISA SCuBA MS.AAD.1.1', 'NIST 800-53 IA-2'); logic = 'Detected when no enabled block policy for All users / All apps targets the legacy client-app types (exchangeActiveSync, other).' }
+    'privileged-user-exempt'       = @{ impact = 5; likelihood = 3; threat = 'A privileged account is exempt from protection; compromise grants tenant-wide control.'; remediation = 'Remove the privileged account from the exclusion, or restrict the exclusion to dedicated break-glass identities only.'; references = @('MITRE ATT&CK T1078.004', 'CISA SCuBA MS.AAD.3.1'); logic = 'Detected when a user holding a privileged directory role is named directly in the exclude-users list of an enforced protective policy.' }
+    'privileged-via-excluded-group' = @{ impact = 5; likelihood = 3; threat = 'Privileged members inherit an exclusion through group membership, escaping protection non-obviously.'; remediation = 'Ensure exclusion groups contain only intended break-glass accounts and are tightly governed.'; references = @('MITRE ATT&CK T1078.004', 'CISA SCuBA MS.AAD.3.1'); logic = 'Detected when a privileged-role holder is a member of a group that is in the exclude-groups list of an enforced protective policy.' }
 }
 
 function Get-CapDirectoryFindings {
@@ -107,14 +111,14 @@ function Get-CapDirectoryFindings {
     lacking MFA capability, and inactive privileged accounts.
 
 .PARAMETER InactiveDays
-    Threshold (default 90) beyond which a privileged account's last sign-in is
+    Threshold (default 30) beyond which a privileged account's last sign-in is
     considered inactive, measured against enrichment.collectedUtc.
 #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$NormalizedPolicies,
         $Enrichment,
-        [int]$InactiveDays = 90
+        [int]$InactiveDays = 30
     )
 
     $findings = [System.Collections.Generic.List[object]]::new()
@@ -148,6 +152,8 @@ function Get-CapDirectoryFindings {
             $findings.Add((New-CapFinding -CheckId 'ownerless-exclusion-group' `
                 -Title 'Ownerless group used as a Conditional Access exclusion' `
                 -Impact 4 -Likelihood 3 `
+                -Summary 'A group with no owner is used to exclude principals from one or more enforced policies, so its membership is ungoverned.' `
+                -Logic 'Flagged when a group ID appears in excludeGroups of any enforced policy AND enrichment marks the group as ownerless.' `
                 -Description "Group '$($nameOf[$gid])' is used to exclude principals from one or more enforced policies but has no owner, so its membership is ungoverned." `
                 -Threat 'Membership of an ownerless exclusion group can be changed without accountability, silently exempting new accounts from protection.' `
                 -Remediation 'Assign an accountable owner to the group and review its membership, or replace the exclusion with an explicitly enumerated break-glass account list.' `
@@ -166,6 +172,8 @@ function Get-CapDirectoryFindings {
             $findings.Add((New-CapFinding -CheckId 'user-not-mfa-capable' `
                 -Title 'User is not capable of MFA' `
                 -Impact $impact -Likelihood $likelihood `
+                -Summary 'One or more in-scope users have no registered authentication method capable of satisfying multifactor authentication.' `
+                -Logic 'Flagged per user when enrichment mfaCapability.isMfaCapable is false. Likelihood is raised when an enforced All-users policy requires MFA (lockout risk); impact is raised when the user holds a privileged role.' `
                 -Description "$(if ($nameOf.ContainsKey($uid)) { $nameOf[$uid] } else { $uid }) has no registered method capable of satisfying multifactor authentication$(if ($privUsers.ContainsKey($uid)) { ' and holds a privileged role' } else { '' })." `
                 -Threat 'An account with no MFA capability either cannot satisfy an MFA policy (lockout) or, if excluded, authenticates with a single factor - a prime target for credential theft.' `
                 -Remediation 'Drive registration of a phishing-resistant authentication method for this user.' `
@@ -174,19 +182,39 @@ function Get-CapDirectoryFindings {
         }
     }
 
-    # --- Inactive privileged accounts ---
+    # --- Inactive / disabled privileged accounts ---
     $now = _FiToDate (_FiGet $Enrichment 'collectedUtc')
     if (-not $now) { $now = (Get-Date).ToUniversalTime() }
     foreach ($u in $users) {
         $uid = "$(_FiGet $u 'id')"
         if (-not $privUsers.ContainsKey($uid)) { continue }
+        $uname = if ($nameOf.ContainsKey($uid)) { $nameOf[$uid] } else { $uid }
+
+        # Disabled privileged account: role still assigned to a blocked sign-in.
+        $enabledVal = _FiGet $u 'accountEnabled'
+        if ($enabledVal -is [bool] -and -not $enabledVal) {
+            $findings.Add((New-CapFinding -CheckId 'disabled-privileged-account' `
+                -Title 'Privileged account is disabled' `
+                -Impact 4 -Likelihood 3 `
+                -Summary 'A disabled account still holds a privileged directory role, leaving a dormant grant that can be reactivated.' `
+                -Logic 'Flagged when an account with an active privileged role assignment has accountEnabled = false in enrichment.' `
+                -Description "$uname holds $($privUsers[$uid]) but the account is disabled (accountEnabled = false)." `
+                -Threat 'A disabled account retains its role assignment; if it is ever re-enabled (deliberately or by a compromised admin) it instantly regains privileged access with no fresh review.' `
+                -Remediation 'Remove the privileged role assignment from disabled accounts. If the account is being retired, delete it; if it is a break-glass identity, keep it enabled and governed by PIM instead.' `
+                -AffectedObjects @($uid) `
+                -References @('MITRE ATT&CK T1078.004', 'CISA SCuBA MS.AAD.7.1', 'NIST 800-53 AC-2(3)')))
+            continue
+        }
+
         $last = _FiToDate (_FiGet $u 'lastSignInDateTime')
         $days = if ($last) { [int]($now - $last).TotalDays } else { 9999 }
         if ($days -ge $InactiveDays) {
             $findings.Add((New-CapFinding -CheckId 'inactive-privileged-account' `
                 -Title 'Privileged account is inactive' `
                 -Impact 5 -Likelihood 3 `
-                -Description "$($nameOf[$uid]) holds $($privUsers[$uid]) but has not signed in for $days day(s) (threshold $InactiveDays)." `
+                -Summary 'A privileged account has not signed in within the inactivity threshold, expanding the attack surface with a dormant high-value credential.' `
+                -Logic "Flagged when an account with a privileged directory role has an interactive lastSignInDateTime older than the threshold ($InactiveDays day(s)); accounts with no recorded sign-in are treated as inactive." `
+                -Description "$uname holds $($privUsers[$uid]) but has not signed in for $days day(s) (threshold $InactiveDays)." `
                 -Threat 'Dormant privileged accounts expand the attack surface: their credentials may be stale, unmonitored, and unlikely to be noticed if abused.' `
                 -Remediation 'Confirm the account is still required; if not, remove the privileged role or disable the account. Enforce PIM/just-in-time elevation.' `
                 -AffectedObjects @($uid) `
@@ -215,6 +243,8 @@ function Get-CapPolicyStateFindings {
                 $findings.Add((New-CapFinding -CheckId 'enabled-no-controls' `
                     -Title 'Enabled policy grants access with no controls' `
                     -Impact 3 -Likelihood 3 `
+                    -Summary 'An enabled policy applies neither a grant nor a session control, so it enforces nothing.' `
+                    -Logic 'Flagged when a policy is in the enabled state but grant.hasControls is false and it has no session controls.' `
                     -Description "'$($p.displayName)' is enabled but applies neither grant nor session controls." `
                     -Threat 'A policy with no controls provides a false sense of protection while enforcing nothing.' `
                     -Remediation 'Add a grant control (block, MFA, compliant device) or retire the policy.' `
@@ -225,6 +255,8 @@ function Get-CapPolicyStateFindings {
                 $findings.Add((New-CapFinding -CheckId 'no-strong-auth' `
                     -Title 'Grant policy requires neither strong auth nor device compliance' `
                     -Impact 2 -Likelihood 3 `
+                    -Summary 'An enabled grant policy requires neither MFA/auth-strength nor a compliant/hybrid device, so its control is weak.' `
+                    -Logic 'Flagged when an enabled policy has grant controls but none of them is block, requireMfa, requireCompliant or requireHybrid.' `
                     -Description "'$($p.displayName)' grants access without MFA/auth-strength or a compliant/hybrid device requirement." `
                     -Threat 'Weak grant controls may not meaningfully raise the bar for an attacker.' `
                     -Remediation 'Require phishing-resistant MFA or device compliance where appropriate.' `
@@ -237,6 +269,8 @@ function Get-CapPolicyStateFindings {
             $findings.Add((New-CapFinding -CheckId 'critical-policy-inactive' `
                 -Title 'Critical policy is not enforced' `
                 -Impact 4 -Likelihood 3 `
+                -Summary 'A policy that would block access or require MFA is currently disabled or report-only, so its protection is not applied.' `
+                -Logic 'Flagged when a policy with a block / require-MFA / require-compliant / require-hybrid control is not in the enabled state.' `
                 -Description "'$($p.displayName)' would block or require MFA but is currently $mode." `
                 -Threat 'A protective control that is disabled or report-only enforces nothing, leaving the intended risk unmitigated.' `
                 -Remediation 'Move the policy to the enabled state after validating its impact in report-only.' `
@@ -256,6 +290,8 @@ function Get-CapPolicyStateFindings {
         $findings.Add((New-CapFinding -CheckId 'no-device-code-flow-block' `
             -Title 'Device code flow authentication is not blocked' `
             -Impact 3 -Likelihood 3 `
+            -Summary 'No enabled policy blocks the device code / authentication-transfer flow, a common token-phishing vector.' `
+            -Logic 'Flagged once tenant-wide when no enabled block policy targets authentication flows deviceCodeFlow or authenticationTransfer.' `
             -Description 'No enabled Conditional Access policy blocks the device code / authentication-transfer flow for users who do not need it.' `
             -Threat 'Device code flow is a common phishing vector: an attacker relays a legitimate code to a victim to capture tokens without the victim ever visiting a malicious site.' `
             -Remediation 'Create a policy that blocks the device code flow (Conditions > Authentication flows) for all users except those with a genuine headless/kiosk need.' `
@@ -275,7 +311,8 @@ function ConvertFrom-CapAuditIssue {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Issue)
 
-    $meta = if ($script:CapAuditFindingMeta.ContainsKey($Issue.checkId)) { $script:CapAuditFindingMeta[$Issue.checkId] } else { @{ impact = 3; likelihood = 3; threat = ''; remediation = ''; references = @() } }
+    $meta = if ($script:CapAuditFindingMeta.ContainsKey($Issue.checkId)) { $script:CapAuditFindingMeta[$Issue.checkId] } else { @{ impact = 3; likelihood = 3; threat = ''; remediation = ''; references = @(); logic = '' } }
+    $logic = if ($meta.ContainsKey('logic')) { $meta.logic } else { '' }
     $affected = @()
     if ($Issue.policyId) { $affected += "policy:$($Issue.policyId)" }
     if ($Issue.evidence) {
@@ -286,7 +323,7 @@ function ConvertFrom-CapAuditIssue {
     }
     New-CapFinding -CheckId $Issue.checkId -Title $Issue.title `
         -Impact $meta.impact -Likelihood $meta.likelihood `
-        -Description $Issue.detail -Threat $meta.threat -Remediation $meta.remediation `
+        -Description $Issue.detail -Logic $logic -Threat $meta.threat -Remediation $meta.remediation `
         -AffectedObjects @($affected) -References @($meta.references)
 }
 
@@ -304,7 +341,7 @@ function Invoke-CapFindings {
         [Parameter(Mandatory)]$NormalizedPolicies,
         $Enrichment,
         $AuditResult,
-        [int]$InactiveDays = 90
+        [int]$InactiveDays = 30
     )
 
     $all = [System.Collections.Generic.List[object]]::new()

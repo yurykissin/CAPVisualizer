@@ -164,3 +164,29 @@ footer { padding: 14px 24px; color: var(--muted); font-size: 11px; border-top: 1
 .am-controls select { padding: 5px 8px; }
 .am-controls #amCount { margin-left: auto; font-size: 12px; }
 .am-controls .cmp-btn { padding: 5px 12px; font-size: 12px; }
+
+/* Compare-policies tab (two policies within one export) */
+.cmp-slot input[type="text"], .cmp-slot select {
+  width: 100%; padding: 8px 10px; margin-top: 8px; background: var(--panel2);
+  border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px;
+}
+.cmppol-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.cmppol-cols { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0 4px; }
+.cmppol-col { flex: 1 1 340px; min-width: 280px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.cmppol-col h2 { font-size: 15px; }
+.acc { border: 1px solid var(--border); border-radius: 6px; margin: 6px 0; overflow: hidden; }
+.acc-h {
+  width: 100%; text-align: left; cursor: pointer; padding: 8px 12px; font-size: 12px;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  background: var(--panel2); border: 0; border-left: 3px solid transparent; font-weight: 600;
+}
+.acc-h:hover { color: var(--text); }
+.acc.open > .acc-h { color: var(--text); border-left-color: var(--accent); }
+.acc-h::before { content: "\25B8 "; }
+.acc.open > .acc-h::before { content: "\25BE "; }
+.acc-b { padding: 10px 12px; }
+.cmppol-summary { margin: 6px 0 10px; }
+tr.cmp-sec td { background: var(--panel2); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-size: 11px; }
+tr.row-diff td { background: #2a1f13; }
+tr.row-diff td:first-child { border-left: 3px solid var(--warn); }
+tr.row-diff:hover td { background: #33260f; }

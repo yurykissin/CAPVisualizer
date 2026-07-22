@@ -74,7 +74,12 @@ count:
 ![Per-policy tab](docs/images/02-per-policy.png)
 
 **Findings** - risk-scored posture gaps, grouped and with collapsible affected
-lists:
+lists. Every finding is self-explaining: it shows a plain-language description,
+*Why it matters*, and *How detected* (the exact rule that fired), plus the fix
+and standards references - so a collapsed "x29" row still explains itself
+without cross-referencing the source. Checks include inactive **and** disabled
+privileged accounts, MFA-incapable users, unblocked legacy/device-code flows,
+and every promoted contradiction/exemption:
 
 ![Findings tab](docs/images/03-findings.png)
 
@@ -92,6 +97,18 @@ list: policies added, removed, and modified, with a field-level Source -> Target
 table (works fully offline, nothing is uploaded, timestamps shown in local time):
 
 ![Compare tab](docs/images/06-compare.png)
+
+**Compare policies** - pick any two policies *within the same export* from
+searchable dropdowns and compare them side by side. Each policy is shown as
+collapsible Users / Target resources / Conditions / Access controls cards (open
+one section and both sides expand it in sync to save vertical space), with a
+field-by-field table below that lists matching and differing settings and
+highlights the differences. A "Show only differences" toggle collapses the
+table to just the fields that diverge. Ideal for spotting duplicate or
+near-duplicate policies that are candidates for consolidation. A **"Only
+policies targeting the same users as left"** toggle restricts the right-hand
+dropdown to policies with an identical include-user/group/role targeting set, so
+overlapping or redundant policies surface immediately.
 
 **Auth methods** - an authentication-method registration audit: tenant rollup
 (MFA registered/capable, passwordless, phishing-resistant, SSPR), prioritized
@@ -155,6 +172,7 @@ output/<yyyyMMdd-HHmmss>/
   report/findings.json/csv # hygiene / gap findings
   report/summary.json      # counts and overview
   analysis/audit.json      # contradictions + exemption exposure
+  analysis/consolidation.json # duplicates, overlaps, merge candidates, dead weight, gaps
   analysis/findings.json   # risk-scored findings (impact x likelihood)
   analysis/compliance.json # CISA SCuBA (MS.AAD.*) control results
   analysis/tests.json      # assertion results (+ .junit.xml / .sarif.json)
@@ -201,8 +219,16 @@ network, reproducible from a JSON export via `-FromJson`:
   signals to surface bypasses and no-enforcement paths. `Invoke-CapAnalyze.ps1`.
 - **Contradiction audit** ([docs/AUDIT.md](docs/AUDIT.md)) - self-defeating
   include/exclude overlaps, legacy-auth gaps, exemption exposure.
+- **Rationalization & consolidation** ([docs/CONSOLIDATE.md](docs/CONSOLIDATE.md)) -
+  cross-policy compare to cluster exact duplicates, same-effect overlaps and safe
+  merge candidates, flag dead weight, check baseline completeness (device-code
+  flow, risk, admin auth strength, ...) and rank exclusion concentration, with an
+  estimated before -> after policy count. `Invoke-CapConsolidate.ps1`.
 - **Risk-scored findings** ([docs/FINDINGS.md](docs/FINDINGS.md)) - deterministic
-  impact x likelihood model with MITRE / CISA / NIST references.
+  impact x likelihood model with MITRE / CISA / NIST references. Every finding
+  carries a plain-language summary, *why it matters*, and *how it was detected*
+  (the exact rule), and covers inactive/disabled privileged accounts, MFA gaps,
+  and unblocked legacy/device-code flows.
 - **Compliance baseline** ([docs/COMPLIANCE.md](docs/COMPLIANCE.md)) - the full
   CISA SCuBA `MS.AAD.*` control set, evaluated from a versioned baseline pack.
   Conditional Access controls are scored automatically; controls that live
@@ -217,7 +243,8 @@ network, reproducible from a JSON export via `-FromJson`:
   report (never a user's actual method secrets).
 
 These are surfaced as extra tabs in the offline viewer and as `analysis/*.json`
-files.
+files. (Rationalization output is written to `analysis/consolidation.json` and as
+reviewer CSVs; it is not yet a dedicated viewer tab.)
 
 ### Capability parity
 
@@ -277,6 +304,7 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./export.json   # offline, zer
 pwsh ./scripts/Get-CapUserScope.ps1 -FromJson ./export.json -PrincipalId <object-id>
 pwsh ./scripts/Invoke-CapWhatIf.ps1 -FromJson ./export.json -PrincipalId <object-id> -Resource <app-id>
 pwsh ./scripts/Invoke-CapAnalyze.ps1 -FromJson ./export.json
+pwsh ./scripts/Invoke-CapConsolidate.ps1 -FromJson ./export.json
 pwsh ./scripts/Invoke-CapTest.ps1    -FromJson ./export.json -AssertionPath ./assertions.json
 pwsh ./scripts/Compare-CapSnapshot.ps1 -BaselinePath output/<a> -CurrentPath output/<b>
 ```
@@ -292,6 +320,7 @@ scripts/
   Get-CapUserScope.ps1         # per-user policy scope (offline)
   Invoke-CapWhatIf.ps1         # simulate one sign-in (offline)
   Invoke-CapAnalyze.ps1        # gap permutation (offline)
+  Invoke-CapConsolidate.ps1    # duplicate / overlap / merge / dead-weight analysis (offline)
   Invoke-CapTest.ps1           # assertion engine, CI exit codes
   modules/
     CapCommon.psm1             # auth, Graph paging, throttling, hashing, name resolution
@@ -302,6 +331,7 @@ scripts/
     CapWhatIf.psm1             # offline what-if evaluation
     CapAnalyze.psm1            # gap / bypass permutation
     CapAudit.psm1              # contradiction & exemption audit
+    CapConsolidate.psm1        # cross-policy rationalization & consolidation
     CapFindings.psm1           # risk-scored findings model
     CapCompliance.psm1         # CISA SCuBA baseline evaluation
     CapAuthMethods.psm1        # authentication-method registration audit
@@ -311,7 +341,7 @@ scripts/
 assets/                        # HTML template + inlined CSS/JS (offline)
   reference/                   # app groupings, privileged roles, baselines, assertions
 arm/                           # OPTIONAL, opt-in Azure scheduling (not local)
-docs/                          # USAGE, PERMISSIONS, SCOPE, WHATIF, ANALYZE, AUDIT, FINDINGS, COMPLIANCE, TESTING, DELTA, SCHEDULING, SECURITY
+docs/                          # USAGE, PERMISSIONS, SCOPE, WHATIF, ANALYZE, AUDIT, CONSOLIDATE, FINDINGS, COMPLIANCE, TESTING, DELTA, SCHEDULING, SECURITY
 samples/                       # sanitized sample export + offline self-test
 ```
 

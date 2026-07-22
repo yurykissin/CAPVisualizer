@@ -52,6 +52,32 @@ Describe 'Directory findings' {
         $f[0].affectedObjects | Should -Contain '66666666-6666-6666-6666-666666666666'
         $f[0].severity | Should -Be 'high'
     }
+
+    It 'gives every finding a generic summary and detection logic' {
+        $f = @($script:Result.findings | Where-Object { $_.checkId -eq 'inactive-privileged-account' })
+        $f[0].summary | Should -Not -BeNullOrEmpty
+        $f[0].logic   | Should -Not -BeNullOrEmpty
+    }
+
+    It 'flags a disabled account that still holds a privileged role' {
+        $ga = '62e90394-69f5-4237-9190-012177145e10'
+        $enr = [ordered]@{
+            collectedUtc    = '2026-07-22T00:00:00Z'
+            users           = @{ data = @(
+                @{ id = 'd1'; displayName = 'Disabled GA'; accountEnabled = $false; lastSignInDateTime = '2026-07-20T00:00:00Z' }
+            ) }
+            groups          = @{ data = @() }
+            mfaCapability   = @{ data = @() }
+            roleAssignments = @{ data = @(
+                @{ principalId = 'd1'; roleTemplateId = $ga; roleName = 'Global Administrator' }
+            ) }
+        }
+        $f = @(Get-CapDirectoryFindings -NormalizedPolicies @() -Enrichment $enr -InactiveDays 30 |
+            Where-Object { $_.checkId -eq 'disabled-privileged-account' })
+        $f.Count | Should -Be 1
+        $f[0].affectedObjects | Should -Contain 'd1'
+        $f[0].summary | Should -Not -BeNullOrEmpty
+    }
 }
 
 Describe 'Policy-state findings' {

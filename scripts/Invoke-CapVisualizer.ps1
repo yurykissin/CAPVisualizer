@@ -141,6 +141,7 @@ Import-Module (Join-Path $modules 'CapNormalize.psm1') -Force
 Import-Module (Join-Path $modules 'CapScope.psm1') -Force
 Import-Module (Join-Path $modules 'CapWhatIf.psm1') -Force
 Import-Module (Join-Path $modules 'CapAudit.psm1') -Force
+Import-Module (Join-Path $modules 'CapConsolidate.psm1') -Force
 Import-Module (Join-Path $modules 'CapFindings.psm1') -Force
 Import-Module (Join-Path $modules 'CapCompliance.psm1') -Force
 Import-Module (Join-Path $modules 'CapAuthMethods.psm1') -Force
@@ -264,9 +265,9 @@ try {
     $summary  = New-CapSummary -Export $export -FriendlyPolicies $friendly -Findings $findings
 
     # --- Offline analysis engines (normalize -> audit/findings/compliance/test) ---
-    $riskFindings = $null; $auditResult = $null; $complianceResult = $null; $testResult = $null; $authMethods = $null
+    $riskFindings = $null; $auditResult = $null; $complianceResult = $null; $testResult = $null; $authMethods = $null; $consolidation = $null
     if (-not $SkipAnalysis) {
-        Write-CapLog "Running offline analysis engines (normalize, audit, findings, compliance, tests)..." 'INFO'
+        Write-CapLog "Running offline analysis engines (normalize, audit, consolidation, findings, compliance, tests)..." 'INFO'
         $grouping   = Get-CapAppGroupingMap
         $normalized = @($export.policies | ForEach-Object { ConvertTo-CapNormalizedPolicy -Policy $_ -AppGroupingMap $grouping })
         $enrichment = if ($export.Contains('enrichment')) { $export.enrichment } else { $null }
@@ -275,12 +276,17 @@ try {
         $riskFindings     = Invoke-CapFindings -NormalizedPolicies $normalized -Enrichment $enrichment -AuditResult $auditResult
         $complianceResult = Invoke-CapCompliance -NormalizedPolicies $normalized
         $authMethods      = Invoke-CapAuthMethods -Enrichment $enrichment
+        $consolidation    = Invoke-CapConsolidate -NormalizedPolicies $normalized -NameMap $nameMap
         $testArgs = @{ NormalizedPolicies = $normalized; Enrichment = $enrichment; ComplianceResult = $complianceResult; FindingsResult = $riskFindings }
         if ($AssertionPath) { $testArgs['AssertionPath'] = $AssertionPath }
         $testResult = Invoke-CapTest @testArgs
         Write-CapLog ("Analysis: {0} audit issue(s), {1} finding(s), compliance {2}% pass, tests {3}." -f `
             @($auditResult.issues).Count, @($riskFindings.findings).Count, $complianceResult.summary.passRate, `
             $(if ($testResult.passed) { 'PASS' } else { 'FAIL' })) 'OK'
+        Write-CapLog ("Consolidation: {0} -> ~{1} policies (exact dup {2}, overlap {3}, merge {4}, dead weight {5}, gaps {6})." -f `
+            $consolidation.summary.total, $consolidation.summary.estimatedTarget, $consolidation.summary.exactDuplicateClusters, `
+            $consolidation.summary.overlapClusters, $consolidation.summary.mergeCandidateClusters, `
+            $consolidation.summary.deadWeightCount, $consolidation.summary.completenessGaps) 'OK'
     }
 
     # --- Redact (optional) ---
@@ -297,6 +303,7 @@ try {
             $complianceResult = Protect-CapObject -Object $complianceResult
             $testResult       = Protect-CapObject -Object $testResult
             if ($authMethods) { $authMethods = Protect-CapObject -Object $authMethods }
+            if ($consolidation) { $consolidation = Protect-CapObject -Object $consolidation }
         }
     }
 
@@ -314,6 +321,7 @@ try {
         Save-CapJson -InputObject $riskFindings     -Path (Join-Path $snapshot 'analysis/findings.json')
         Save-CapJson -InputObject $complianceResult -Path (Join-Path $snapshot 'analysis/compliance.json')
         if ($authMethods) { Save-CapJson -InputObject $authMethods -Path (Join-Path $snapshot 'analysis/authmethods.json') }
+        if ($consolidation) { Save-CapJson -InputObject $consolidation -Path (Join-Path $snapshot 'analysis/consolidation.json') }
         Save-CapJson -InputObject $testResult       -Path (Join-Path $snapshot 'analysis/tests.json')
         if ($testResult) {
             ConvertTo-CapJUnit -TestResult $testResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.junit.xml') -Encoding utf8
