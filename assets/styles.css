@@ -119,6 +119,7 @@ td.ok, .ok { color: #a8f0c2; }
 .muted { color: var(--muted); }
 code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
 footer { padding: 14px 24px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); }
+.nowrap { white-space: nowrap; }
 
 /* Global search (header) */
 .gsearch { position: relative; margin: 10px 0 6px; max-width: 640px; }

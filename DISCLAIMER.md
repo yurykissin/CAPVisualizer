@@ -47,6 +47,30 @@ EntraFalcon, ScubaGear/CISA, and Maester) are the trademarks or property of
 their respective owners; CAPVisualizer is not affiliated with, endorsed by, or
 derived from any of them.
 
+## References & attributions
+CAPVisualizer scores your configuration against, and cites, publicly available
+security standards. These may be used freely in commercial and client-facing
+deliverables under the licenses noted below. Citing an identifier is a reference
+only and does **not** imply that the issuing body endorses CAPVisualizer, its
+output, or any assessment produced with it.
+
+| Standard | Used for | License / status | Attribution |
+| --- | --- | --- | --- |
+| **CISA SCuBA** Secure Configuration Baselines (`MS.AAD.*`) and **ScubaGear** | The Compliance tab and finding references | US Government work; the [`cisagov/ScubaGear`](https://github.com/cisagov/ScubaGear) repository is dedicated to the public domain under **Creative Commons Zero v1.0 (CC0-1.0)** | No attribution required; not endorsed by CISA |
+| **NIST SP 800-53** controls (e.g. `AC-2(3)`) | Finding references | US Government publication — **public domain** | No attribution required |
+| **MITRE ATT&CK®** technique IDs (e.g. `T1078.004`) | Finding references | Free to use under MITRE's Terms of Use, which **request attribution** | "© The MITRE Corporation. ATT&CK® — https://attack.mitre.org" |
+| **JUnit** and **SARIF** output formats | Assertion-engine output | Open, publicly documented schemas | No attribution required |
+
+When incorporating CAPVisualizer output into a report, the recommended practice
+is to (a) describe the assessment as being *against* the CISA SCuBA `MS.AAD`
+baseline rather than as an official CISA assessment, and (b) include the MITRE
+ATT&CK attribution line above wherever ATT&CK content is reproduced. The
+generated HTML viewer already carries these attributions in its footer.
+
+Standard **names and marks** (CISA, SCuBA, ScubaGear, NIST, MITRE ATT&CK®) belong
+to their respective owners and are referenced descriptively only; they are not
+used in CAPVisualizer's own name or branding.
+
 ## Least privilege
 CAPVisualizer is designed to run with the **lowest practical permissions**. The
 core export requires only the read-only `Policy.Read.All` Microsoft Graph scope.
