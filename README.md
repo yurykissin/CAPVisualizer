@@ -345,6 +345,18 @@ docs/                          # USAGE, PERMISSIONS, SCOPE, WHATIF, ANALYZE, AUD
 samples/                       # sanitized sample export + offline self-test
 ```
 
+## Changelogs
+
+The tool has two components with independent release notes, because a change to one
+does not necessarily affect the other:
+
+- **[CHANGELOG-EXPORT.md](CHANGELOG-EXPORT.md)** — the **collector** (Entra → JSON).
+  Entries here change *what is collected or the JSON shape* and mean you should take a
+  **fresh export**; the contract is stamped at `metadata.schemaVersion`.
+- **[CHANGELOG-REPORT.md](CHANGELOG-REPORT.md)** — the **analyzer / report** (JSON →
+  findings & HTML). Entries here change *how an existing export is analysed or
+  presented* and need **no new export** — just re-run `-FromJson` on your snapshot.
+
 ## Requirements
 
 - [PowerShell 7+](https://learn.microsoft.com/powershell/scripting/install/installing-powershell)

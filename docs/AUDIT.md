@@ -15,6 +15,11 @@ nothing. Runs automatically as part of `Invoke-CapVisualizer.ps1`
   excluded; the exclusion wins and the platform is uncovered.
 - **Principal include/exclude overlap** - a user, group, or role appears in both
   the include and exclude lists; the inclusion is a no-op for them.
+- **Combined risk conditions** - a single policy conditions on both **user risk**
+  and **sign-in risk**. Entra combines the two risk signals with OR under one grant
+  control, so the recommended distinct responses cannot both be enforced (secure
+  password change for user risk vs. MFA for sign-in risk). Best practice is two
+  separate policies (CISA SCuBA MS.AAD.2.1 and MS.AAD.2.3).
 - **Legacy authentication coverage** - a tenant-level check that at least one
   enabled policy broadly blocks legacy authentication clients
   (exchangeActiveSync / other) for all users and apps.

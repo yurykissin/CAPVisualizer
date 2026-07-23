@@ -120,6 +120,16 @@ function Test-CapPolicyContradictions {
         }
     }
 
+    # 4. User risk AND sign-in risk conditioned in the same policy (design anti-pattern).
+    $ur = @(_AuArr $p.conditions.userRisk)
+    $sr = @(_AuArr $p.conditions.signInRisk)
+    if ($ur.Count -and $sr.Count) {
+        $issues.Add((_AuIssue 'combined-risk-conditions' 'medium' 'design' `
+            'User risk and sign-in risk configured in the same policy' `
+            "This policy conditions on both user risk ($($ur -join ', ')) and sign-in risk ($($sr -join ', ')). Entra combines the two risk conditions with OR under a single grant control, so the recommended distinct responses cannot be applied - secure password change for user risk versus multifactor authentication for sign-in risk. Split into two separate policies." `
+            $p.id $p.displayName ([ordered]@{ userRisk = $ur; signInRisk = $sr })))
+    }
+
     @($issues)
 }
 

@@ -49,6 +49,47 @@ Describe 'Legacy authentication coverage' {
     }
 }
 
+Describe 'Combined user-risk + sign-in-risk in one policy' {
+    It 'flags a policy that conditions on both risk types' {
+        $raw = @{
+            id          = 'risk-combined-1'
+            displayName = 'Risk - combined (anti-pattern)'
+            state       = 'enabled'
+            conditions  = @{
+                users            = @{ includeUsers = @('All') }
+                applications     = @{ includeApplications = @('All') }
+                signInRiskLevels = @('high')
+                userRiskLevels   = @('high')
+            }
+            grantControls = @{ operator = 'OR'; builtInControls = @('mfa') }
+        }
+        $np = ConvertTo-CapNormalizedPolicy -Policy $raw -AppGroupingMap (Get-CapAppGroupingMap)
+        $issues = @(Test-CapPolicyContradictions -NormalizedPolicy $np |
+            Where-Object { $_.checkId -eq 'combined-risk-conditions' })
+        $issues.Count | Should -Be 1
+        $issues[0].severity | Should -Be 'medium'
+        $issues[0].evidence.userRisk   | Should -Contain 'high'
+        $issues[0].evidence.signInRisk | Should -Contain 'high'
+    }
+
+    It 'does not flag a policy with only sign-in risk' {
+        $raw = @{
+            id          = 'risk-signin-only'
+            displayName = 'Risk - sign-in only'
+            state       = 'enabled'
+            conditions  = @{
+                users            = @{ includeUsers = @('All') }
+                applications     = @{ includeApplications = @('All') }
+                signInRiskLevels = @('high')
+            }
+            grantControls = @{ operator = 'OR'; builtInControls = @('mfa') }
+        }
+        $np = ConvertTo-CapNormalizedPolicy -Policy $raw -AppGroupingMap (Get-CapAppGroupingMap)
+        @(Test-CapPolicyContradictions -NormalizedPolicy $np |
+            Where-Object { $_.checkId -eq 'combined-risk-conditions' }).Count | Should -Be 0
+    }
+}
+
 Describe 'Exemption exposure' {
     It 'aggregates the break-glass group exclusion from CA001' {
         $bg = @($script:Audit.exemptionExposure | Where-Object { $_.id -eq '33333333-3333-3333-3333-333333333333' })
