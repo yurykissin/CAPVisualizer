@@ -110,10 +110,15 @@ policies targeting the same users as left"** toggle restricts the right-hand
 dropdown to policies with an identical include-user/group/role targeting set, so
 overlapping or redundant policies surface immediately.
 
+![Compare policies tab](docs/images/08-compare-policies.png)
+
 **Auth methods** - an authentication-method registration audit: tenant rollup
 (MFA registered/capable, passwordless, phishing-resistant, SSPR), prioritized
 gaps (admins without phishing-resistant methods, users not registered), a
-method breakdown, and a per-user table. The per-user table supports free-text
+method breakdown, and a per-user table. Users still relying on **SMS/voice
+(telephony) MFA are red-flagged** - Microsoft is retiring those methods - with a
+dedicated rollup card, an SMS/voice column per user, and separate gaps for
+admins (high) and standard users (medium). The per-user table supports free-text
 search, sortable columns, a "show only" attribute filter (for example, show
 only users who are not MFA-capable), and one-click CSV export of the current
 (filtered) view. Uses only the aggregate registration report, never a user's
@@ -194,6 +199,9 @@ output/<yyyyMMdd-HHmmss>/
 - **In-browser Compare** - the offline viewer can load any two export files and
   list added, removed, and modified policies with field-level changes, without
   re-running the tool.
+- **Side-by-side policy compare** - pick any two policies from the same export
+  and diff them field by field in the browser, with a "show only differences"
+  toggle and a same-targeting filter to surface consolidation candidates.
 - **Hygiene / gap checks** - flags report-only/disabled policies, enabled
   policies with no controls, missing legacy-auth block, and "All users" targeting
   with no break-glass exclusion. Flags only - never changes anything.
@@ -239,7 +247,8 @@ network, reproducible from a JSON export via `-FromJson`:
   `Invoke-CapTest.ps1`.
 - **Auth methods audit** ([docs/AUTHMETHODS.md](docs/AUTHMETHODS.md)) - who is
   registered/capable for MFA, passwordless, phishing-resistant methods and SSPR,
-  with prioritized gaps and a per-user table, from the aggregate registration
+  plus who still relies on the retiring SMS/voice (telephony) methods, with
+  prioritized gaps and a per-user table, from the aggregate registration
   report (never a user's actual method secrets).
 
 These are surfaced as extra tabs in the offline viewer and as `analysis/*.json`
