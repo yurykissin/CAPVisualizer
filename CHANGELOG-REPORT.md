@@ -41,6 +41,13 @@ schema version** on that entry so users know a re-export is required.
 ## [Unreleased]
 
 ### Added
+- **Name resolution at build time** — the HTML generator and `report/*` now read
+  `raw/names.json` alongside the name-free export. Dictionary present → real names
+  render exactly as before; dictionary absent → object ids render and the report
+  still builds. All `analysis/*.json` (and the JUnit/SARIF test output) are written
+  through the name-free projection. See
+  [docs/SAFEEXPORT.md](docs/SAFEEXPORT.md). _(Requires schema ≥ 3.0; 2.x exports are
+  auto-split on import.)_
 - **Audit check `combined-risk-conditions`** — flags a single policy that conditions
   on both user risk *and* sign-in risk. Entra ORs the two signals under one grant
   control, preventing the recommended distinct responses (secure password change for

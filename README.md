@@ -207,7 +207,9 @@ output/<yyyyMMdd-HHmmss>/
   with no break-glass exclusion. Flags only - never changes anything.
 - **Interactive or unattended auth** - delegated sign-in by default; app
   registration (certificate or secret) for scheduled runs.
-- **Redaction** (`-Redact`) - strip tenant id and object GUIDs to share safely.
+- **Safe export for AI review** - names are split out of `export.json` into a
+  local-only `names.json`, so the structure can be reviewed by a model without
+  handing over your tenant. See [docs/SAFEEXPORT.md](docs/SAFEEXPORT.md).
 - **Integrity manifest** - SHA-256 of every output file.
 - **Local scheduling helper** - cron / Task Scheduler. See
   [docs/SCHEDULING.md](docs/SCHEDULING.md).
@@ -300,7 +302,8 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./export.json   # offline, zer
 | `-FromJson <path>` | Offline render from an existing export - no sign-in, no network. |
 | `-SkipResolveNames` | Show GUIDs; request only `Policy.Read.All`. |
 | `-Delta` / `-BaselinePath <folder>` | Diff against the previous (or a chosen) snapshot. |
-| `-Redact` | Replace tenant id and object GUIDs with stable pseudonyms (safe to share). |
+| `-Pseudonymize` | Alias tenant-specific GUIDs and the tenant id (`-Redact` is a deprecated alias). |
+| `-NoNames` | Skip the name dictionary entirely - the local report renders with ids. |
 | `-SkipAnalysis` | Export + report + visual only (skip the analysis engines). |
 | `-AssertionPath <path>` | Custom assertion pack for the built-in test engine. |
 | `-NoVisual` / `-NoTranscript` | Skip HTML / skip the transcript. |
@@ -391,7 +394,10 @@ pwsh ./samples/Test-Offline.ps1
   internet. `-FromJson` reproduces everything with zero network access.
 - **Sensitive output.** Exports and reports can contain sensitive configuration
   (targeting, exclusions, break-glass accounts, object IDs). `output/` is
-  git-ignored; use `-Redact` before sharing outside your tenant.
+  git-ignored. Names live in a separate local-only `raw/names.json`, so
+  `raw/export.json` and `analysis/*` can be shared for review; run
+  `scripts/Export-CapSafeBundle.ps1` to assemble and verify what is safe to
+  upload. See [docs/SAFEEXPORT.md](docs/SAFEEXPORT.md).
 - **Least privilege.** Core export needs only `Policy.Read.All`; optional
   read-only directory scopes power name resolution and the analysis engines. See
   [docs/PERMISSIONS.md](docs/PERMISSIONS.md).

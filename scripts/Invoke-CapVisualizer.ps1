@@ -117,6 +117,9 @@ param(
     [switch]$SkipAnalysis,
     [string]$AssertionPath,
     [switch]$Redact,
+    [switch]$Pseudonymize,
+    [switch]$NoNames,
+    [string]$Names,
     [switch]$Delta,
     [string]$BaselinePath,
     [switch]$NoVisual,
@@ -135,6 +138,7 @@ $includeDirectory = -not $SkipDirectory
 
 $modules = Join-Path $PSScriptRoot 'modules'
 Import-Module (Join-Path $modules 'CapCommon.psm1') -Force
+Import-Module (Join-Path $modules 'CapNames.psm1') -Force
 Import-Module (Join-Path $modules 'CapExport.psm1') -Force
 Import-Module (Join-Path $modules 'CapEnrich.psm1') -Force
 Import-Module (Join-Path $modules 'CapNormalize.psm1') -Force
@@ -188,6 +192,18 @@ try {
         }
         Write-CapLog "Offline render mode (-FromJson). No Graph connection will be made." 'INFO'
         $export = Import-CapExportJson -Path $FromJson
+
+        # A name-free export (schema 3.x) carries ids only. Re-hydrate it from the
+        # dictionary when one is supplied or sits next to the export; without one
+        # the whole run renders ids, which is the intended safe-mode behaviour.
+        $inputDictionary = Import-CapNameDictionary -Path $Names -NearExport $FromJson
+        if ($inputDictionary) {
+            Write-CapLog "Name dictionary found ($($inputDictionary.count) entries); rendering with names." 'OK'
+            $export = ConvertFrom-CapSafeObject -InputObject $export -Dictionary $inputDictionary
+        }
+        else {
+            Write-CapLog "No name dictionary supplied; the report will show object ids instead of names." 'WARN'
+        }
     }
     else {
         # --- Connect ---
@@ -289,43 +305,51 @@ try {
             $consolidation.summary.deadWeightCount, $consolidation.summary.completenessGaps) 'OK'
     }
 
-    # --- Redact (optional) ---
-    if ($Redact) {
-        Write-CapLog "Redacting tenant id and object GUIDs..." 'WARN'
-        $export.metadata.tenantId = 'REDACTED'
-        $export.metadata.account  = 'REDACTED'
-        $summary.tenantId = 'REDACTED'
-        $export   = Protect-CapObject -Object $export
-        $friendly = @(Protect-CapObject -Object $friendly)
-        if (-not $SkipAnalysis) {
-            $auditResult      = Protect-CapObject -Object $auditResult
-            $riskFindings     = Protect-CapObject -Object $riskFindings
-            $complianceResult = Protect-CapObject -Object $complianceResult
-            $testResult       = Protect-CapObject -Object $testResult
-            if ($authMethods) { $authMethods = Protect-CapObject -Object $authMethods }
-            if ($consolidation) { $consolidation = Protect-CapObject -Object $consolidation }
-        }
+    # --- Name separation ---
+    # Every tenant-identifying name moves into a local-only dictionary, leaving a
+    # name-free raw/export.json and analysis set that can be handed to a cloud
+    # service. The in-memory objects stay resolved, so report/ and the HTML keep
+    # their names. See docs/SAFEEXPORT.md.
+    if ($Redact -and -not $Pseudonymize) {
+        Write-CapLog "-Redact is deprecated and one-way; use -Pseudonymize (reversible via the local dictionary)." 'WARN'
+        $Pseudonymize = $true
+    }
+
+    $dictionary = New-CapNameDictionary -Export $export -NameMap $nameMap -AuthMethods $authMethods `
+        -Snapshot $stamp -Pseudonymize:$Pseudonymize
+    Write-CapLog ("Name dictionary: {0} entr{1}{2}." -f $dictionary.count, $(if ($dictionary.count -eq 1) { 'y' } else { 'ies' }), `
+        $(if ($Pseudonymize) { ", $($dictionary.idAliases.Count) id alias(es)" } else { '' })) 'INFO'
+
+    $safeExport = ConvertTo-CapSafeObject -InputObject $export -Dictionary $dictionary
+    $safeExport.metadata.schemaVersion = '3.0'
+    # nameMap is superseded by the dictionary; carrying a masked copy is noise.
+    if ($safeExport.Contains('nameMap')) { $safeExport.Remove('nameMap') }
+    if ($Pseudonymize) {
+        $summary.tenantId = $safeExport.metadata.tenantId
     }
 
     # --- Write raw + report ---
-    # Embed the resolved name map so a later -FromJson render stays fully offline
-    # and still shows display names (unless redacting, which strips GUIDs anyway).
-    if (-not $Redact -and $nameMap.Count) { $export['nameMap'] = $nameMap }
-    Save-CapJson -InputObject $export   -Path (Join-Path $snapshot 'raw/export.json')
+    # raw/export.json is name-free; raw/names.json is the dictionary that turns it
+    # back into names. Delete or withhold names.json and the report renders ids.
+    Save-CapJson -InputObject $safeExport -Path (Join-Path $snapshot 'raw/export.json')
+    if (-not $NoNames) {
+        Save-CapJson -InputObject $dictionary -Path (Join-Path $snapshot 'raw/names.json')
+    }
     Save-CapJson -InputObject $friendly -Path (Join-Path $snapshot 'report/policies.json')
     Save-CapJson -InputObject $summary  -Path (Join-Path $snapshot 'report/summary.json')
     Save-CapJson -InputObject $findings -Path (Join-Path $snapshot 'report/findings.json')
     if (-not $SkipAnalysis) {
         New-Item -ItemType Directory -Force -Path (Join-Path $snapshot 'analysis') | Out-Null
-        Save-CapJson -InputObject $auditResult      -Path (Join-Path $snapshot 'analysis/audit.json')
-        Save-CapJson -InputObject $riskFindings     -Path (Join-Path $snapshot 'analysis/findings.json')
-        Save-CapJson -InputObject $complianceResult -Path (Join-Path $snapshot 'analysis/compliance.json')
-        if ($authMethods) { Save-CapJson -InputObject $authMethods -Path (Join-Path $snapshot 'analysis/authmethods.json') }
-        if ($consolidation) { Save-CapJson -InputObject $consolidation -Path (Join-Path $snapshot 'analysis/consolidation.json') }
-        Save-CapJson -InputObject $testResult       -Path (Join-Path $snapshot 'analysis/tests.json')
+        Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $auditResult      -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/audit.json')
+        Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $riskFindings     -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/findings.json')
+        Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $complianceResult -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/compliance.json')
+        if ($authMethods) { Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $authMethods -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/authmethods.json') }
+        if ($consolidation) { Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $consolidation -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/consolidation.json') }
+        $safeTestResult = ConvertTo-CapSafeObject -InputObject $testResult -Dictionary $dictionary
+        Save-CapJson -InputObject $safeTestResult -Path (Join-Path $snapshot 'analysis/tests.json')
         if ($testResult) {
-            ConvertTo-CapJUnit -TestResult $testResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.junit.xml') -Encoding utf8
-            ConvertTo-CapSarif -TestResult $testResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.sarif.json') -Encoding utf8
+            ConvertTo-CapJUnit -TestResult $safeTestResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.junit.xml') -Encoding utf8
+            ConvertTo-CapSarif -TestResult $safeTestResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.sarif.json') -Encoding utf8
         }
     }
 
@@ -349,7 +373,17 @@ try {
             $baseFile = if (Test-Path -LiteralPath $base -PathType Container) { Join-Path $base 'raw/export.json' } else { $base }
             Write-CapLog "Computing delta against $baseFile" 'INFO'
             $baseline = Get-Content -LiteralPath $baseFile -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
-            $delta = Compare-CapExport -Baseline $baseline -Current ($export)
+            # Both sides must be in the same (name-free) form or every renamed
+            # object would surface as a spurious change. A legacy 2.x baseline
+            # still carries names, so mask it with its own dictionary first.
+            $baseMeta = if ($baseline.Contains('metadata')) { $baseline['metadata'] } else { $null }
+            $baseSchema = if ($baseMeta -and $baseMeta.Contains('schemaVersion')) { "$($baseMeta['schemaVersion'])" } else { '1.0' }
+            if ($baseSchema -notlike '3.*') {
+                $baseDict = New-CapNameDictionary -Export $baseline `
+                    -NameMap $(if ($baseline.Contains('nameMap')) { $baseline['nameMap'] } else { @{} }) -Snapshot 'baseline'
+                $baseline = ConvertTo-CapSafeObject -InputObject $baseline -Dictionary $baseDict
+            }
+            $delta = Compare-CapExport -Baseline $baseline -Current ($safeExport)
             New-Item -ItemType Directory -Force -Path (Join-Path $snapshot 'delta') | Out-Null
             Save-CapJson -InputObject $delta -Path (Join-Path $snapshot 'delta/delta.json')
             Write-CapLog ("Delta: {0} added, {1} removed, {2} modified." -f $delta.addedCount, $delta.removedCount, $delta.modifiedCount) 'OK'
@@ -360,26 +394,64 @@ try {
     }
 
     # --- Visualization ---
+    # The HTML generator reads both artifacts: the name-free export and, when it
+    # exists, the dictionary. With the dictionary it renders real names; without
+    # it (-NoNames, or a dictionary the operator withheld) it renders ids.
     if (-not $NoVisual) {
-        New-CapVisual -FriendlyPolicies $friendly -Summary $summary -Findings $findings -Delta $delta `
-            -RiskFindings $(if ($riskFindings) { $riskFindings.findings } else { $null }) `
-            -Audit $auditResult -Compliance $complianceResult -TestResult $testResult -AuthMethods $authMethods -NameMap $(if ($Redact) { @{} } else { $nameMap }) `
+        $visualDelta = $delta
+        if ($NoNames) {
+            $visFriendly   = @(ConvertTo-CapSafeObject -InputObject $friendly -Dictionary $dictionary)
+            $visSummary    = ConvertTo-CapSafeObject -InputObject $summary  -Dictionary $dictionary
+            $visFindings   = @(ConvertTo-CapSafeObject -InputObject $findings -Dictionary $dictionary)
+            $visRisk       = $(if ($riskFindings) { @(ConvertTo-CapSafeObject -InputObject $riskFindings.findings -Dictionary $dictionary) } else { $null })
+            $visAudit      = ConvertTo-CapSafeObject -InputObject $auditResult -Dictionary $dictionary
+            $visCompliance = ConvertTo-CapSafeObject -InputObject $complianceResult -Dictionary $dictionary
+            $visTests      = ConvertTo-CapSafeObject -InputObject $testResult -Dictionary $dictionary
+            $visAuth       = $(if ($authMethods) { ConvertTo-CapSafeObject -InputObject $authMethods -Dictionary $dictionary } else { $null })
+            $visNameMap    = @{}
+        }
+        else {
+            $visFriendly   = $friendly
+            $visSummary    = $summary
+            $visFindings   = $findings
+            $visRisk       = $(if ($riskFindings) { $riskFindings.findings } else { $null })
+            $visAudit      = $auditResult
+            $visCompliance = $complianceResult
+            $visTests      = $testResult
+            $visAuth       = $authMethods
+            $visNameMap    = $nameMap
+            if ($delta) { $visualDelta = ConvertFrom-CapSafeObject -InputObject $delta -Dictionary $dictionary }
+        }
+        New-CapVisual -FriendlyPolicies $visFriendly -Summary $visSummary -Findings $visFindings -Delta $visualDelta `
+            -RiskFindings $visRisk `
+            -Audit $visAudit -Compliance $visCompliance -TestResult $visTests -AuthMethods $visAuth -NameMap $visNameMap `
             -AssetsPath $assetsPath -OutputFile (Join-Path $snapshot 'visual/index.html')
     }
 
     # --- Manifest (integrity hashes; no secrets) ---
+    # containsNames marks the files that must never leave the machine.
+    $localOnly = @('raw/names.json', 'report/policies.json', 'report/summary.json', 'report/findings.json',
+                   'report/policies.csv', 'report/findings.csv')
     $files = Get-ChildItem -Path $snapshot -Recurse -File | Where-Object { $_.Name -ne 'manifest.json' -and $_.Name -ne 'transcript.txt' }
     $manifest = [ordered]@{
-        tool         = 'CAPVisualizer'
-        snapshot     = $stamp
-        generatedUtc = $summary.generatedUtc
-        tenantId     = $summary.tenantId
-        resolveNames = [bool]$resolveNames
-        offline      = [bool]$offline
-        directory    = [bool]$includeDirectory
-        redacted     = [bool]$Redact
-        files        = @($files | ForEach-Object {
-            [ordered]@{ path = ($_.FullName.Substring($snapshot.Length + 1) -replace '\\', '/'); sha256 = (Get-CapFileSha256 -Path $_.FullName); bytes = $_.Length }
+        tool          = 'CAPVisualizer'
+        snapshot      = $stamp
+        generatedUtc  = $summary.generatedUtc
+        tenantId      = $summary.tenantId
+        resolveNames  = [bool]$resolveNames
+        offline       = [bool]$offline
+        directory     = [bool]$includeDirectory
+        pseudonymized = [bool]$Pseudonymize
+        namesSplit    = $true
+        dictionary    = $(if ($NoNames) { $null } else { 'raw/names.json' })
+        files         = @($files | ForEach-Object {
+            $rel = ($_.FullName.Substring($snapshot.Length + 1) -replace '\\', '/')
+            [ordered]@{
+                path          = $rel
+                sha256        = (Get-CapFileSha256 -Path $_.FullName)
+                bytes         = $_.Length
+                containsNames = ($localOnly -contains $rel) -or ($rel -eq 'visual/index.html' -and -not $NoNames)
+            }
         })
     }
     Save-CapJson -InputObject $manifest -Path (Join-Path $snapshot 'manifest.json')

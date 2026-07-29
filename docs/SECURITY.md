@@ -18,8 +18,20 @@ excluded/break-glass accounts, named locations, and object identifiers.
 
 - `output/` is git-ignored by default.
 - Treat exports as sensitive data per your organization's policy.
-- Use `-Redact` to replace the tenant id and object GUIDs with stable
-  pseudonyms before sharing a report externally.
+- **Names are split out.** Each run writes a name-free `raw/export.json` plus a
+  local-only `raw/names.json` dictionary. `manifest.json` flags every file with
+  `containsNames`, so you can tell at a glance what must stay on the machine.
+- Run `scripts/Export-CapSafeBundle.ps1` to assemble a `safe/` folder for
+  sharing. It pseudonymizes tenant-specific GUIDs, then **fails closed** - if
+  any name, unallowlisted GUID or IP-shaped string survives, the bundle is
+  deleted and the run throws.
+- Use `scripts/Restore-CapNames.ps1` to map a reviewer's output back to real
+  names locally. It refuses a dictionary from a different snapshot.
+- `-Redact` is deprecated: it only pseudonymized GUIDs (names survived) and its
+  map was discarded, making it one-way. It now behaves as `-Pseudonymize`.
+- **Anonymization reduces attribution, not exploitability.** A masked export is
+  still a map of where your gaps are. Full detail and the residual-risk
+  statement: [SAFEEXPORT.md](SAFEEXPORT.md).
 
 ## Credential handling
 - **Interactive** auth uses the Microsoft.Graph token cache; CAPVisualizer does

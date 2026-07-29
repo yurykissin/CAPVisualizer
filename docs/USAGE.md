@@ -40,7 +40,10 @@ lands in a timestamped folder under `output/`.
 | `-FromJson <path>` | Offline render mode: build reports + HTML from an existing JSON file, no sign-in, no network. |
 | `-Delta` | Compare against the most recent previous snapshot. |
 | `-BaselinePath <folder>` | Use a specific snapshot as the delta baseline. |
-| `-Redact` | Replace tenant id and object GUIDs with stable pseudonyms (safe to share). |
+| `-Pseudonymize` | Replace tenant-specific GUIDs and the tenant id with stable aliases, recorded reversibly in `raw/names.json`. |
+| `-NoNames` | Do not write a name dictionary; the local report renders with ids. |
+| `-Names <path>` | Point an offline `-FromJson` render at a dictionary elsewhere on disk. |
+| `-Redact` | **Deprecated** - alias for `-Pseudonymize`. See [SAFEEXPORT.md](SAFEEXPORT.md). |
 | `-SkipAnalysis` | Skip the offline analysis engines (audit / findings / compliance / tests); export + report + visual only. |
 | `-AssertionPath <path>` | Use a custom JSON assertion pack for the built-in test engine (default: bundled starter pack). |
 | `-NoVisual` | Skip HTML generation (JSON/CSV only). |
