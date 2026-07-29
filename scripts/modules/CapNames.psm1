@@ -31,6 +31,10 @@ $ErrorActionPreference = 'Stop'
 
 $script:CapGuidRegex = [regex]'(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b'
 
+# Names per alternation regex. Sized to stay under the DFA node limit for
+# typical display names while keeping the number of scans per string small.
+$script:CapRegexChunkSize = 1000
+
 # Minimum length for a name to be substituted inside free text. Short names
 # ("IT", "All") appear as substrings of ordinary prose and would corrupt it.
 # Exact whole-value matches are substituted regardless of length.
@@ -156,12 +160,25 @@ $script:CapNameBearingProps = @(
 
 $script:CapIdBearingProps = @('id', 'userId', 'principalId', 'objectId', 'appId', 'groupId', 'resourceId')
 
+function _CapIsScalar {
+<#
+    A leaf value: nothing inside it to walk. Covers every ValueType (numbers,
+    bool, datetime, DateTimeOffset, guid, enums, timespan) plus the reference
+    scalars a Graph payload can carry. Checking this explicitly matters because
+    $x.PSObject.Properties.Count throws on scalars under Set-StrictMode Latest.
+#>
+    param($Node)
+    if ($null -eq $Node) { return $true }
+    return ($Node -is [string] -or $Node -is [ValueType] -or $Node -is [uri] -or
+        $Node -is [System.Text.RegularExpressions.Regex] -or $Node -is [scriptblock])
+}
+
 function _CapSweepNames {
     param($Node, [scriptblock]$Add, [int]$Depth = 0)
 
     if ($Depth -gt 40 -or $null -eq $Node) { return }
 
-    if ($Node -is [string] -or $Node -is [bool] -or $Node -is [ValueType]) { return }
+    if (_CapIsScalar $Node) { return }
 
     if ($Node -is [System.Collections.IDictionary]) {
         $ownId = ''
@@ -198,9 +215,10 @@ function _CapSweepNames {
         return
     }
 
-    if ($Node.PSObject -and $Node.PSObject.Properties.Count) {
+    $props = @($Node.PSObject.Properties)
+    if ($props.Count) {
         $bag = [ordered]@{}
-        foreach ($p in $Node.PSObject.Properties) { $bag[$p.Name] = $p.Value }
+        foreach ($p in $props) { $bag[$p.Name] = $p.Value }
         _CapSweepNames -Node $bag -Add $Add -Depth ($Depth + 1)
     }
 }
@@ -461,16 +479,116 @@ function New-CapNameDictionary {
     }
 }
 
+function _CapBoundaryOk {
+<#
+    Boundary rule for a candidate name match. Never match inside a word or an
+    address (so "contoso" in "user@contoso.com" is not clipped), but a trailing
+    sentence period must not block the match ("... contains Break Glass Admin."
+    ends a sentence, it is not a domain). Expressed in code rather than as a
+    lookaround because the DFA regex engine below does not support lookarounds.
+#>
+    param([string]$Text, [int]$Index, [int]$Length)
+
+    if ($Index -gt 0) {
+        $prev = $Text[$Index - 1]
+        if ([char]::IsLetterOrDigit($prev) -or $prev -eq '_' -or $prev -eq '@' -or $prev -eq '-') { return $false }
+        if ($prev -eq '.' -and $Index -gt 1) {
+            $prev2 = $Text[$Index - 2]
+            if ([char]::IsLetterOrDigit($prev2) -or $prev2 -eq '_') { return $false }
+        }
+    }
+    $end = $Index + $Length
+    if ($end -lt $Text.Length) {
+        $next = $Text[$end]
+        if ([char]::IsLetterOrDigit($next) -or $next -eq '_' -or $next -eq '@' -or $next -eq '-') { return $false }
+        if ($next -eq '.' -and ($end + 1) -lt $Text.Length) {
+            $next2 = $Text[$end + 1]
+            if ([char]::IsLetterOrDigit($next2) -or $next2 -eq '_') { return $false }
+        }
+    }
+    return $true
+}
+
 function _CapNameMatchers {
+<#
+    Build the matcher set once per masking session.
+
+    A real tenant yields tens of thousands of names, so testing every name
+    against every string does not scale - that measured ~5 minutes for a single
+    findings file. Names are instead compiled into a handful of alternation
+    regexes running in DFA mode (RegexOptions.NonBacktracking), where scan cost
+    is linear in the length of the text and independent of how many names the
+    pattern holds. The same workload then takes well under a second.
+
+    Chunking is required because the DFA has a node-count limit; a chunk that
+    still exceeds it is split further, and falls back to the backtracking engine
+    only if it cannot be split any smaller.
+#>
     param($Dictionary)
+
     $entries = _NmGet $Dictionary 'entries'
-    $list = [System.Collections.Generic.List[object]]::new()
+    $byName = [System.Collections.Hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $textNames = [System.Collections.Generic.List[string]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
     foreach ($token in $entries.Keys) {
         $e = $entries[$token]
-        $list.Add([pscustomobject]@{ Name = "$(_NmGet $e 'name')"; Token = "$token" })
+        $name = "$(_NmGet $e 'name')"
+        if ([string]::IsNullOrEmpty($name)) { continue }
+        if (-not $byName.ContainsKey($name)) { $byName[$name] = "$token" }
+        if ($name.Length -ge $script:CapMinTextNameLength -and $seen.Add($name)) {
+            [void]$textNames.Add($name)
+        }
     }
-    # Longest first so "Contoso Admins" is replaced before "Contoso".
-    return @($list | Sort-Object { $_.Name.Length } -Descending)
+
+    # Longest first so a longer name is consumed before a shorter one it
+    # contains ("Contoso Admins" before "Contoso"). Note: -Unique would dedupe by
+    # the sort key (Length) and drop all but one name per length, so duplicates
+    # are filtered above instead.
+    $ordered = @($textNames | Sort-Object -Property Length -Descending)
+
+    $regexes = [System.Collections.Generic.List[regex]]::new()
+    _CapAddNameRegexes -Names $ordered -Size $script:CapRegexChunkSize -Target $regexes
+
+    $aliases = _NmGet $Dictionary 'idAliases'
+    $aliasTable = $null
+    if ($aliases) {
+        $aliasTable = [System.Collections.Hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($k in (_NmKeys $aliases)) { $aliasTable["$k"] = "$($aliases[$k])" }
+        if ($aliasTable.Count -eq 0) { $aliasTable = $null }
+    }
+
+    return [pscustomobject]@{
+        ByName  = $byName
+        Regexes = $regexes
+        Aliases = $aliasTable
+        Count   = $byName.Count
+    }
+}
+
+function _CapAddNameRegexes {
+    param([string[]]$Names, [int]$Size, $Target)
+
+    if (-not $Names -or $Names.Count -eq 0) { return }
+    $dfa = [System.Text.RegularExpressions.RegexOptions]::IgnoreCase -bor
+        [System.Text.RegularExpressions.RegexOptions]::NonBacktracking
+
+    for ($i = 0; $i -lt $Names.Count; $i += $Size) {
+        $slice = $Names[$i..([Math]::Min($i + $Size - 1, $Names.Count - 1))]
+        $alt = ($slice | ForEach-Object { [regex]::Escape($_) }) -join '|'
+        try {
+            $Target.Add([regex]::new($alt, $dfa))
+        }
+        catch {
+            if ($slice.Count -gt 1) {
+                # Too many automaton nodes for one chunk - split and retry.
+                _CapAddNameRegexes -Names $slice -Size ([Math]::Max(1, [int]($slice.Count / 4))) -Target $Target
+            }
+            else {
+                $Target.Add([regex]::new($alt, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase))
+            }
+        }
+    }
 }
 
 function _CapMaskString {
@@ -479,35 +597,41 @@ function _CapMaskString {
     if ([string]::IsNullOrEmpty($Value)) { return $Value }
     $out = $Value
 
-    $exact = $null
-    foreach ($m in $Matchers) {
-        if ($out -eq $m.Name) { $exact = $m.Token; break }
-    }
-    if ($exact) {
+    if ($Matchers.ByName.ContainsKey($out)) {
         # Exact whole-value match still has to go through id aliasing below,
         # otherwise a pseudonymized bundle would keep the raw object id here.
-        $out = $exact
+        $out = $Matchers.ByName[$out]
     }
-    else {
-        foreach ($m in $Matchers) {
-            if ($m.Name.Length -lt $script:CapMinTextNameLength) { continue }
-            if ($out.IndexOf($m.Name, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
-            # Boundary rule: never match inside a word or an address (so "contoso"
-            # in "user@contoso.com" is not clipped), but a trailing sentence period
-            # must not block the match ("... contains Break Glass Admin." ends a
-            # sentence, it is not a domain).
-            $pattern = '(?i)(?<![\w@-])(?<!\w\.)' + [regex]::Escape($m.Name) + '(?![\w@-])(?!\.\w)'
-            $out = [regex]::Replace($out, $pattern, $m.Token)
+    elseif ($out.Length -ge $script:CapMinTextNameLength) {
+        $byName = $Matchers.ByName
+        foreach ($rx in $Matchers.Regexes) {
+            $matches = $rx.Matches($out)
+            if ($matches.Count -eq 0) { continue }
+            $sb = [System.Text.StringBuilder]::new()
+            $pos = 0
+            foreach ($m in $matches) {
+                if ($m.Index -lt $pos) { continue }
+                if (-not (_CapBoundaryOk -Text $out -Index $m.Index -Length $m.Length)) { continue }
+                $token = $byName[$m.Value]
+                if (-not $token) { continue }
+                [void]$sb.Append($out, $pos, $m.Index - $pos)
+                [void]$sb.Append($token)
+                $pos = $m.Index + $m.Length
+            }
+            if ($pos -eq 0) { continue }
+            [void]$sb.Append($out, $pos, $out.Length - $pos)
+            $out = $sb.ToString()
         }
     }
 
-    if ($IdAliases -and $IdAliases.Count) {
+    $aliases = if ($null -ne $IdAliases) { $IdAliases } else { $Matchers.Aliases }
+    if ($aliases -and $aliases.Count) {
         $out = $script:CapGuidRegex.Replace($out, {
-            param($match)
-            $g = $match.Value
-            foreach ($k in $IdAliases.Keys) { if ($k -eq $g) { return $IdAliases[$k] } }
-            return $g
-        })
+                param($match)
+                $g = $match.Value
+                if ($aliases.ContainsKey($g)) { return $aliases[$g] }
+                return $g
+            })
     }
     return $out
 }
@@ -529,7 +653,11 @@ function _CapWalk {
         if ($Mode -eq 'mask') { return (_CapMaskString -Value $Node -Matchers $Matchers -IdAliases $IdAliases) }
         return (Restore-CapNameText -Text $Node -Dictionary $Dictionary)
     }
-    if ($Node -is [bool] -or $Node -is [int] -or $Node -is [long] -or $Node -is [double] -or $Node -is [decimal] -or $Node -is [datetime]) { return $Node }
+    # Any value type (bool, numbers, datetime, DateTimeOffset, guid, enums) and a
+    # handful of reference scalars are leaf nodes. A live Graph export carries
+    # types the offline sample never does, and walking their properties would
+    # both explode the shape and throw under StrictMode.
+    if (_CapIsScalar $Node) { return $Node }
 
     if ($Node -is [System.Collections.IDictionary]) {
         $out = [ordered]@{}
@@ -554,9 +682,10 @@ function _CapWalk {
         return , $items.ToArray()
     }
 
-    if ($Node.PSObject -and $Node.PSObject.Properties.Count) {
+    $props = @($Node.PSObject.Properties)
+    if ($props.Count) {
         $out = [ordered]@{}
-        foreach ($p in $Node.PSObject.Properties) {
+        foreach ($p in $props) {
             $out[$p.Name] = _CapWalk -Node $p.Value -Mode $Mode -Matchers $Matchers -IdAliases $IdAliases -Dictionary $Dictionary -Depth ($Depth + 1)
         }
         return $out
@@ -578,8 +707,9 @@ function ConvertTo-CapSafeObject {
         [Parameter(Mandatory)]$Dictionary
     )
     $matchers = _CapNameMatchers -Dictionary $Dictionary
-    $aliases = _NmGet $Dictionary 'idAliases'
-    return _CapWalk -Node $InputObject -Mode 'mask' -Matchers $matchers -IdAliases $aliases -Dictionary $Dictionary
+    # The alias lookup lives on the matcher set as a case-insensitive hashtable;
+    # passing the raw ordered dictionary down would reintroduce a linear scan.
+    return _CapWalk -Node $InputObject -Mode 'mask' -Matchers $matchers -IdAliases $null -Dictionary $Dictionary
 }
 
 function ConvertFrom-CapSafeObject {
@@ -679,12 +809,31 @@ function Test-CapNameLeak {
         $docs.Add([pscustomobject]@{ Source = $p; Text = (Get-Content -LiteralPath $p -Raw) })
     }
 
+    # One alternation scan per document instead of one IndexOf per name: a real
+    # tenant dictionary holds tens of thousands of names and the leak test runs
+    # over every file in the bundle.
+    $tokenByName = [System.Collections.Hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $leakNames = [System.Collections.Generic.List[string]]::new()
+    foreach ($token in $entries.Keys) {
+        $name = "$(_NmGet $entries[$token] 'name')"
+        if ([string]::IsNullOrWhiteSpace($name) -or $name.Length -lt 3) { continue }
+        if ($tokenByName.ContainsKey($name)) { continue }
+        $tokenByName[$name] = "$token"
+        [void]$leakNames.Add($name)
+    }
+    $leakRegexes = [System.Collections.Generic.List[regex]]::new()
+    _CapAddNameRegexes -Names @($leakNames | Sort-Object -Property Length -Descending) `
+        -Size $script:CapRegexChunkSize -Target $leakRegexes
+
     foreach ($doc in $docs) {
-        foreach ($token in $entries.Keys) {
-            $name = "$(_NmGet $entries[$token] 'name')"
-            if ([string]::IsNullOrWhiteSpace($name) -or $name.Length -lt 3) { continue }
-            if ($doc.Text.IndexOf($name, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-                $violations.Add([ordered]@{ source = $doc.Source; kind = 'name'; value = $name; token = $token })
+        # Deliberately no boundary rule here: a real name appearing anywhere,
+        # even inside a larger word, is a leak.
+        foreach ($rx in $leakRegexes) {
+            foreach ($m in $rx.Matches($doc.Text)) {
+                $hit = $m.Value
+                $token = $tokenByName[$hit]
+                if (-not $token) { continue }
+                $violations.Add([ordered]@{ source = $doc.Source; kind = 'name'; value = $hit; token = $token })
             }
         }
         if ($RequirePseudonymized) {

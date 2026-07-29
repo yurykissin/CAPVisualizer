@@ -72,7 +72,9 @@ function Connect-CapGraph {
     read-only Policy.Read.All.
 
 .PARAMETER TenantId
-    Tenant id (GUID or domain). Required for app-based auth.
+    Tenant id (GUID or domain). Required for app-based auth. Optional for
+    interactive sign-in, where it pins which tenant to authenticate against -
+    useful when the signed-in identity is a guest or admin in several.
 
 .PARAMETER ClientId
     App registration (client) id for app-based auth.
@@ -98,6 +100,7 @@ function Connect-CapGraph {
         [Parameter(ParameterSetName = 'Interactive')]
         [switch]$UseDeviceCode,
 
+        [Parameter(ParameterSetName = 'Interactive')]
         [Parameter(Mandatory, ParameterSetName = 'AppCert')]
         [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
         [string]$TenantId,
@@ -130,7 +133,10 @@ function Connect-CapGraph {
             Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ErrorAction Stop
         }
         default {
-            Write-CapLog "Connecting to Graph (interactive) scopes: $($Scopes -join ', ')" 'INFO'
+            $tenantSuffix = if ($TenantId) { " tenant $TenantId" } else { '' }
+            Write-CapLog "Connecting to Graph (interactive)$tenantSuffix scopes: $($Scopes -join ', ')" 'INFO'
+            $tenantArg = @{}
+            if ($TenantId) { $tenantArg['TenantId'] = $TenantId }
             if ($UseDeviceCode) {
                 # Opt-in device-code flow for headless / SSH sessions (no browser).
                 # More phishing-prone than the browser flow, so it is not the default.
@@ -141,7 +147,7 @@ function Connect-CapGraph {
                 $deviceUrl = 'https://microsoft.com/devicelogin'
                 Write-CapLog "Device-code sign-in - a one-time code will be shown below. Sign-in page: $deviceUrl" 'INFO'
                 Open-CapBrowser -Url $deviceUrl
-                Connect-MgGraph -Scopes $Scopes -UseDeviceAuthentication -NoWelcome -ErrorAction Stop |
+                Connect-MgGraph -Scopes $Scopes @tenantArg -UseDeviceAuthentication -NoWelcome -ErrorAction Stop |
                     ForEach-Object {
                         Write-Host ''
                         Write-Host "  >> $_" -ForegroundColor Yellow
@@ -152,7 +158,7 @@ function Connect-CapGraph {
                 # Default: system-browser authorization-code flow (PKCE). This is
                 # the Microsoft-recommended interactive flow - a single, SSO-aware
                 # browser prompt and not susceptible to device-code phishing.
-                Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction Stop
+                Connect-MgGraph -Scopes $Scopes @tenantArg -NoWelcome -ErrorAction Stop
             }
         }
     }

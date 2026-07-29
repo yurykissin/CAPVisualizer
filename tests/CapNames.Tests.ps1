@@ -181,6 +181,51 @@ Describe 'Structural sweep of non-name fields' {
     }
 }
 
+Describe 'Live-tenant shapes and scale' {
+    It 'masks scalar types a Graph SDK export carries but the sample does not' {
+        $e = Import-CapExportJson -Path (Join-Path $script:Repo 'samples/sample-export-enriched.json')
+        $e.policies[0].createdDateTime = [datetimeoffset]::UtcNow
+        $e.policies[0].objectGuid = [guid]::NewGuid()
+        $e.policies[0].dayEnum = [System.DayOfWeek]::Monday
+        $e.policies[0].span = [timespan]::FromMinutes(5)
+        $e.policies[0].link = [uri]'https://contoso.example/x'
+        $dict = New-CapNameDictionary -Export $e -NameMap $e['nameMap'] -Snapshot 'x'
+        # Before the fix this threw: $node.PSObject.Properties.Count does not
+        # exist on a scalar under Set-StrictMode -Version Latest.
+        { ConvertTo-CapSafeObject -InputObject $e -Dictionary $dict } | Should -Not -Throw
+    }
+
+    It 'leaves scalar values structurally intact' {
+        $e = Import-CapExportJson -Path (Join-Path $script:Repo 'samples/sample-export-enriched.json')
+        $e.policies[0].objectGuid = [guid]::NewGuid()
+        $e.policies[0].dayEnum = [System.DayOfWeek]::Monday
+        $dict = New-CapNameDictionary -Export $e -NameMap $e['nameMap'] -Snapshot 'x'
+        $safe = ConvertTo-CapSafeObject -InputObject $e -Dictionary $dict
+        $safe.policies[0].objectGuid | Should -BeOfType [guid]
+        "$($safe.policies[0].dayEnum)" | Should -Be 'Monday'
+    }
+
+    It 'masks a tenant-sized dictionary in seconds, not minutes' {
+        $e = Import-CapExportJson -Path (Join-Path $script:Repo 'samples/sample-export-enriched.json')
+        $nm = @{}
+        foreach ($k in $e['nameMap'].Keys) { $nm["$k"] = $e['nameMap'][$k] }
+        1..8000 | ForEach-Object { $nm["$([guid]::NewGuid())"] = "Synthetic Person $_ Contoso" }
+        $dict = New-CapNameDictionary -Export $e -NameMap $nm -Snapshot 'x'
+        $doc = @{ findings = @(1..500 | ForEach-Object {
+                    @{ id = "f$_"; text = "Policy CA001 - Require MFA for all users excludes Break-glass exclusions; Synthetic Person $_ Contoso affected." } }) }
+
+        $sw = [Diagnostics.Stopwatch]::StartNew()
+        $safe = ConvertTo-CapSafeObject -InputObject $doc -Dictionary $dict
+        $sw.Stop()
+
+        # A per-name scan made this quadratic (~5 min for a real findings file).
+        $sw.Elapsed.TotalSeconds | Should -BeLessThan 60
+        @(Test-CapNameLeak -Dictionary $dict -InputObject $safe).Count | Should -Be 0
+        $safe.findings[0].text | Should -Not -BeLike '*CA001*'
+        $safe.findings[0].text | Should -Not -BeLike '*Synthetic Person 1 Contoso*'
+    }
+}
+
 Describe 'End-to-end safe bundle' {
     BeforeAll {
         $script:Out = Join-Path ([IO.Path]::GetTempPath()) "cap-safe-$([guid]::NewGuid())"

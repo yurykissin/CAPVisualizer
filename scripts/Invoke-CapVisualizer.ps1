@@ -13,7 +13,8 @@
     Root folder for snapshots. Default: ./output
 
 .PARAMETER TenantId
-    Tenant id/domain (required for app-based auth).
+    Tenant id/domain. Required for app-based auth; optional for interactive
+    sign-in, where it pins which tenant to authenticate against.
 
 .PARAMETER ClientId
     App registration id (enables app-based / unattended auth).
@@ -95,6 +96,7 @@ param(
     [Parameter(ParameterSetName = 'Interactive')]
     [switch]$UseDeviceCode,
 
+    [Parameter(ParameterSetName = 'Interactive')]
     [Parameter(Mandatory, ParameterSetName = 'AppCert')]
     [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
     [string]$TenantId,
@@ -218,7 +220,9 @@ try {
                         if ($connectScopes -notcontains $s) { $connectScopes += $s }
                     }
                 }
-                Connect-CapGraph -Scopes $connectScopes -UseDeviceCode:$UseDeviceCode | Out-Null
+                $connectArgs = @{ Scopes = $connectScopes; UseDeviceCode = $UseDeviceCode }
+                if ($TenantId) { $connectArgs['TenantId'] = $TenantId }
+                Connect-CapGraph @connectArgs | Out-Null
             }
         }
 
