@@ -24,7 +24,19 @@ directory as sensitive:
 - `output/` is excluded from git by default (see `.gitignore`).
 - Store, share, and dispose of exports according to your organization's data
   handling policy.
-- Use the `-Redact` option if you need to share reports outside your tenant.
+- **Names are kept separate.** Each run writes a name-free `raw/export.json`
+  alongside a local-only `raw/names.json` dictionary, and `manifest.json` flags
+  every file with `containsNames` so you can see at a glance what must stay on
+  the machine.
+- To share a report outside your tenant, click **Export safely** in the report
+  header, or run `scripts/Export-CapSafeBundle.ps1`. Do **not** use the
+  deprecated `-Redact` switch for this: it only pseudonymized GUIDs, display
+  names survived it, and it discarded its own map so results could never be
+  mapped back. See [docs/SAFEEXPORT.md](docs/SAFEEXPORT.md).
+- **Anonymization reduces attribution, not exploitability.** Even a masked
+  export is still a map of where your gaps are. Treat it as security-relevant
+  material and send it only to parties and services you would trust with a gap
+  analysis.
 
 ## No warranty
 This software is provided **"as is"**, without warranty of any kind, express or
@@ -72,7 +84,23 @@ to their respective owners and are referenced descriptively only; they are not
 used in CAPVisualizer's own name or branding.
 
 ## Least privilege
-CAPVisualizer is designed to run with the **lowest practical permissions**. The
-core export requires only the read-only `Policy.Read.All` Microsoft Graph scope.
-Optional friendly-name resolution requires additional read-only directory
-scopes and is **off by default**. See [docs/PERMISSIONS.md](docs/PERMISSIONS.md).
+CAPVisualizer is **read-only** and never requests a write scope. The core export
+needs only `Policy.Read.All`.
+
+By **default** the tool also resolves object GUIDs to friendly names and collects
+read-only directory context to power the analysis engines, so an interactive run
+requests additional read-only scopes - typically `Directory.Read.All`, and with
+MFA and risk enrichment also `Group.Read.All`, `User.Read.All`,
+`RoleManagement.Read.Directory`, `AuditLog.Read.All` and
+`UserAuthenticationMethod.Read.All`.
+
+To reduce that footprint:
+
+- `-SkipResolveNames` keeps the minimal `Policy.Read.All`-only footprint (output
+  then shows GUIDs instead of names).
+- `-SkipDirectory` skips directory enrichment.
+
+[docs/PERMISSIONS.md](docs/PERMISSIONS.md) is the authoritative list of scopes,
+including the narrower alternatives to `Directory.Read.All` and the directory
+roles that can read Conditional Access policies. Review it before approving the
+tool. If you are ever prompted to consent to a **write** scope, stop.

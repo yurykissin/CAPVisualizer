@@ -225,7 +225,7 @@ function Get-CapExemptionExposure {
             if (-not $exposure.ContainsKey($id)) {
                 $exposure[$id] = [ordered]@{ id = $id; type = $ex.type; displayName = $(if ($nameMap.ContainsKey($id)) { $nameMap[$id] } else { $null }); policies = [System.Collections.Generic.List[string]]::new() }
             }
-            $exposure[$id].policies.Add($p.displayName)
+            $exposure[$id].policies.Add($p.id)
         }
 
         # Privileged principals excluded from a broad protective policy.

@@ -41,6 +41,16 @@ schema version** on that entry so users know a re-export is required.
 ## [Unreleased]
 
 ### Added
+- **"Export safely" button in the HTML report** — one click saves a single,
+  name-free JSON containing the policy structure plus every analysis result, so
+  sharing a report for review no longer requires running a second script. A
+  dialog first states plainly what was removed, what was kept, and that
+  anonymization reduces attribution rather than exploitability. The payload is
+  built and leak-tested by PowerShell during the run and embedded verbatim —
+  nothing is masked in the browser — and the button is hidden entirely if no
+  verified payload could be produced. `Export-CapSafeBundle.ps1` now writes the
+  same file as `cap-safe-review-<snapshot>.json`. See
+  [docs/SAFEEXPORT.md](docs/SAFEEXPORT.md).
 - **Name resolution at build time** — the HTML generator and `report/*` now read
   `raw/names.json` alongside the name-free export. Dictionary present → real names
   render exactly as before; dictionary absent → object ids render and the report

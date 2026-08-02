@@ -17,7 +17,52 @@ __STYLES__
     <div id="gresults" class="gresults hidden"></div>
   </div>
   <div class="disclaimer">Read-only export generated locally by CAPVisualizer. No changes were made to the tenant. This file bundles all assets and works offline. May contain sensitive configuration - handle accordingly.</div>
+  <div class="hdr-actions">
+    <button id="safeExportBtn" class="cmp-btn hidden" type="button">Export safely&hellip;</button>
+    <span id="safeExportHint" class="hdr-hint hidden">Saves a name-free copy you can share with an AI or a third party.</span>
+  </div>
 </header>
+
+<div id="safeModal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="safeModalTitle">
+    <h3 id="safeModalTitle">Export safely</h3>
+    <p>This saves a <strong>name-free copy</strong> of everything in this report: policy structure,
+       targeting, conditions, controls and all analysis results.</p>
+    <div class="safe-cols">
+      <div>
+        <div class="safe-h safe-ok">Removed</div>
+        <ul>
+          <li>Policy, user, group, role and app names</li>
+          <li>Sign-in names and email addresses</li>
+          <li>Named locations, IP ranges and countries</li>
+          <li>Device-filter rules and descriptions</li>
+          <li>Tenant id and every tenant-specific object id</li>
+        </ul>
+      </div>
+      <div>
+        <div class="safe-h">Kept</div>
+        <ul>
+          <li>Policy structure, state and conditions</li>
+          <li>Grant / session controls and operators</li>
+          <li>Who is included or excluded, as tokens</li>
+          <li>Findings, audit, compliance and test results</li>
+          <li>Microsoft built-in role and app identifiers</li>
+        </ul>
+      </div>
+    </div>
+    <p class="safe-note"><strong>Read this before you share it.</strong> Removing names reduces
+       <em>attribution</em>, not <em>exploitability</em>: this file still shows where your gaps are.
+       Send it only somewhere you would trust with a gap analysis.</p>
+    <p class="safe-note">Objects appear as tokens such as <code>POL-002</code> and <code>OBJ-004</code>.
+       To turn a reviewer's answer back into real names, run
+       <code>Restore-CapNames.ps1</code> with your local <code>raw/names.json</code>.</p>
+    <div id="safeModalErr" class="safe-err hidden"></div>
+    <div class="modal-actions">
+      <button id="safeCancel" class="cmp-btn cmp-btn-sec" type="button">Cancel</button>
+      <button id="safeConfirm" class="cmp-btn" type="button">Save file&hellip;</button>
+    </div>
+  </div>
+</div>
 
 <div class="tabs" style="padding: 12px 24px;">
   <div class="tab" data-tab="overview">Overview</div>
@@ -249,6 +294,8 @@ __STYLES__
 
 <script>
 window.__CAP_DATA__ = __DATA_JSON__;
+window.__CAP_SAFE__ = __SAFE_JSON__;
+window.__CAP_SNAPSHOT__ = "__SNAPSHOT__";
 </script>
 <script>
 __APP_JS__

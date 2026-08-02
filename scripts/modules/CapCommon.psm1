@@ -414,31 +414,34 @@ function Get-CapServicePrincipalMap {
 function Get-CapWellKnownAppMap {
 <#
 .SYNOPSIS
-    Static fallback names for well-known first-party Microsoft app ids that may
-    be referenced by CA policies but not present as tenant service principals.
+    Names for well-known first-party Microsoft app ids that may be referenced by
+    CA policies but are not present as tenant service principals.
+
+.DESCRIPTION
+    Reads assets/reference/microsoft-first-party-apps.json, the single source
+    shared with the name dictionary so the two lists cannot drift. Falls back to
+    a small built-in set if the pack is missing or unreadable.
 #>
+    $pack = Join-Path $PSScriptRoot '../../assets/reference/microsoft-first-party-apps.json'
+    if (Test-Path -LiteralPath $pack) {
+        try {
+            $data = Get-Content -LiteralPath $pack -Raw | ConvertFrom-Json -Depth 10 -AsHashtable
+            $map = @{}
+            foreach ($a in @($data['apps'])) {
+                if ($a['id'] -and $a['name']) { $map[[string]$a['id']] = [string]$a['name'] }
+            }
+            if ($map.Count -gt 0) { return $map }
+        }
+        catch { }
+    }
+
     return @{
         '00000002-0000-0ff1-ce00-000000000000' = 'Office 365 Exchange Online'
         '00000003-0000-0ff1-ce00-000000000000' = 'Office 365 SharePoint Online'
         '00000003-0000-0000-c000-000000000000' = 'Microsoft Graph'
-        '00000004-0000-0ff1-ce00-000000000000' = 'Skype for Business Online'
-        '00000005-0000-0ff1-ce00-000000000000' = 'Microsoft Yammer'
-        '00000006-0000-0ff1-ce00-000000000000' = 'Microsoft Office 365 Portal'
-        '00000007-0000-0ff1-ce00-000000000000' = 'Microsoft Exchange Online Protection'
-        '00000009-0000-0000-c000-000000000000' = 'Power BI Service'
-        '0000000c-0000-0000-c000-000000000000' = 'Microsoft App Access Panel'
         '797f4846-ba00-4fd7-ba43-dac1f8f63013' = 'Windows Azure Service Management API'
         'c44b4083-3bb0-49c1-b47d-974e53cbdf3c' = 'Microsoft Azure Portal'
-        '04b07795-8ddb-461a-bbee-02f9e1bf7b46' = 'Microsoft Azure CLI'
-        '05a65629-4c1b-48c1-a78b-804c4abdd4af' = 'Microsoft Azure CLI (legacy)'
-        '1950a258-227b-4e31-a9cf-717495945fc2' = 'Microsoft Azure PowerShell'
-        '1fec8e78-bce4-4aaf-ab1b-5451cc387264' = 'Microsoft Teams'
         'd3590ed6-52b3-4102-aeff-aad2292ab01c' = 'Microsoft Office'
-        '871c010f-5e61-4fb1-83ac-98610a7e9110' = 'Microsoft Power BI'
-        '00000007-0000-0000-c000-000000000000' = 'Microsoft Dataverse'
-        '3090ab82-f1c1-4cdf-af2c-5d7a6f3e2cc7' = 'Microsoft Defender for Cloud Apps'
-        '74bcdadc-2fdc-4bb3-8459-76d06952a0e9' = 'Microsoft Intune Web Company Portal'
-        '89bee1f7-5e6e-4d8a-9f3d-ecd601259da7' = 'Office 365 (portal.office.com)'
     }
 }
 

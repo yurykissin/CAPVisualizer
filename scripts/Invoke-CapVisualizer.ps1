@@ -74,6 +74,14 @@
 .PARAMETER NoTranscript
     Do not write a PowerShell transcript into the snapshot folder.
 
+.PARAMETER ManifestKey
+    Optional operator-supplied secret. When given, the manifest also carries an
+    HMAC-SHA256 over the file hash list, keyed with this value. Unlike the plain
+    hashes, an HMAC cannot be recomputed by someone who edits a file without also
+    knowing the key, so it turns the manifest from a corruption check into a
+    tamper-evidence check for whoever holds the key. The key itself is never
+    written to disk.
+
 .EXAMPLE
     pwsh ./scripts/Invoke-CapVisualizer.ps1
     Interactive sign-in; resolves names; export + report + visualization.
@@ -126,7 +134,8 @@ param(
     [string]$BaselinePath,
     [switch]$NoVisual,
     [switch]$NoOpen,
-    [switch]$NoTranscript
+    [switch]$NoTranscript,
+    [string]$ManifestKey
 )
 
 Set-StrictMode -Version Latest
@@ -185,6 +194,9 @@ function Protect-CapObject {
 
 try {
     $offline = $PSCmdlet.ParameterSetName -eq 'FromJson'
+    # Set only in -FromJson mode, where the on-disk export is already masked.
+    $preRestoreExport = $null
+    $inputDictionary = $null
 
     if ($offline) {
         # --- Offline render: load from JSON, no Graph connection, no network ---
@@ -201,7 +213,25 @@ try {
         $inputDictionary = Import-CapNameDictionary -Path $Names -NearExport $FromJson
         if ($inputDictionary) {
             Write-CapLog "Name dictionary found ($($inputDictionary.count) entries); rendering with names." 'OK'
+            # Keep the file exactly as it sat on disk. Re-hydration is a blind
+            # text substitution, so it rewrites identifier fields as well as
+            # labels: a policy whose displayName was masked to its own id comes
+            # back with that name in BOTH id and displayName, and the original
+            # id is unrecoverable. Building the shareable export from the
+            # re-hydrated copy therefore ships real names. The on-disk form is
+            # already the masked one, so it is the correct source.
+            $preRestoreExport = $export
             $export = ConvertFrom-CapSafeObject -InputObject $export -Dictionary $inputDictionary
+            # Blind substitution also rewrote the identifier fields, so every
+            # object now reads as its own name where its id used to be. Put the
+            # ids back from the on-disk copy, position by position. Without this
+            # the dictionary rebuilt below finds no guid to key on, skips the
+            # object entirely, and its name becomes unmaskable: it then leaks
+            # through the analysis into the shareable export.
+            $repaired = Repair-CapRestoredIds -Restored $export -Masked $preRestoreExport
+            if ($repaired -gt 0) {
+                Write-CapLog "Re-hydration overwrote $repaired identifier(s); restored them from the masked export." 'INFO'
+            }
         }
         else {
             Write-CapLog "No name dictionary supplied; the report will show object ids instead of names." 'WARN'
@@ -240,6 +270,18 @@ try {
     foreach ($ac in $export.authenticationContexts) { $acId = if ($ac -is [System.Collections.IDictionary]) { $ac['id'] } else { $ac.id }; $acName = if ($ac -is [System.Collections.IDictionary]) { $ac['displayName'] } else { $ac.displayName }; if ($acId) { $nameMap[$acId] = $acName } }
     # Any name map embedded in an offline JSON export.
     if ($export.Contains('nameMap') -and $export['nameMap']) { foreach ($k in $export['nameMap'].Keys) { $nameMap["$k"] = $export['nameMap'][$k] } }
+    # Offline re-render of a masked export: the supplied dictionary is the only
+    # place the real names live. Identifiers were put back after re-hydration
+    # (see Repair-CapRestoredIds), so the report resolves them the same way a
+    # live run does, through the name map, rather than by carrying names in the
+    # data itself.
+    if ($inputDictionary) {
+        foreach ($e in $inputDictionary.entries.GetEnumerator()) {
+            $eid = "$($e.Key)"
+            $en = "$(if ($e.Value -is [System.Collections.IDictionary]) { $e.Value['name'] } else { $e.Value.name })"
+            if ($eid -and $en) { $nameMap[$eid] = $en }
+        }
+    }
     # Well-known first-party app ids are always safe to resolve (static, offline).
     (Get-CapWellKnownAppMap).GetEnumerator() | ForEach-Object { if (-not $nameMap.ContainsKey($_.Key)) { $nameMap[$_.Key] = $_.Value } }
 
@@ -292,11 +334,25 @@ try {
         $normalized = @($export.policies | ForEach-Object { ConvertTo-CapNormalizedPolicy -Policy $_ -AppGroupingMap $grouping })
         $enrichment = if ($export.Contains('enrichment')) { $export.enrichment } else { $null }
 
+        # Say out loud when the export carries condition data this build does not
+        # read. Microsoft adds new shapes for existing conditions, and a tool that
+        # reads only the old one reports the condition as absent rather than
+        # failing. Absent targeting reads as "this policy does nothing", which is
+        # how live policies get recommended for deletion. Every judgement below
+        # depends on this being empty.
+        $unreadShapes = @(Test-CapShapeCoverage -Policies $export.policies)
+        if ($unreadShapes.Count) {
+            Write-CapLog ("Unread condition shapes: {0} key(s) are populated in this export but not read by the analysis engines. Targeting and dead-weight judgements for the affected policies may be wrong. Report this." -f $unreadShapes.Count) 'WARN'
+            foreach ($u in $unreadShapes) {
+                Write-CapLog ("  {0} - {1} policy(ies), e.g. '{2}'" -f $u.path, $u.count, $u.sample) 'WARN'
+            }
+        }
+
         $auditResult      = Invoke-CapAudit -NormalizedPolicies $normalized -Enrichment $enrichment
         $riskFindings     = Invoke-CapFindings -NormalizedPolicies $normalized -Enrichment $enrichment -AuditResult $auditResult
         $complianceResult = Invoke-CapCompliance -NormalizedPolicies $normalized
         $authMethods      = Invoke-CapAuthMethods -Enrichment $enrichment
-        $consolidation    = Invoke-CapConsolidate -NormalizedPolicies $normalized -NameMap $nameMap
+        $consolidation    = Invoke-CapConsolidate -NormalizedPolicies $normalized -NameMap $nameMap -UnreadShapes $unreadShapes
         $testArgs = @{ NormalizedPolicies = $normalized; Enrichment = $enrichment; ComplianceResult = $complianceResult; FindingsResult = $riskFindings }
         if ($AssertionPath) { $testArgs['AssertionPath'] = $AssertionPath }
         $testResult = Invoke-CapTest @testArgs
@@ -336,25 +392,95 @@ try {
     # raw/export.json is name-free; raw/names.json is the dictionary that turns it
     # back into names. Delete or withhold names.json and the report renders ids.
     Save-CapJson -InputObject $safeExport -Path (Join-Path $snapshot 'raw/export.json')
-    if (-not $NoNames) {
-        Save-CapJson -InputObject $dictionary -Path (Join-Path $snapshot 'raw/names.json')
+
+    # Split the export into its natural parts as well. export.json stays the
+    # single source of truth, but 98% of its bytes are directory enrichment
+    # (user inventory, MFA posture, group membership) that has nothing to do
+    # with Conditional Access. Keeping the CA definitions in their own small
+    # file means the thing most often read, diffed or shared does not drag the
+    # whole user directory along with it.
+    Save-CapJson -InputObject ([ordered]@{
+        metadata = $safeExport.metadata
+        policies = $safeExport.policies
+    }) -Path (Join-Path $snapshot 'raw/policies.json')
+
+    Save-CapJson -InputObject ([ordered]@{
+        metadata                = $safeExport.metadata
+        namedLocations          = $safeExport.namedLocations
+        authenticationStrengths = $safeExport.authenticationStrengths
+        authenticationContexts  = $safeExport.authenticationContexts
+    }) -Path (Join-Path $snapshot 'raw/references.json')
+
+    if ($safeExport.Contains('enrichment')) {
+        Save-CapJson -InputObject ([ordered]@{
+            metadata   = $safeExport.metadata
+            enrichment = $safeExport.enrichment
+        }) -Path (Join-Path $snapshot 'raw/enrichment.json')
     }
+
     Save-CapJson -InputObject $friendly -Path (Join-Path $snapshot 'report/policies.json')
     Save-CapJson -InputObject $summary  -Path (Join-Path $snapshot 'report/summary.json')
     Save-CapJson -InputObject $findings -Path (Join-Path $snapshot 'report/findings.json')
+
+    $safeAnalysis = [ordered]@{}
     if (-not $SkipAnalysis) {
         New-Item -ItemType Directory -Force -Path (Join-Path $snapshot 'analysis') | Out-Null
-        Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $auditResult      -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/audit.json')
-        Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $riskFindings     -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/findings.json')
-        Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $complianceResult -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/compliance.json')
-        if ($authMethods) { Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $authMethods -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/authmethods.json') }
-        if ($consolidation) { Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $consolidation -Dictionary $dictionary) -Path (Join-Path $snapshot 'analysis/consolidation.json') }
+        $safeAnalysis['audit'] = ConvertTo-CapSafeObject -InputObject $auditResult -Dictionary $dictionary
+        $safeAnalysis['findings'] = ConvertTo-CapSafeObject -InputObject $riskFindings -Dictionary $dictionary
+        $safeAnalysis['compliance'] = ConvertTo-CapSafeObject -InputObject $complianceResult -Dictionary $dictionary
+        if ($authMethods) { $safeAnalysis['authMethods'] = ConvertTo-CapSafeObject -InputObject $authMethods -Dictionary $dictionary }
+        if ($consolidation) { $safeAnalysis['consolidation'] = ConvertTo-CapSafeObject -InputObject $consolidation -Dictionary $dictionary }
         $safeTestResult = ConvertTo-CapSafeObject -InputObject $testResult -Dictionary $dictionary
+        $safeAnalysis['tests'] = $safeTestResult
+
+        Save-CapJson -InputObject $safeAnalysis['audit']      -Path (Join-Path $snapshot 'analysis/audit.json')
+        Save-CapJson -InputObject $safeAnalysis['findings']   -Path (Join-Path $snapshot 'analysis/findings.json')
+        Save-CapJson -InputObject $safeAnalysis['compliance'] -Path (Join-Path $snapshot 'analysis/compliance.json')
+        if ($authMethods) { Save-CapJson -InputObject $safeAnalysis['authMethods'] -Path (Join-Path $snapshot 'analysis/authmethods.json') }
+        if ($consolidation) { Save-CapJson -InputObject $safeAnalysis['consolidation'] -Path (Join-Path $snapshot 'analysis/consolidation.json') }
         Save-CapJson -InputObject $safeTestResult -Path (Join-Path $snapshot 'analysis/tests.json')
         if ($testResult) {
             ConvertTo-CapJUnit -TestResult $safeTestResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.junit.xml') -Encoding utf8
             ConvertTo-CapSarif -TestResult $safeTestResult | Set-Content -Path (Join-Path $snapshot 'analysis/tests.sarif.json') -Encoding utf8
         }
+    }
+
+    # --- Shareable export (behind "Export safely") ---
+    # Built by allowlist from the masked export: policies only, no tenant id, no
+    # display names. Because it copies in only known-safe structure rather than
+    # subtracting what looks sensitive, there is nothing to verify after the
+    # fact and nothing that can withhold the button.
+    # In -FromJson mode prefer the file as it sat on disk: it is already masked,
+    # whereas the in-memory copy has been re-hydrated for the local report.
+    $bundleSource = if ($preRestoreExport) { $preRestoreExport } else { $safeExport }
+    # Mask again with the dictionary built by this run, even when the source was
+    # already masked on disk. An older snapshot was masked by an older build, so
+    # anything this build learned to remove since - a partner tenant id, for one
+    # - is still sitting in that file, and re-exporting it would publish it. Name
+    # substitution is idempotent, so masking twice costs nothing and closes the
+    # gap where a re-render of last month's snapshot is less safe than a fresh run.
+    if ($dictionary) { $bundleSource = ConvertTo-CapSafeObject -InputObject $bundleSource -Dictionary $dictionary }
+    $safeBundle = New-CapPolicyOnlyExport -Export $bundleSource -Snapshot $stamp -Analysis $safeAnalysis
+    $analysisNote = if ($safeBundle.Contains('consolidation') -or $safeBundle.Contains('compliance')) { ', with the deterministic analysis included' } else { '' }
+    Write-CapLog "Shareable export ready: $(@($safeBundle.policies).Count) policies, no tenant id or display names$analysisNote (use 'Export safely' in the report)." 'OK'
+
+    # Belt and braces: the allowlist is the control, this only reports. It must
+    # never gate the button - that was the previous design's mistake.
+    try {
+        $residual = @(Test-CapNameLeak -Dictionary $dictionary -InputObject $safeBundle -RequirePseudonymized)
+        if ($residual.Count) {
+            $detail = ($residual | Select-Object -First 5 | ForEach-Object {
+                if ($_.context) { "$($_.kind): $($_.value) [$($_.context)]" } else { "$($_.kind): $($_.value)" }
+            }) -join '; '
+            Write-CapLog "Shareable export self-check flagged $($residual.Count) item(s) for review: $detail" 'WARN'
+        }
+    }
+    catch {
+        Write-CapLog "Shareable export self-check could not run: $($_.Exception.Message)" 'WARN'
+    }
+
+    if (-not $NoNames) {
+        Save-CapJson -InputObject $dictionary -Path (Join-Path $snapshot 'raw/names.json')
     }
 
     $csvRows = @($friendly | ForEach-Object { ConvertTo-CapCsvRow -Friendly $_ })
@@ -429,14 +555,35 @@ try {
         New-CapVisual -FriendlyPolicies $visFriendly -Summary $visSummary -Findings $visFindings -Delta $visualDelta `
             -RiskFindings $visRisk `
             -Audit $visAudit -Compliance $visCompliance -TestResult $visTests -AuthMethods $visAuth -NameMap $visNameMap `
+            -SafeBundle $safeBundle -SnapshotName $stamp `
             -AssetsPath $assetsPath -OutputFile (Join-Path $snapshot 'visual/index.html')
     }
 
     # --- Manifest (integrity hashes; no secrets) ---
-    # containsNames marks the files that must never leave the machine.
+    # containsNames marks the files that must never leave the machine. Be honest
+    # about what the hashes prove: they catch accidental edits and partial copies,
+    # but the manifest is generated and verified by the same tool with the same
+    # unkeyed hash, so anyone who edits a file can regenerate it. It is not a
+    # signature. For tamper-evidence either record the manifest hash printed
+    # below out of band, or pass -ManifestKey to add a keyed HMAC.
     $localOnly = @('raw/names.json', 'report/policies.json', 'report/summary.json', 'report/findings.json',
                    'report/policies.csv', 'report/findings.csv')
     $files = Get-ChildItem -Path $snapshot -Recurse -File | Where-Object { $_.Name -ne 'manifest.json' -and $_.Name -ne 'transcript.txt' }
+    $fileEntries = @($files | ForEach-Object {
+        $rel = ($_.FullName.Substring($snapshot.Length + 1) -replace '\\', '/')
+        [ordered]@{
+            path          = $rel
+            sha256        = (Get-CapFileSha256 -Path $_.FullName)
+            bytes         = $_.Length
+            containsNames = ($localOnly -contains $rel) -or ($rel -eq 'visual/index.html' -and -not $NoNames)
+        }
+    })
+    $integrity = [ordered]@{
+        algorithm = 'SHA-256'
+        proves    = 'Detects accidental modification and incomplete copies of the files listed below.'
+        does_not_prove = 'Not a signature. This manifest is generated and verified by the same tool with the same unkeyed hash, so anyone who edits a file can regenerate it. It does not prove the absence of deliberate tampering.'
+        anchor    = 'To detect later tampering, record the manifest hash printed to the console at generation time and compare it independently, or generate with -ManifestKey to add a keyed HMAC.'
+    }
     $manifest = [ordered]@{
         tool          = 'CAPVisualizer'
         snapshot      = $stamp
@@ -448,17 +595,28 @@ try {
         pseudonymized = [bool]$Pseudonymize
         namesSplit    = $true
         dictionary    = $(if ($NoNames) { $null } else { 'raw/names.json' })
-        files         = @($files | ForEach-Object {
-            $rel = ($_.FullName.Substring($snapshot.Length + 1) -replace '\\', '/')
-            [ordered]@{
-                path          = $rel
-                sha256        = (Get-CapFileSha256 -Path $_.FullName)
-                bytes         = $_.Length
-                containsNames = ($localOnly -contains $rel) -or ($rel -eq 'visual/index.html' -and -not $NoNames)
-            }
-        })
+        integrity     = $integrity
+        files         = $fileEntries
+    }
+    if ($ManifestKey) {
+        # Keyed over the canonical "path:sha256" list, which is exactly what the
+        # per-file hashes attest to. Someone without the key cannot forge it.
+        $hashList = (($fileEntries | ForEach-Object { "$($_.path):$($_.sha256)" }) -join "`n")
+        $hmac = [System.Security.Cryptography.HMACSHA256]::new([System.Text.Encoding]::UTF8.GetBytes($ManifestKey))
+        try {
+            $mac = (-join ($hmac.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hashList)) | ForEach-Object { $_.ToString('x2') }))
+        }
+        finally { $hmac.Dispose() }
+        $manifest['integrity']['hmacSha256'] = $mac
+        $manifest['integrity']['hmacScope'] = 'newline-joined path:sha256 list, in file order'
     }
     Save-CapJson -InputObject $manifest -Path (Join-Path $snapshot 'manifest.json')
+
+    # Print the manifest's own hash so it can be recorded out of band. This is the
+    # external anchor: a value written down elsewhere that a later, tampered
+    # manifest cannot match.
+    $manifestHash = Get-CapFileSha256 -Path (Join-Path $snapshot 'manifest.json')
+    Write-CapLog ("Manifest SHA-256 (record separately to anchor integrity): {0}" -f $manifestHash) 'INFO'
 
     $visualPath = Join-Path $snapshot 'visual/index.html'
     Write-CapLog "Done. Open: $visualPath" 'OK'

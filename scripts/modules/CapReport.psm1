@@ -205,6 +205,42 @@ function ConvertTo-CapFriendlyPolicy {
     if ($inclGuest) { $inclGuestTypes = _Labels $script:CapGuestTypeLabels (("$(_Get $inclGuest 'guestOrExternalUserTypes')") -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
     if ($exclGuest) { $exclGuestTypes = _Labels $script:CapGuestTypeLabels (("$(_Get $exclGuest 'guestOrExternalUserTypes')") -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
 
+    # Which partner organisations the guest selector covers. Without this the
+    # report says "external users" and stops, so a policy admitting one named
+    # managed provider is indistinguishable from one admitting every tenant in
+    # the world. Graph unrolls a single-member list to a scalar, so accept both.
+    $extOf = {
+        param($block)
+        $ext = _Get $block 'externalTenants'
+        if (-not $ext) { return $null }
+        $kind = "$(_Get $ext 'membershipKind')"
+        $members = _Get $ext 'members'
+        $ids = @()
+        if ($null -ne $members) { $ids = @($members | Where-Object { $_ } | ForEach-Object { "$_" }) }
+        [ordered]@{
+            membershipKind = $kind
+            tenantIds      = $ids
+            label          = if ($kind -eq 'enumerated' -and $ids.Count) {
+                                 "Named tenants only: $($ids -join ', ')"
+                             } elseif ($kind -eq 'enumerated') {
+                                 'Named tenants only (none listed)'
+                             } else { 'All external tenants' }
+        }
+    }
+    $inclExtTenants = if ($inclGuest) { & $extOf $inclGuest } else { $null }
+    $exclExtTenants = if ($exclGuest) { & $extOf $exclGuest } else { $null }
+
+    # Global Secure Access selects resources by traffic profile instead of by
+    # application id, so a policy can protect real traffic while naming no app.
+    $trafficProfiles = @(@(_Get (_Get $apps 'globalSecureAccess') 'includeTrafficProfiles') +
+                         @(_Get (_Get $apps 'networkAccess') 'includeTrafficProfiles')) |
+                       ForEach-Object { ("$_" -split ',') } | ForEach-Object { $_.Trim() } |
+                       Where-Object { $_ } | Select-Object -Unique
+
+    # Agent identities are targeted through their own lists.
+    $inclAgents = @(_Get $clientApps 'includeAgentIdServicePrincipals')
+    $exclAgents = @(_Get $clientApps 'excludeAgentIdServicePrincipals')
+
     return [ordered]@{
         id                    = _Get $Policy 'id'
         displayName           = _Get $Policy 'displayName'
@@ -224,12 +260,17 @@ function ConvertTo-CapFriendlyPolicy {
         excludeGuestsExternal = [bool]$exclGuest
         includeGuestTypes     = $inclGuestTypes
         excludeGuestTypes     = $exclGuestTypes
+        includeGuestTenants   = $inclExtTenants
+        excludeGuestTenants   = $exclExtTenants
         includeServicePrincipals = $inclSp
         excludeServicePrincipals = $exclSp
+        includeAgentIdentities   = $inclAgents
+        excludeAgentIdentities   = $exclAgents
 
         includeApplications   = Apps (_Get $apps 'includeApplications')
         excludeApplications   = Apps (_Get $apps 'excludeApplications')
         applicationFilter     = $appFilter
+        trafficProfiles       = @($trafficProfiles)
         includeUserActions    = _Labels $script:CapUserActionLabels (_Get $apps 'includeUserActions')
         authenticationContext = @(_Get $apps 'includeAuthenticationContextClassReferences' | ForEach-Object { if ($NameMap.ContainsKey("$_")) { $NameMap["$_"] } else { "$_" } })
 
@@ -282,12 +323,16 @@ function ConvertTo-CapCsvRow {
         ExcludeRoles       = _Join $Friendly.excludeRoles
         IncludeGuestTypes  = _Join $Friendly.includeGuestTypes
         ExcludeGuestTypes  = _Join $Friendly.excludeGuestTypes
+        IncludeGuestTenants = if ($Friendly.includeGuestTenants) { $Friendly.includeGuestTenants.label } else { $null }
+        ExcludeGuestTenants = if ($Friendly.excludeGuestTenants) { $Friendly.excludeGuestTenants.label } else { $null }
         WorkloadIdentity   = $Friendly.isWorkloadIdentity
         IncludeServicePrincipals = _Join $Friendly.includeServicePrincipals
         ExcludeServicePrincipals = _Join $Friendly.excludeServicePrincipals
+        IncludeAgentIdentities   = _Join $Friendly.includeAgentIdentities
         IncludeApps        = _Join $Friendly.includeApplications
         ExcludeApps        = _Join $Friendly.excludeApplications
         AppFilter          = $Friendly.applicationFilter
+        TrafficProfiles    = _Join $Friendly.trafficProfiles
         UserActions        = _Join $Friendly.includeUserActions
         AuthContext        = _Join $Friendly.authenticationContext
         ClientAppTypes     = _Join $Friendly.clientAppTypes

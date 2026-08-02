@@ -21,6 +21,12 @@ excluded/break-glass accounts, named locations, and object identifiers.
 - **Names are split out.** Each run writes a name-free `raw/export.json` plus a
   local-only `raw/names.json` dictionary. `manifest.json` flags every file with
   `containsNames`, so you can tell at a glance what must stay on the machine.
+- **`containsNames = false` does not mean "safe to share."** `raw/export.json`
+  carries no display names, but it still contains every object GUID and the
+  tenant id in the clear, and the tenant id maps directly to your organization.
+  The only artifacts intended to leave the machine are the ones produced by
+  **Export safely** or `Export-CapSafeBundle.ps1`, which alias those ids and are
+  leak-tested before they are written.
 - Run `scripts/Export-CapSafeBundle.ps1` to assemble a `safe/` folder for
   sharing. It pseudonymizes tenant-specific GUIDs, then **fails closed** - if
   any name, unallowlisted GUID or IP-shaped string survives, the bundle is

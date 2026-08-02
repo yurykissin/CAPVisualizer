@@ -57,7 +57,7 @@ function _BroadBlock {
         $_.conditions.users.includeAll -and $_.conditions.applications.includeAll -and
         (& $ExtraCondition $_)
     })
-    @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+    @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.id }) }
 }
 
 function _BroadGrant {
@@ -67,7 +67,7 @@ function _BroadGrant {
         $_.conditions.users.includeAll -and $_.conditions.applications.includeAll -and
         (& $ExtraCondition $_)
     })
-    @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+    @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.id }) }
 }
 
 $script:CapComplianceChecks = @{
@@ -93,7 +93,7 @@ $script:CapComplianceChecks = @{
             $_.enforced -and $_.conditions.users.includeAll -and $_.conditions.applications.includeAll -and
             "$($_.grant.authStrengthId)" -eq $script:CapPhishResistantStrengthId
         })
-        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.id }) }
     }
     'mfa-all-users' = {
         param($Policies)
@@ -101,7 +101,7 @@ $script:CapComplianceChecks = @{
             $_.enforced -and $_.grant.requireMfa -and
             $_.conditions.users.includeAll -and $_.conditions.applications.includeAll
         })
-        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.id }) }
     }
     'phishing-resistant-mfa-privileged-roles' = {
         param($Policies)
@@ -110,7 +110,7 @@ $script:CapComplianceChecks = @{
             "$($_.grant.authStrengthId)" -eq $script:CapPhishResistantStrengthId -and
             ($_.conditions.users.includeAll -or @($_.conditions.users.includeRoles).Count -ge 1)
         })
-        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.id }) }
     }
     'require-managed-device' = {
         param($Policies)
@@ -122,7 +122,7 @@ $script:CapComplianceChecks = @{
             $_.enforced -and $_.grant.block -and $_.conditions.users.includeAll -and
             @(_CoArr $_.conditions.authFlows | Where-Object { "$_" -eq 'deviceCodeFlow' }).Count -ge 1
         })
-        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.id }) }
     }
     'block-risky-agents' = {
         param($Policies)
@@ -130,7 +130,7 @@ $script:CapComplianceChecks = @{
             $_.enforced -and $_.grant.block -and
             @(_CoArr $_.conditions.agentRisk | Where-Object { "$_" -eq 'high' }).Count -ge 1
         })
-        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.displayName }) }
+        @{ pass = ($matches.Count -ge 1); evidence = @($matches | ForEach-Object { $_.id }) }
     }
 }
 

@@ -56,6 +56,30 @@ produce the same fingerprint.
 - name signals a test/temporary/retire policy (`test`, `check`, `deprecated`,
   `old`, `do not use`, `delete`, `temp`, `poc`, `demo`, ...).
 
+The name signal is suppressed when the match is negated. `DO NOT DELETE OR
+MODIFY` contains the word `delete`, and unguarded that recommended retiring
+exactly the policies whose names exist to prevent it. `do not use` still counts:
+it means the policy is out of service, not that it must be preserved.
+
+## Unread condition shapes
+
+`unreadShapes[]` lists condition data that is populated in the export but not
+read by the model, with the policies affected.
+
+This exists because of how the tool fails. When Microsoft adds a new shape for
+an existing condition, a tool that reads only the old shape does not error: it
+reports the condition as **absent**. Absent targeting reads as "this policy does
+nothing", which reads as dead weight, which reads as "delete it". That is how
+two live managed-provider policies were put on a customer's deletion list, while
+the visual report, which reads the raw Graph object, showed them targeting the
+provider correctly.
+
+The consumed condition keys are declared in one place in `CapNormalize.psm1`.
+Every run walks the export for populated keys and reports anything unread in the
+run log, in this section, and in the shareable export. A test fails if a
+populated shape is unread. **When this list is not empty, do not act on the
+dead weight or duplicate verdicts for the policies named in it.**
+
 ## Baseline completeness
 
 `completeness[]` scans the estate for best-practice controls that *should* exist
@@ -76,6 +100,27 @@ Controls checked:
 > comma-joined string (`deviceCodeFlow,authenticationTransfer`); the scan splits
 > it before testing membership so device-code detection works whether one or both
 > flows are set.
+
+### Scope qualification
+
+Presence alone is not protection. An enabled policy that names three individuals
+is a pilot, and crediting it as a control is how a real gap gets signed off as
+covered. Each result therefore carries a `coverage` value alongside `present`:
+
+| `coverage` | Meaning | Counts as present |
+|---|---|---|
+| `tenant` | at least one implementing policy targets all users | yes |
+| `targeted` | targets groups, roles or the guest selector | yes |
+| `narrow` | every implementing policy names individual users only | **no** |
+| `none` | no enforced policy implements the control | no |
+
+`enforcedCount`, `broadCount` and `narrowCount` show the split, and `detail`
+states plainly when an implementation was discounted. `targeted` is credited
+because the size of a group is a directory fact this tool cannot see offline.
+
+This also removes a contradiction: the completeness scan previously reported
+device-code flow as present from a single-user policy while the SCuBA check for
+the same control reported a failure.
 
 ## Exclusion concentration
 

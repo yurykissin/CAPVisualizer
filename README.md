@@ -127,6 +127,28 @@ actual method secrets. See
 
 ![Auth methods tab](docs/images/07-authmethods.png)
 
+**Export safely** saves the Conditional Access policy definitions on their own -
+no tenant id, no display names, no directory enrichment - as a single file you
+can hand to an AI or a third party. It is built as an allowlist: the file starts
+empty and only policy structure is copied in, so anything not explicitly
+included is absent by construction rather than by pattern-matching. What is left
+is GUIDs, Graph enums, booleans and timestamps. On a real tenant this reduces an
+11.5 MB export to roughly 175 KB. The payload is built by PowerShell during the
+run, not by the browser. See
+[docs/SAFEEXPORT.md](docs/SAFEEXPORT.md):
+
+Authentication strengths and contexts travel with the policies, because a policy
+gated on a custom strength cannot be reviewed without knowing whether that
+strength means FIDO2 or SMS. Named location definitions do not travel at all -
+not the name, not the IP ranges, not even a range count or a trust flag. The
+policy keeps the location id, which is enough for the checks that matter (a
+location excluded from an enforcing policy, the same location treated two ways
+by two policies), and the reviewer is told to report those as "requires local
+verification" rather than guess. `Restore-CapNames.ps1` turns the ids in the
+returned report back into real names on your machine.
+
+![Export safely dialog](docs/images/09-export-safely.png)
+
 ## Quickstart
 
 ```bash
@@ -209,7 +231,11 @@ output/<yyyyMMdd-HHmmss>/
   registration (certificate or secret) for scheduled runs.
 - **Safe export for AI review** - names are split out of `export.json` into a
   local-only `names.json`, so the structure can be reviewed by a model without
-  handing over your tenant. See [docs/SAFEEXPORT.md](docs/SAFEEXPORT.md).
+  handing over your tenant. The report has an **Export safely** button that saves
+  just the Conditional Access policy definitions, with no tenant id, no display
+  names and no directory enrichment. `raw/` also splits the export into
+  `policies.json`, `references.json` and `enrichment.json`.
+  See [docs/SAFEEXPORT.md](docs/SAFEEXPORT.md).
 - **Integrity manifest** - SHA-256 of every output file.
 - **Local scheduling helper** - cron / Task Scheduler. See
   [docs/SCHEDULING.md](docs/SCHEDULING.md).
@@ -395,9 +421,9 @@ pwsh ./samples/Test-Offline.ps1
 - **Sensitive output.** Exports and reports can contain sensitive configuration
   (targeting, exclusions, break-glass accounts, object IDs). `output/` is
   git-ignored. Names live in a separate local-only `raw/names.json`, so
-  `raw/export.json` and `analysis/*` can be shared for review; run
-  `scripts/Export-CapSafeBundle.ps1` to assemble and verify what is safe to
-  upload. See [docs/SAFEEXPORT.md](docs/SAFEEXPORT.md).
+  `raw/export.json` and `analysis/*` can be shared for review; use the report's
+  **Export safely** button, or run `scripts/Export-CapSafeBundle.ps1`, to produce
+  and verify what is safe to upload. See [docs/SAFEEXPORT.md](docs/SAFEEXPORT.md).
 - **Least privilege.** Core export needs only `Policy.Read.All`; optional
   read-only directory scopes power name resolution and the analysis engines. See
   [docs/PERMISSIONS.md](docs/PERMISSIONS.md).

@@ -49,6 +49,25 @@ $modules = Join-Path $PSScriptRoot 'modules'
 Import-Module (Join-Path $modules 'CapCommon.psm1') -Force
 Import-Module (Join-Path $modules 'CapNames.psm1') -Force
 
+# Binding token: a fingerprint over the snapshot id and dictionary shape, stamped
+# into the bundle so Restore-CapNames.ps1 can refuse a dictionary that does not
+# match. It carries no name. Derivation must match Restore-CapNames.ps1.
+function Get-CapBindingToken {
+    param($Dictionary)
+    if (-not $Dictionary) { return $null }
+    $snap = if ($Dictionary.Contains('snapshot')) { "$($Dictionary['snapshot'])" } else { '' }
+    if (-not $snap) { return $null }
+    $count = if ($Dictionary.Contains('count')) { "$($Dictionary['count'])" } else { '0' }
+    $pseudo = if ($Dictionary.Contains('pseudonymized')) { "$([bool]$Dictionary['pseudonymized'])".ToLowerInvariant() } else { 'false' }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$snap|$count|$pseudo"))
+    }
+    finally { $sha.Dispose() }
+    $fp = (-join ($bytes[0..3] | ForEach-Object { $_.ToString('x2') }))
+    return "CAPBIND:${snap}:${fp}"
+}
+
 $snapshot = (Resolve-Path -LiteralPath $SnapshotPath).Path
 $exportFile = Join-Path $snapshot 'raw/export.json'
 if (-not (Test-Path -LiteralPath $exportFile)) {
@@ -107,6 +126,33 @@ foreach ($rel in $sources) {
     $copied.Add($rel)
 }
 
+# The same single-file review bundle the report's "Export safely" button hands
+# out, so the CLI and the button produce an interchangeable artifact.
+$bundleExport = Get-Content -LiteralPath (Join-Path $safeDir 'raw/export.json') -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
+$bundleAnalysis = [ordered]@{}
+foreach ($sec in @{ 'audit.json' = 'audit'; 'findings.json' = 'findings'; 'compliance.json' = 'compliance';
+                    'authmethods.json' = 'authMethods'; 'consolidation.json' = 'consolidation'; 'tests.json' = 'tests' }.GetEnumerator()) {
+    $f = Join-Path $safeDir "analysis/$($sec.Key)"
+    if (Test-Path -LiteralPath $f) {
+        $bundleAnalysis[$sec.Value] = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
+    }
+}
+$reviewBundle = New-CapSafeReviewBundle -SafeExport $bundleExport -Dictionary $dictionary `
+    -Analysis $bundleAnalysis -Snapshot (Split-Path -Leaf $snapshot)
+$bindingToken = Get-CapBindingToken -Dictionary $dictionary
+if ($bindingToken) {
+    # Stamped after masking; the token is a snapshot/dictionary fingerprint, not a
+    # name, so it does not need re-verifying. The reviewer or model is asked to
+    # echo this line so Restore-CapNames.ps1 can bind the returned report.
+    $reviewBundle['safeBundle']['binding'] = [ordered]@{
+        token   = $bindingToken
+        purpose = "Reproduce this exact token in any report generated from this bundle. Restore-CapNames.ps1 refuses a dictionary whose token does not match, so the token is what stops a report being re-hydrated with the wrong tenant's names."
+    }
+}
+$bundleName = "cap-safe-review-$(Split-Path -Leaf $snapshot).json"
+Save-CapJson -InputObject $reviewBundle -Path (Join-Path $safeDir $bundleName)
+$copied.Add($bundleName)
+
 $requirePseudo = $pseudonymize -and [bool](& { $v = $dictionary['pseudonymized']; $v })
 $files = @(Get-ChildItem -LiteralPath $safeDir -Recurse -File | ForEach-Object { $_.FullName })
 $violations = @(Test-CapNameLeak -Dictionary $dictionary -Path $files -RequirePseudonymized:$requirePseudo)
@@ -116,6 +162,7 @@ if ($violations.Count) {
     Write-CapLog "Leak test FAILED - the bundle was deleted and must not be uploaded." 'ERROR'
     foreach ($v in ($violations | Select-Object -First 20)) {
         Write-CapLog ("  {0}: {1} (in {2})" -f $v.kind, $v.value, (Split-Path -Leaf $v.source)) 'ERROR'
+        if ($v.context) { Write-CapLog ("      matched: {0}" -f $v.context) 'ERROR' }
     }
     throw "Safe bundle rejected: $($violations.Count) leak(s) detected."
 }
@@ -127,6 +174,16 @@ CAPVisualizer safe bundle
 Snapshot : $(Split-Path -Leaf $snapshot)
 Created  : $((Get-Date).ToUniversalTime().ToString('o'))
 Mode     : $(if ($requirePseudo) { 'pseudonymized (object ids aliased)' } else { 'names removed (object ids retained)' })
+Binding  : $bindingToken
+
+$bundleName is everything below merged into one file - the same artifact the
+report's "Export safely" button produces. Share just that if you prefer.
+
+BINDING - keep this token with the review. Ask the reviewer or model to include
+the line "$bindingToken" verbatim in the report it returns. Restore-CapNames.ps1
+refuses to re-hydrate a report whose token does not match this bundle's
+dictionary, which is what stops one tenant's report being named from another
+tenant's dictionary.
 
 SAFE TO SHARE - the files in this folder. Every display name, UPN, IP range and
 device-filter rule has been replaced by a token, and the result was verified

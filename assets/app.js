@@ -253,6 +253,14 @@
 
   // Build the four per-policy card bodies (Users / Target / Conditions / Access
   // controls). Shared by the Per-policy tab and the Compare-policies tab.
+  // A guest selector can name specific partner organisations. Saying only
+  // "external users" leaves a policy that admits one managed provider looking
+  // identical to one that admits every tenant in the world.
+  function tenantLabel(t) {
+    if (!t) { return null; }
+    return t.label || null;
+  }
+
   function policyCardBodies(p) {
     var userInc = [
       row("Users", p.includeUsers),
@@ -260,7 +268,9 @@
       row("Directory roles", p.includeRoles),
       flag("Guests / external users", p.includeGuestsExternal),
       row("Guest/external types", p.includeGuestTypes),
-      row("Service principals", p.includeServicePrincipals)
+      row("Partner tenants", tenantLabel(p.includeGuestTenants)),
+      row("Service principals", p.includeServicePrincipals),
+      row("Agent identities", p.includeAgentIdentities)
     ];
     var userExc = [
       row("Users", p.excludeUsers),
@@ -268,14 +278,17 @@
       row("Directory roles", p.excludeRoles),
       flag("Guests / external users", p.excludeGuestsExternal),
       row("Guest/external types", p.excludeGuestTypes),
-      row("Service principals", p.excludeServicePrincipals)
+      row("Partner tenants", tenantLabel(p.excludeGuestTenants)),
+      row("Service principals", p.excludeServicePrincipals),
+      row("Agent identities", p.excludeAgentIdentities)
     ];
 
     var appInc = [
       row("Cloud apps", p.includeApplications),
       row("User actions", p.includeUserActions),
       row("Authentication context", p.authenticationContext),
-      (p.applicationFilter ? row("App filter", p.applicationFilter) : "")
+      (p.applicationFilter ? row("App filter", p.applicationFilter) : ""),
+      row("Traffic profiles", p.trafficProfiles)
     ];
     var appExc = [ row("Cloud apps", p.excludeApplications) ];
 
@@ -635,7 +648,7 @@
       var er = exp.map(function (x) {
         return "<tr><td>" + esc(x.displayName || nm(x.id)) + "</td><td>" + esc(x.type) + "</td>" +
           "<td style=\"text-align:center\">" + esc(x.policyCount) + "</td>" +
-          "<td>" + list(x.excludedFromPolicies) + "</td></tr>";
+          "<td>" + listNames(x.excludedFromPolicies) + "</td></tr>";
       }).join("");
       el("exemptions").innerHTML = '<table><thead><tr><th>Principal</th><th>Type</th><th># policies</th><th>Excluded from</th></tr></thead><tbody>' + er + "</tbody></table>";
     }
@@ -680,7 +693,7 @@
           "<td>" + scopeCell + "</td>" +
           "<td>" + esc(x.statement) + "<div class=\"muted\">" + esc(x.rationale) + "</div>" +
           (refs ? "<div class=\"muted\"><i>Refs:</i> " + refs + "</div>" : "") + "</td>" +
-          "<td>" + list(x.evidence) + "</td></tr>";
+          "<td>" + listNames(x.evidence) + "</td></tr>";
       }).join("");
       return "<h3 style=\"margin:18px 0 6px\">" + esc(g) + (sectionTitles[g] ? " - " + esc(sectionTitles[g]) : "") + "</h3>" +
         '<table><thead><tr><th>Control</th><th>Result</th><th>Level</th><th>Scope</th><th>Statement</th><th>Evidence</th></tr></thead><tbody>' + rows + "</tbody></table>";
@@ -958,7 +971,7 @@
       push("Contradiction", x.title, [x.title, x.detail, x.category, x.policyName], function () { showTab("contradictions"); });
     });
     if (DATA.compliance) arr(DATA.compliance.controls).forEach(function (x) {
-      push("Compliance", x.id + " " + x.statement, [x.id, x.statement, x.rationale, x.result].concat(arr(x.nist), arr(x.mitre), arr(x.evidence)),
+      push("Compliance", x.id + " " + x.statement, [x.id, x.statement, x.rationale, x.result].concat(arr(x.nist), arr(x.mitre), arr(x.evidence).map(nm)),
         function () { showTab("compliance"); });
     });
     if (DATA.test) arr(DATA.test.assertions).forEach(function (x) {
@@ -1009,17 +1022,20 @@
     ["Users", "Include directory roles", function (p) { return p.includeRoles; }],
     ["Users", "Include guests / external", function (p) { return !!p.includeGuestsExternal; }],
     ["Users", "Include guest/external types", function (p) { return p.includeGuestTypes; }],
+    ["Users", "Include partner tenants", function (p) { return tenantLabel(p.includeGuestTenants); }],
     ["Users", "Include service principals", function (p) { return p.includeServicePrincipals; }],
     ["Users", "Exclude users", function (p) { return p.excludeUsers; }],
     ["Users", "Exclude groups", function (p) { return p.excludeGroups; }],
     ["Users", "Exclude directory roles", function (p) { return p.excludeRoles; }],
     ["Users", "Exclude guests / external", function (p) { return !!p.excludeGuestsExternal; }],
     ["Users", "Exclude guest/external types", function (p) { return p.excludeGuestTypes; }],
+    ["Users", "Exclude partner tenants", function (p) { return tenantLabel(p.excludeGuestTenants); }],
     ["Users", "Exclude service principals", function (p) { return p.excludeServicePrincipals; }],
     ["Target resources", "Cloud apps (include)", function (p) { return p.includeApplications; }],
     ["Target resources", "User actions", function (p) { return p.includeUserActions; }],
     ["Target resources", "Authentication context", function (p) { return p.authenticationContext; }],
     ["Target resources", "App filter", function (p) { return p.applicationFilter; }],
+    ["Target resources", "Traffic profiles", function (p) { return p.trafficProfiles; }],
     ["Target resources", "Cloud apps (exclude)", function (p) { return p.excludeApplications; }],
     ["Conditions", "Client apps", function (p) { return p.clientAppTypes; }],
     ["Conditions", "Device platforms (include)", function (p) { return p.includePlatforms; }],
@@ -1067,6 +1083,7 @@
       "r:" + cmpValKey(p.includeRoles),
       "x:" + cmpValKey(!!p.includeGuestsExternal),
       "t:" + cmpValKey(p.includeGuestTypes),
+      "pt:" + cmpValKey(tenantLabel(p.includeGuestTenants)),
       "s:" + cmpValKey(p.includeServicePrincipals)
     ].join("||");
   }
@@ -1223,6 +1240,88 @@
     renderCmpPolicies();
   }
 
+  // --- Export safely -------------------------------------------------------
+  // The payload was built and leak-tested by PowerShell and embedded verbatim.
+  // Nothing is masked here on purpose: masking in the browser could not be
+  // verified, and a silent miss would be worse than no button at all.
+  function setupSafeExport() {
+    var btn = el("safeExportBtn"), modal = el("safeModal");
+    if (!btn || !modal) return;
+    var payload = window.__CAP_SAFE__;
+    if (!payload) return;  // no verified bundle -> no button
+
+    var hint = el("safeExportHint");
+    btn.classList.remove("hidden");
+    if (hint) hint.classList.remove("hidden");
+
+    var snap = window.__CAP_SNAPSHOT__ || "export";
+    var fileName = "cap-safe-review-" + snap + ".json";
+    var errBox = el("safeModalErr");
+
+    function close() { modal.classList.add("hidden"); }
+    function fail(msg) {
+      if (!errBox) return;
+      errBox.textContent = msg;
+      errBox.classList.remove("hidden");
+    }
+
+    btn.addEventListener("click", function () {
+      if (errBox) errBox.classList.add("hidden");
+      modal.classList.remove("hidden");
+    });
+    el("safeCancel").addEventListener("click", close);
+    modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !modal.classList.contains("hidden")) close();
+    });
+
+    // Plain download to the browser's download folder. Always available, so it
+    // doubles as the recovery path when the location picker is unavailable.
+    function saveViaDownload(blob) {
+      try {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        close();
+      } catch (e) {
+        fail("Could not save the file: " + e.message);
+      }
+    }
+
+    el("safeConfirm").addEventListener("click", function () {
+      var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+
+      // Prefer a real "choose a location" dialog. It is Chromium-only and can
+      // be blocked by policy or by the page's origin, so any failure other than
+      // the user cancelling falls back rather than leaving them stuck.
+      if (window.showSaveFilePicker) {
+        var picker;
+        try {
+          picker = window.showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{ description: "JSON file", accept: { "application/json": [".json"] } }]
+          });
+        } catch (e) {
+          saveViaDownload(blob);
+          return;
+        }
+        picker.then(function (handle) {
+          return handle.createWritable().then(function (w) {
+            return w.write(blob).then(function () { return w.close(); });
+          }).then(close);
+        }).catch(function (e) {
+          if (e && e.name === "AbortError") return;  // user cancelled - do nothing
+          saveViaDownload(blob);
+        });
+        return;
+      }
+
+      saveViaDownload(blob);
+    });
+  }
+
   window.addEventListener("DOMContentLoaded", function () {
     localizeStamps();
     renderSummaryCards();
@@ -1277,6 +1376,8 @@
         if (cmpSourceData && cmpTargetData) el("cmpRun").click();
       });
     }
+    setupSafeExport();
+
     document.addEventListener("click", function (e) {
       var g = el("gresults");
       if (g && !g.classList.contains("hidden") && !e.target.closest(".gsearch")) g.classList.add("hidden");

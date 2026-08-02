@@ -25,6 +25,13 @@ function New-CapVisual {
 .PARAMETER Delta
     Optional delta object (see CapDelta\Compare-CapExport).
 
+.PARAMETER SafeBundle
+    Verified name-free review bundle to embed behind the "Export safely" button.
+    Omit it and the button is hidden.
+
+.PARAMETER SnapshotName
+    Snapshot stamp, used to name the exported file.
+
 .PARAMETER AssetsPath
     Folder containing template.html, styles.css, app.js.
 
@@ -43,6 +50,8 @@ function New-CapVisual {
         $TestResult,
         $AuthMethods,
         [hashtable]$NameMap = @{},
+        $SafeBundle,
+        [string]$SnapshotName = '',
         [Parameter(Mandatory)][string]$AssetsPath,
         [Parameter(Mandatory)][string]$OutputFile,
         [string]$Title = 'CAPVisualizer'
@@ -67,12 +76,23 @@ function New-CapVisual {
     # Embed as JSON. Escape </script to keep the inline <script> intact.
     $dataJson = ($data | ConvertTo-Json -Depth 30) -replace '</script', '<\/script'
 
+    # The shareable payload behind "Export safely". It is embedded rather than
+    # regenerated in the browser so the file the user shares is byte-for-byte the
+    # one PowerShell built. The HTML itself holds real names, so carrying a
+    # policies-only copy adds no exposure.
+    $safeJson = 'null'
+    if ($SafeBundle) {
+        $safeJson = ($SafeBundle | ConvertTo-Json -Depth 30) -replace '</script', '<\/script'
+    }
+
     $tenant = if ($Summary.tenantId) { $Summary.tenantId } else { 'unknown' }
     $html = $template.
         Replace('__TITLE__', $Title).
         Replace('__STYLES__', $styles).
         Replace('__APP_JS__', $appJs).
         Replace('__DATA_JSON__', $dataJson).
+        Replace('__SAFE_JSON__', $safeJson).
+        Replace('__SNAPSHOT__', $SnapshotName).
         Replace('__TENANT__', [string]$tenant).
         Replace('__GENERATED__', [string]$Summary.generatedUtc).
         Replace('__POLICYCOUNT__', [string]$Summary.totalPolicies)

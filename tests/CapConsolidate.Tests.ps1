@@ -102,6 +102,48 @@ Describe 'Test-CapBaselineCompleteness' {
         $ur = @($c | Where-Object { $_.control -eq 'User-risk policy' })[0]
         $ur.present | Should -BeTrue
     }
+    It 'does not credit a control implemented only for named individuals' {
+        # An enabled block covering one person is a pilot, not a tenant control.
+        # A real run reported present=True from exactly this shape while the
+        # SCuBA check for the same control reported fail.
+        $narrow = $script:Normalized[0] | ConvertTo-Json -Depth 40 | ConvertFrom-Json
+        $narrow.id = 'dcf-narrow'
+        $narrow.displayName = 'Block device code (one user pilot)'
+        $narrow.conditions.authFlows = @('deviceCodeFlow')
+        $narrow.grant.block = $true
+        $narrow.conditions.users.includeAll = $false
+        $narrow.conditions.users.includeGroups = @()
+        $narrow.conditions.users.includeRoles = @()
+        $narrow.conditions.users.includeGuests = $false
+        $narrow.conditions.users.includeUsers = @('one-user-id')
+
+        $c = Test-CapBaselineCompleteness -NormalizedPolicies (@($script:Normalized) + $narrow)
+        $dc = @($c | Where-Object { $_.control -eq 'Block device-code flow' })[0]
+        $dc.present | Should -BeFalse
+        $dc.coverage | Should -Be 'narrow'
+        $dc.narrowCount | Should -Be 1
+        $dc.broadCount | Should -Be 0
+        $dc.detail | Should -BeLike '*pilot rather than a tenant control*'
+    }
+
+    It 'credits a control scoped to a group and reports the coverage' {
+        $broad = $script:Normalized[0] | ConvertTo-Json -Depth 40 | ConvertFrom-Json
+        $broad.id = 'dcf-group'
+        $broad.displayName = 'Block device code (all staff group)'
+        $broad.conditions.authFlows = @('deviceCodeFlow')
+        $broad.grant.block = $true
+        $broad.conditions.users.includeAll = $false
+        $broad.conditions.users.includeUsers = @()
+        $broad.conditions.users.includeRoles = @()
+        $broad.conditions.users.includeGroups = @('all-staff-group-id')
+
+        $c = Test-CapBaselineCompleteness -NormalizedPolicies (@($script:Normalized) + $broad)
+        $dc = @($c | Where-Object { $_.control -eq 'Block device-code flow' })[0]
+        $dc.present | Should -BeTrue
+        $dc.coverage | Should -Be 'targeted'
+        $dc.broadCount | Should -Be 1
+    }
+
     It 'detects device-code flow even when transferMethods is a comma-joined token' {
         # Graph returns conditions.authenticationFlows.transferMethods as one
         # comma-separated string; the check must split it, not match the whole blob.

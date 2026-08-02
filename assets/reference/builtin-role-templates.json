@@ -1,0 +1,561 @@
+{
+  "_comment": [
+    "Complete set of Microsoft Entra ID built-in directory role template ids and display names. Source: Microsoft Learn 'Microsoft Entra built-in roles' (permissions-reference). These are public Microsoft global constants, stable across every tenant, and must not be masked or reported as unresolved tenant objects.",
+    "Includes the three default roles every tenant carries (User, Guest User, Restricted Guest User). They were missing, so a tenant object carrying one of those names was treated as tenant data: masking rewrote Microsoft's own vocabulary in CISA SCuBA control statements and the leak test then rejected the bundle."
+  ],
+  "schemaVersion": "1.0",
+  "roles": [
+    {
+      "id": "d2562ede-74db-457e-a7b6-544e236ebb61",
+      "name": "AI Administrator"
+    },
+    {
+      "id": "1fe13547-53f6-408d-ac04-7f8eed167b38",
+      "name": "AI Reader"
+    },
+    {
+      "id": "db506228-d27e-4b7d-95e5-295956d6615f",
+      "name": "Agent ID Administrator"
+    },
+    {
+      "id": "adb2368d-a9be-41b5-8667-d96778e081b0",
+      "name": "Agent ID Developer"
+    },
+    {
+      "id": "6b942400-691f-4bf0-9d12-d8a254a2baf5",
+      "name": "Agent Registry Administrator"
+    },
+    {
+      "id": "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3",
+      "name": "Application Administrator"
+    },
+    {
+      "id": "cf1c38e5-3621-4004-a7cb-879624dced7c",
+      "name": "Application Developer"
+    },
+    {
+      "id": "9c6df0f2-1e7c-4dc3-b195-66dfbd24aa8f",
+      "name": "Attack Payload Author"
+    },
+    {
+      "id": "c430b396-e693-46cc-96f3-db01bf8bb62a",
+      "name": "Attack Simulation Administrator"
+    },
+    {
+      "id": "58a13ea3-c632-46ae-9ee0-9c0d43cd7f3d",
+      "name": "Attribute Assignment Administrator"
+    },
+    {
+      "id": "ffd52fa5-98dc-465c-991d-fc073eb59f8f",
+      "name": "Attribute Assignment Reader"
+    },
+    {
+      "id": "8424c6f0-a189-499e-bbd0-26c1753c96d4",
+      "name": "Attribute Definition Administrator"
+    },
+    {
+      "id": "1d336d2c-4ae8-42ef-9711-b3604ce3fc2c",
+      "name": "Attribute Definition Reader"
+    },
+    {
+      "id": "5b784334-f94b-471a-a387-e7219fc49ca2",
+      "name": "Attribute Log Administrator"
+    },
+    {
+      "id": "9c99539d-8186-4804-835f-fd51ef9e2dcd",
+      "name": "Attribute Log Reader"
+    },
+    {
+      "id": "ecb2c6bf-0ab6-418e-bd87-7986f8d63bbe",
+      "name": "Attribute Provisioning Administrator"
+    },
+    {
+      "id": "422218e4-db15-4ef9-bbe0-8afb41546d79",
+      "name": "Attribute Provisioning Reader"
+    },
+    {
+      "id": "c4e39bd9-1100-46d3-8c65-fb160da0071f",
+      "name": "Authentication Administrator"
+    },
+    {
+      "id": "25a516ed-2fa0-40ea-a2d0-12923a21473a",
+      "name": "Authentication Extensibility Administrator"
+    },
+    {
+      "id": "0b00bede-4072-4d22-b441-e7df02a1ef63",
+      "name": "Authentication Extensibility Password Administrator"
+    },
+    {
+      "id": "0526716b-113d-4c15-b2c8-68e3c22b9f80",
+      "name": "Authentication Policy Administrator"
+    },
+    {
+      "id": "e3973bdf-4987-49ae-837a-ba8e231c7286",
+      "name": "Azure DevOps Administrator"
+    },
+    {
+      "id": "7495fdc4-34c4-4d15-a289-98788ce399fd",
+      "name": "Azure Information Protection Administrator"
+    },
+    {
+      "id": "aaf43236-0c0d-4d5f-883a-6955382ac081",
+      "name": "B2C IEF Keyset Administrator"
+    },
+    {
+      "id": "3edaf663-341e-4475-9f94-5c398ef6c070",
+      "name": "B2C IEF Policy Administrator"
+    },
+    {
+      "id": "b0f54661-2d74-4c50-afa3-1ec803f12efe",
+      "name": "Billing Administrator"
+    },
+    {
+      "id": "892c5842-a9a6-463a-8041-72aa08ca3cf6",
+      "name": "Cloud App Security Administrator"
+    },
+    {
+      "id": "158c047a-c907-4556-b7ef-446551a6b5f7",
+      "name": "Cloud Application Administrator"
+    },
+    {
+      "id": "7698a772-787b-4ac8-901f-60d6b08affd2",
+      "name": "Cloud Device Administrator"
+    },
+    {
+      "id": "17315797-102d-40b4-93e0-432062caca18",
+      "name": "Compliance Administrator"
+    },
+    {
+      "id": "e6d1a23a-da11-4be4-9570-befc86d067a7",
+      "name": "Compliance Data Administrator"
+    },
+    {
+      "id": "b1be1c3e-b65d-4f19-8427-f6fa0d97feb9",
+      "name": "Conditional Access Administrator"
+    },
+    {
+      "id": "fc8ad4e2-40e4-4724-8317-bcda7503ecbf",
+      "name": "Customer Delegated Admin Relationship Administrator"
+    },
+    {
+      "id": "5c4f9dcd-47dc-4cf7-8c9a-9e4207cbfc91",
+      "name": "Customer Lockbox Access Approver"
+    },
+    {
+      "id": "38a96431-2bdf-4b4c-8b6e-5d3d8abac1a4",
+      "name": "Desktop Analytics Administrator"
+    },
+    {
+      "id": "88d8e3e3-8f55-4a1e-953a-9b9898b8876b",
+      "name": "Directory Readers"
+    },
+    {
+      "id": "d29b2b05-8046-44ba-8758-1e26182fcf32",
+      "name": "Directory Synchronization Accounts"
+    },
+    {
+      "id": "9360feb5-f418-4baa-8175-e2a00bac4301",
+      "name": "Directory Writers"
+    },
+    {
+      "id": "8329153b-31d0-4727-b945-745eb3bc5f31",
+      "name": "Domain Name Administrator"
+    },
+    {
+      "id": "e93e3737-fa85-474a-aee4-7d3fb86510f3",
+      "name": "Dragon Administrator"
+    },
+    {
+      "id": "44367163-eba1-44c3-98af-f5787879f96a",
+      "name": "Dynamics 365 Administrator"
+    },
+    {
+      "id": "963797fb-eb3b-4cde-8ce3-5878b3f32a3f",
+      "name": "Dynamics 365 Business Central Administrator"
+    },
+    {
+      "id": "3f1acade-1e04-4fbc-9b69-f0302cd84aef",
+      "name": "Edge Administrator"
+    },
+    {
+      "id": "b6a27b2b-f905-4b2e-81b5-0d90e0ef1fdb",
+      "name": "Entra Backup Administrator"
+    },
+    {
+      "id": "f42252d9-5400-4d7b-b9ef-cc582dbb8577",
+      "name": "Entra Backup Reader"
+    },
+    {
+      "id": "29232cdf-9323-42fd-ade2-1d097af3e4de",
+      "name": "Exchange Administrator"
+    },
+    {
+      "id": "49eb8f75-97e9-4e37-9b2b-6c3ebfcffa31",
+      "name": "Exchange Backup Administrator"
+    },
+    {
+      "id": "31392ffb-586c-42d1-9346-e59415a2cc4e",
+      "name": "Exchange Recipient Administrator"
+    },
+    {
+      "id": "dd13091a-6207-4fc0-82ba-3641e056ab95",
+      "name": "Extended Directory User Administrator"
+    },
+    {
+      "id": "6e591065-9bad-43ed-90f3-e9424366d2f0",
+      "name": "External ID User Flow Administrator"
+    },
+    {
+      "id": "0f971eea-41eb-4569-a71e-57bb8a3eff1e",
+      "name": "External ID User Flow Attribute Administrator"
+    },
+    {
+      "id": "be2f45a1-457d-42af-a067-6ec1fa63bc45",
+      "name": "External Identity Provider Administrator"
+    },
+    {
+      "id": "a9ea8996-122f-4c74-9520-8edcd192826c",
+      "name": "Fabric Administrator"
+    },
+    {
+      "id": "62e90394-69f5-4237-9190-012177145e10",
+      "name": "Global Administrator"
+    },
+    {
+      "id": "f2ef992c-3afb-46b9-b7cf-a126ee74c451",
+      "name": "Global Reader"
+    },
+    {
+      "id": "ac434307-12b9-4fa1-a708-88bf58caabc1",
+      "name": "Global Secure Access Administrator"
+    },
+    {
+      "id": "843318fb-79a6-4168-9e6f-aa9a07481cc4",
+      "name": "Global Secure Access Log Reader"
+    },
+    {
+      "id": "fdd7a751-b60b-444a-984c-02652fe8fa1c",
+      "name": "Groups Administrator"
+    },
+    {
+      "id": "95e79109-95c0-4d8e-aee3-d01accf2d47b",
+      "name": "Guest Inviter"
+    },
+    {
+      "id": "10dae51f-b6af-4016-8d66-8c2a99b929b3",
+      "name": "Guest User"
+    },
+    {
+      "id": "729827e3-9c14-49f7-bb1b-9608f156bbb8",
+      "name": "Helpdesk Administrator"
+    },
+    {
+      "id": "8ac3fc64-6eca-42ea-9e69-59f4c7b60eb2",
+      "name": "Hybrid Identity Administrator"
+    },
+    {
+      "id": "45d8d3c5-c802-45c6-b32a-1d70b5e1e86e",
+      "name": "Identity Governance Administrator"
+    },
+    {
+      "id": "eb1f4a8d-243a-41f0-9fbd-c7cdf6c5ef7c",
+      "name": "Insights Administrator"
+    },
+    {
+      "id": "25df335f-86eb-4119-b717-0ff02de207e9",
+      "name": "Insights Analyst"
+    },
+    {
+      "id": "31e939ad-9672-4796-9c2e-873181342d2d",
+      "name": "Insights Business Leader"
+    },
+    {
+      "id": "3a2c62db-5318-420d-8d74-23affee5d9d5",
+      "name": "Intune Administrator"
+    },
+    {
+      "id": "2ea5ce4c-b2d8-4668-bd81-3680bd2d227a",
+      "name": "IoT Device Administrator"
+    },
+    {
+      "id": "74ef975b-6605-40af-a5d2-b9539d836353",
+      "name": "Kaizala Administrator"
+    },
+    {
+      "id": "b5a8dcf3-09d5-43a9-a639-8e29ef291470",
+      "name": "Knowledge Administrator"
+    },
+    {
+      "id": "744ec460-397e-42ad-a462-8b3f9747a02c",
+      "name": "Knowledge Manager"
+    },
+    {
+      "id": "4d6ac14f-3453-41d0-bef9-a3e0c569773a",
+      "name": "License Administrator"
+    },
+    {
+      "id": "59d46f88-662b-457b-bceb-5c3809e5908f",
+      "name": "Lifecycle Workflows Administrator"
+    },
+    {
+      "id": "ac16e43d-7b2d-40e0-ac05-243ff356ab5b",
+      "name": "Message Center Privacy Reader"
+    },
+    {
+      "id": "790c1fb9-7f7d-4f88-86a1-ef1f95c05c1b",
+      "name": "Message Center Reader"
+    },
+    {
+      "id": "1707125e-0aa2-4d4d-8655-a7c786c76a25",
+      "name": "Microsoft 365 Backup Administrator"
+    },
+    {
+      "id": "8c8b803f-96e1-4129-9349-20738d9f9652",
+      "name": "Microsoft 365 Migration Administrator"
+    },
+    {
+      "id": "9f06204d-73c1-4d4c-880a-6edb90606fd8",
+      "name": "Microsoft Entra Joined Device Local Administrator"
+    },
+    {
+      "id": "ee67aa9c-e510-4759-b906-227085a7fd4d",
+      "name": "Microsoft Graph Data Connect Administrator"
+    },
+    {
+      "id": "1501b917-7653-4ff9-a4b5-203eaf33784f",
+      "name": "Microsoft Hardware Warranty Administrator"
+    },
+    {
+      "id": "281fe777-fb20-4fbb-b7a3-ccebce5b0d96",
+      "name": "Microsoft Hardware Warranty Specialist"
+    },
+    {
+      "id": "d37c8bed-0711-4417-ba38-b4abe66ce4c2",
+      "name": "Network Administrator"
+    },
+    {
+      "id": "2b745bdf-0803-4d80-aa65-822c4493daac",
+      "name": "Office Apps Administrator"
+    },
+    {
+      "id": "92ed04bf-c94a-4b82-9729-b799a7a4c178",
+      "name": "Organizational Branding Administrator"
+    },
+    {
+      "id": "9d70768a-0cbc-4b4c-aea3-2e124b2477f4",
+      "name": "Organizational Data Source Administrator"
+    },
+    {
+      "id": "e48398e2-f4bb-4074-8f31-4586725e205b",
+      "name": "Organizational Messages Approver"
+    },
+    {
+      "id": "507f53e4-4e52-4077-abd3-d2e1558b6ea2",
+      "name": "Organizational Messages Writer"
+    },
+    {
+      "id": "4ba39ca4-527c-499a-b93d-d9b492c50246",
+      "name": "Partner Tier1 Support"
+    },
+    {
+      "id": "e00e864a-17c5-4a4b-9c06-f5b95a8d5bd8",
+      "name": "Partner Tier2 Support"
+    },
+    {
+      "id": "966707d0-3269-4727-9be2-8c3a10f19b9d",
+      "name": "Password Administrator"
+    },
+    {
+      "id": "024906de-61e5-49c8-8572-40335f1e0e10",
+      "name": "People Administrator"
+    },
+    {
+      "id": "af78dc32-cf4d-46f9-ba4e-4428526346b5",
+      "name": "Permissions Management Administrator"
+    },
+    {
+      "id": "78b0ccd1-afc2-4f92-9116-b41aedd09592",
+      "name": "Places Administrator"
+    },
+    {
+      "id": "11648597-926c-4cf3-9c36-bcebb0ba8dcc",
+      "name": "Power Platform Administrator"
+    },
+    {
+      "id": "644ef478-e28f-4e28-b9dc-3fdde9aa0b1f",
+      "name": "Printer Administrator"
+    },
+    {
+      "id": "e8cef6f1-e4bd-4ea8-bc07-4b8d950f4477",
+      "name": "Printer Technician"
+    },
+    {
+      "id": "7be44c8a-adaf-4e2a-84d6-ab2649e08a13",
+      "name": "Privileged Authentication Administrator"
+    },
+    {
+      "id": "e8611ab8-c189-46e8-94e1-60213ab1f814",
+      "name": "Privileged Role Administrator"
+    },
+    {
+      "id": "3f04f91a-4ad7-4bd3-bcfa-49882ea1a88a",
+      "name": "Purview Workload Content Administrator"
+    },
+    {
+      "id": "e07494ad-1654-4dd2-922e-6f81a71bf00f",
+      "name": "Purview Workload Content Reader"
+    },
+    {
+      "id": "02d5655b-c1cf-4e5f-98da-5fb919085bf6",
+      "name": "Purview Workload Content Writer"
+    },
+    {
+      "id": "4a5d8f65-41da-4de4-8968-e035b65339cf",
+      "name": "Reports Reader"
+    },
+    {
+      "id": "2af84b1e-32c8-42b7-82bc-daa82404023b",
+      "name": "Restricted Guest User"
+    },
+    {
+      "id": "0964bb5e-9bdb-4d7b-ac29-58e794862a40",
+      "name": "Search Administrator"
+    },
+    {
+      "id": "8835291a-918c-4fd7-a9ce-faa49f0cf7d9",
+      "name": "Search Editor"
+    },
+    {
+      "id": "194ae4cb-b126-40b2-bd5b-6091b380977d",
+      "name": "Security Administrator"
+    },
+    {
+      "id": "5f2222b1-57c3-48ba-8ad5-d4759f1fde6f",
+      "name": "Security Operator"
+    },
+    {
+      "id": "5d6b6bb7-de71-4623-b4af-96380a352509",
+      "name": "Security Reader"
+    },
+    {
+      "id": "f023fd81-a637-4b56-95fd-791ac0226033",
+      "name": "Service Support Administrator"
+    },
+    {
+      "id": "f28a1f50-f6e7-4571-818b-6a12f2af6b6c",
+      "name": "SharePoint Administrator"
+    },
+    {
+      "id": "99009c4a-3b3f-4957-82a9-9d35e12db77e",
+      "name": "SharePoint Advanced Management Administrator"
+    },
+    {
+      "id": "9d3e04ba-3ee4-4d1b-a3a7-9aef423a09be",
+      "name": "SharePoint Backup Administrator"
+    },
+    {
+      "id": "1a7d78b6-429f-476b-b8eb-35fb715fffd4",
+      "name": "SharePoint Embedded Administrator"
+    },
+    {
+      "id": "75941009-915a-4869-abe7-691bff18279e",
+      "name": "Skype for Business Administrator"
+    },
+    {
+      "id": "69091246-20e8-4a56-aa4d-066075b2a7a8",
+      "name": "Teams Administrator"
+    },
+    {
+      "id": "baf37b3a-610e-45da-9e62-d9d1e5e8914b",
+      "name": "Teams Communications Administrator"
+    },
+    {
+      "id": "f70938a0-fc10-4177-9e90-2178f8765737",
+      "name": "Teams Communications Support Engineer"
+    },
+    {
+      "id": "fcf91098-03e3-41a9-b5ba-6f0ec8188a12",
+      "name": "Teams Communications Support Specialist"
+    },
+    {
+      "id": "3d762c5a-1b6c-493f-843e-55a3b42923d4",
+      "name": "Teams Devices Administrator"
+    },
+    {
+      "id": "2fe872fb-daa8-4afc-8f6c-53c4565cfef4",
+      "name": "Teams External Collaboration Administrator"
+    },
+    {
+      "id": "1076ac91-f3d9-41a7-a339-dcdf5f480acc",
+      "name": "Teams Reader"
+    },
+    {
+      "id": "aa38014f-0993-46e9-9b45-30501a20909d",
+      "name": "Teams Telephony Administrator"
+    },
+    {
+      "id": "112ca1a2-15ad-4102-995e-45b0bc479a6a",
+      "name": "Tenant Creator"
+    },
+    {
+      "id": "1981f584-96e9-4a6f-95b0-f522373f8fae",
+      "name": "Tenant Governance Administrator"
+    },
+    {
+      "id": "e0a4caa6-fe82-443f-b92f-d87341d17b2e",
+      "name": "Tenant Governance Reader"
+    },
+    {
+      "id": "b8e31d83-1534-480f-9b10-0338ded51b7e",
+      "name": "Tenant Governance Relationship Administrator"
+    },
+    {
+      "id": "124577f8-48ed-456a-839f-13b419002e33",
+      "name": "Tenant Governance Relationship Reader"
+    },
+    {
+      "id": "75934031-6c7e-415a-99d7-48dbd49e875e",
+      "name": "Usage Summary Reports Reader"
+    },
+    {
+      "id": "a0b1b346-4d3e-4e8b-98f8-753987be4970",
+      "name": "User"
+    },
+    {
+      "id": "fe930be7-5e62-47db-91af-98c3a49a38b1",
+      "name": "User Administrator"
+    },
+    {
+      "id": "27460883-1df1-4691-b032-3b79643e5e63",
+      "name": "User Experience Success Manager"
+    },
+    {
+      "id": "e300d9e7-4a2b-4295-9eff-f1c78b36cc98",
+      "name": "Virtual Visits Administrator"
+    },
+    {
+      "id": "0ec3f692-38d6-4d14-9e69-0377ca7797ad",
+      "name": "Viva Glint Tenant Administrator"
+    },
+    {
+      "id": "92b086b3-e367-4ef2-b869-1de128fb986e",
+      "name": "Viva Goals Administrator"
+    },
+    {
+      "id": "87761b17-1ed2-4af3-9acd-92a150038160",
+      "name": "Viva Pulse Administrator"
+    },
+    {
+      "id": "11451d60-acb2-45eb-a7d6-43d0f0125c13",
+      "name": "Windows 365 Administrator"
+    },
+    {
+      "id": "32696413-001a-46ae-978c-ce0f6b3620d2",
+      "name": "Windows Update Deployment Administrator"
+    },
+    {
+      "id": "810a2642-a034-447f-a5e8-41beaa378541",
+      "name": "Yammer Administrator"
+    }
+  ]
+}

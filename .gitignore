@@ -28,3 +28,8 @@ samples/sample-visual.html
 # Local-only name dictionary (never share; contains real tenant names)
 names.json
 **/raw/names.json
+
+# Internal security review (contains working repros for unremediated findings;
+# never publish to the public repo)
+capvisualizer-security-review.md
+testResults.xml
