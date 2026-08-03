@@ -66,6 +66,51 @@ that consumers must be aware of. **Current: `3.0`.**
   `namesSplit` and `dictionary` metadata.
 - **[docs/SAFEEXPORT.md](docs/SAFEEXPORT.md)** — the two-file contract, the upload
   checklist and an honest residual-risk statement.
+- **[docs/PROCESS.md](docs/PROCESS.md)** — the end-to-end process and the division of
+  labour between the offline engine and any reviewer that reads its output.
+
+### Fixed — privacy
+
+- **Partner and external tenant ids are now masked.** A policy that trusts a named
+  partner tenant carried that tenant id in the clear. Unlike a policy id, a tenant id
+  names the customer's managed provider or partner, so it is now aliased like any
+  other tenant-specific identifier.
+- **`Restore-CapNames.ps1` refuses to re-hydrate the shareable export itself.** The
+  one artifact designed to be safe to send was the one artifact restore would happily
+  fill with real names, producing a named file with a name that still looked safe.
+- **Re-masking on re-render.** Re-rendering an old snapshot with a current build no
+  longer republishes whatever an older build failed to remove.
+- **GUID-valued display names are no longer registered in the dictionary.** Some
+  objects carry a GUID as their display name. Registering those rewrote one policy id
+  into another policy's alias, which made a duplicate cluster list the same policy
+  twice.
+
+### Fixed — live tenants
+
+Three faults that only a real tenant exposed; the offline sample could not reach them.
+
+- **`ConvertTo-CapSafeObject` threw `The property 'Count' cannot be found on this
+  object`.** Under `Set-StrictMode -Version Latest`,
+  `$node.PSObject.Properties.Count` does not exist on a scalar, and a live Graph
+  export carries types the sample never does (`guid`, `DateTimeOffset`, enums,
+  `timespan`). Leaf values are now identified explicitly and returned untouched.
+- **Masking did not scale.** With ~29,000 dictionary entries the per-name scan was
+  quadratic: one findings file took 288s, so a real run would have taken close to an
+  hour. Names are now compiled into alternation regexes running in DFA mode
+  (`RegexOptions.NonBacktracking`), where scan cost is linear in the text and
+  independent of how many names the pattern holds. The same workload takes ~4s.
+  `Test-CapNameLeak` had the same flaw and got the same treatment. Because the DFA
+  engine rejects lookarounds, the word and address boundary rule moved out of the
+  pattern into a separate check.
+- **`-TenantId` was only valid with app auth**, so passing it alone failed parameter
+  set resolution. It is now accepted for interactive sign-in too and forwarded to
+  `Connect-MgGraph`, which is what you want when the signed-in identity is a guest or
+  an admin in more than one tenant.
+
+### Performance
+
+- The compiled matcher set is cached per dictionary and memoized per string. Masking a
+  64-policy export drops from ~19s to ~11s, and a repeat pass to ~4s.
 
 ## [schemaVersion 2.0] — baseline
 

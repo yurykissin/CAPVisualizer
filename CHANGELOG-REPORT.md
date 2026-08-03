@@ -73,6 +73,12 @@ schema version** on that entry so users know a re-export is required.
 - **Self-explaining findings** — `Summary` (generic) and `Logic` ("how detected")
   added to `New-CapFinding`; the viewer renders "Why it matters" (threat) and "How
   detected" (logic) and always shows the description.
+- **Unread-condition guard.** The condition keys the analyzer consumes are declared in
+  one place, and anything present in the policy but not consumed is reported as a
+  warning in the run log, the report, the shareable export and the reviewer digest. A
+  test fails on it. This is the systemic answer to the shape-drift class below: when
+  Microsoft adds a new shape, the tool now says so instead of silently reporting the
+  condition as absent.
 - **New finding `disabled-privileged-account`** — a privileged role held by an account
   with `accountEnabled = false`. _(Requires schema ≥ 2.0, which already carries
   `accountEnabled`; no re-export needed for current exports.)_
@@ -87,6 +93,31 @@ schema version** on that entry so users know a re-export is required.
   (`WriteAllText` resolved relative paths against the process cwd; now normalized via
   `GetUnresolvedProviderPathFromPSPath`).
 - Grouped findings no longer drop the per-object description.
+
+#### Graph condition shapes read incompletely (policies wrongly reported as dead weight)
+
+A managed-provider policy named `... DO NOT DELETE OR MODIFY` was reported as
+targeting nobody and recommended for retirement. It targets a named partner tenant
+through the guest/external selector, which the analyzer did not read.
+
+That is the shape of the whole bug class. When Microsoft adds a new shape for an
+existing condition, a tool that reads only the old shape does not error - it reports
+the condition as **absent**. Absent targeting reads as "does nothing", which reads as
+dead weight, which reads as "delete it". The visual report renders raw Graph, so it
+stayed correct while every judgement built on it was wrong, which is why this went
+unnoticed.
+
+- **Guest and external targeting** is now read from both the legacy literal and the
+  modern selector, including comma-separated type lists and the single bare string
+  Graph unrolls a lone partner tenant to.
+- **The duplicate fingerprint and the what-if evaluator** were taught the same rules,
+  so two policies trusting *different* partner tenants no longer fingerprint as
+  identical.
+- **The retire heuristic is suppressed when the policy name negates it.** A bare
+  `delete` was matching inside `DO NOT DELETE`. `do not use` still counts.
+- **Also now read:** application filters, Global Secure Access traffic profiles under
+  both keys, device lists, the deprecated `deviceStates` block, and service principal
+  and agent identity targeting.
 
 ## [baseline]
 

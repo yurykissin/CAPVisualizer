@@ -28,6 +28,7 @@ produces:
 ## Contents
 
 - [Why](#why) - purpose
+- [How it works](docs/PROCESS.md) - the end-to-end process, and what the offline engine decides vs what a reviewer decides
 - [Screenshots](#screenshots) - what the viewer looks like
 - [Quickstart](#quickstart) - the three commands
 - [Lowest-privilege by design](#lowest-privilege-by-design) - permissions
@@ -283,6 +284,14 @@ These are surfaced as extra tabs in the offline viewer and as `analysis/*.json`
 files. (Rationalization output is written to `analysis/consolidation.json` and as
 reviewer CSVs; it is not yet a dedicated viewer tab.)
 
+> [!NOTE]
+> **The assessment is produced entirely by deterministic offline code.** No model
+> is involved in deciding what your tenant looks like or what is wrong with it.
+> The safe export exists only so that someone else can read the result and
+> propose a plan without receiving your tenant's names. See
+> [docs/PROCESS.md](docs/PROCESS.md) for the full process and the line between
+> what the engine determines and what a reviewer decides.
+
 ### Capability parity
 
 Each engine reproduces the *result and intent* of a well-known community tool,
@@ -379,7 +388,7 @@ scripts/
 assets/                        # HTML template + inlined CSS/JS (offline)
   reference/                   # app groupings, privileged roles, baselines, assertions
 arm/                           # OPTIONAL, opt-in Azure scheduling (not local)
-docs/                          # USAGE, PERMISSIONS, SCOPE, WHATIF, ANALYZE, AUDIT, CONSOLIDATE, FINDINGS, COMPLIANCE, TESTING, DELTA, SCHEDULING, SECURITY
+docs/                          # PROCESS, USAGE, PERMISSIONS, SCOPE, WHATIF, ANALYZE, AUDIT, CONSOLIDATE, FINDINGS, COMPLIANCE, TESTING, DELTA, SCHEDULING, SAFEEXPORT, SECURITY
 samples/                       # sanitized sample export + offline self-test
 ```
 

@@ -30,6 +30,10 @@ afford to hand over. Splitting them costs you nothing locally, because the
 
 There is no runtime file picker and no second HTML file. One report, one build.
 
+> [!TIP]
+> For the whole picture - collection, analysis, review and restore, and which
+> stages need a reviewer at all - see [PROCESS.md](PROCESS.md).
+
 ## The workflow - from the report (recommended)
 
 Open `visual/index.html` and click **Export safely** in the header. It explains
