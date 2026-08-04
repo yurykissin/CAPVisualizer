@@ -412,7 +412,7 @@
   }
 
   function showTab(name) {
-    ["overview", "detailview", "riskfindings", "contradictions", "compliance", "tests", "authmethods", "delta", "compare", "cmppolicies"].forEach(function (t) {
+    ["overview", "detailview", "riskfindings", "contradictions", "compliance", "tests", "authmethods", "usagequery", "delta", "compare", "cmppolicies"].forEach(function (t) {
       var pane = el("pane-" + t);
       if (pane) pane.classList.toggle("hidden", t !== name);
     });
@@ -1345,6 +1345,23 @@
       if (node) node.addEventListener("change", function () { pfilter[pair[1]] = node.value; renderList(el("q").value, el("fstate").value); });
     });
     if (el("filterClear")) el("filterClear").addEventListener("click", clearFilters);
+    if (el("usageQueryCopy")) {
+      el("usageQueryCopy").addEventListener("click", function () {
+        var text = el("usageQuery").textContent;
+        var status = el("usageQueryStatus");
+        function copied() {
+          status.textContent = "Query copied to clipboard.";
+          window.setTimeout(function () { status.textContent = ""; }, 2500);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(copied).catch(function () {
+            status.textContent = "Clipboard access was blocked. Select the query and copy it manually.";
+          });
+        } else {
+          status.textContent = "Clipboard access is unavailable. Select the query and copy it manually.";
+        }
+      });
+    }
     if (el("fq")) el("fq").addEventListener("input", function () { renderRiskFindings(el("fq").value, el("fsev").value); });
     if (el("fsev")) el("fsev").addEventListener("change", function () { renderRiskFindings(el("fq").value, el("fsev").value); });
     document.querySelectorAll(".tab").forEach(function (t) {

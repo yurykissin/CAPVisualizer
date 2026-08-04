@@ -159,6 +159,14 @@ footer { padding: 14px 24px; color: var(--muted); font-size: 11px; border-top: 1
 .cmp-help code { color: var(--text); }
 .cmp-steps { margin: 10px 0; padding-left: 22px; }
 .cmp-steps li { margin: 6px 0; }
+.query-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 0 8px; }
+.query-code {
+  margin: 0; padding: 16px; overflow: auto; border: 1px solid var(--border);
+  border-radius: 8px; background: #0a0f19; color: var(--text); font-size: 12px;
+  line-height: 1.55; white-space: pre;
+}
+.query-code code { padding: 0; background: transparent; }
+.query-status { min-height: 20px; margin-top: 6px; font-size: 12px; }
 .am-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 10px 0 6px; }
 .am-controls input[type="text"] { flex: 1 1 240px; min-width: 180px; }
 .am-controls label { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }

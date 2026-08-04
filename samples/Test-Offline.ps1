@@ -125,7 +125,9 @@ New-CapVisual -FriendlyPolicies $friendly2 -Summary $summary2 -Findings $finding
     -RiskFindings $risk.findings -Audit $audit -Compliance $comp -TestResult $test -AuthMethods $authMethods `
     -AssetsPath (Join-Path $root 'assets') -OutputFile $out2
 $h2 = Get-Content -Raw $out2
-foreach ($needle in 'MS.AAD.1.1','app-include-exclude-overlap','Assertion results') {
+foreach ($needle in 'MS.AAD.1.1','app-include-exclude-overlap','Assertion results',
+    'Conditional Access policy usage query','PolicyName = tostring(Policy.displayName)',
+    'UserActionRequired = countif','AppliedUsers = dcountif') {
     if (-not $h2.Contains($needle)) { throw "Viewer missing analysis content: $needle" }
 }
 Write-Host "Unified viewer OK  : analysis tabs embedded" -ForegroundColor Green

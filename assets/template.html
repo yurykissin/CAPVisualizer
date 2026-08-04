@@ -73,6 +73,7 @@ __STYLES__
   <div class="tab hidden" id="complianceTab" data-tab="compliance">Compliance</div>
   <div class="tab hidden" id="testsTab" data-tab="tests">Tests</div>
   <div class="tab hidden" id="authMethodsTab" data-tab="authmethods">Auth methods</div>
+  <div class="tab" data-tab="usagequery">Policy usage query</div>
   <div class="tab hidden" id="deltaTab" data-tab="delta">Delta</div>
   <div class="tab" id="compareTab" data-tab="compare">Compare</div>
 </div>
@@ -281,6 +282,87 @@ __STYLES__
     </div>
     <div id="authMethodsMeta" class="muted"></div>
     <div id="authMethods"></div>
+  </div>
+</div>
+
+<div id="pane-usagequery" class="hidden">
+  <div class="main">
+    <h2>Conditional Access policy usage query</h2>
+    <div class="cmp-help">
+      <p>CAPVisualizer does not download sign-in logs. Use this query in the
+        Log Analytics workspace, Microsoft Sentinel workspace, or Microsoft
+        Sentinel data lake that receives the tenant's Entra sign-in logs.</p>
+      <p><b>Set the observation period with the query editor's time-range
+        picker before running the query.</b> Do not add a
+        <code>TimeGenerated</code> filter when querying a Basic, Auxiliary,
+        Bronze, or federated table that requires the time range to be supplied
+        by the query interface.</p>
+      <p>The output distinguishes policies that matched a sign-in from policies
+        that were evaluated but did not match. A zero <b>Applied</b> count means
+        no observed impact during the selected period, not proof that the policy
+        is safe to remove.</p>
+    </div>
+    <div class="query-head">
+      <div>
+        <strong>Interactive user sign-ins</strong>
+        <div class="muted">Table: <code>SigninLogs</code></div>
+      </div>
+      <button id="usageQueryCopy" type="button" class="cmp-btn">Copy query</button>
+    </div>
+    <pre id="usageQuery" class="query-code"><code>SigninLogs
+| mv-expand Policy = ConditionalAccessPolicies
+| extend
+    PolicyId = tostring(Policy.id),
+    PolicyName = tostring(Policy.displayName),
+    Result = tostring(Policy.result)
+| where isnotempty(PolicyId)
+| summarize
+    Evaluated = count(),
+    Success = countif(Result in ("success", "reportOnlySuccess")),
+    Failure = countif(Result in ("failure", "reportOnlyFailure")),
+    UserActionRequired = countif(Result == "reportOnlyInterrupted"),
+    NotApplied = countif(Result in ("notApplied", "reportOnlyNotApplied")),
+    AppliedUsers = dcountif(UserId, Result in (
+        "success",
+        "failure",
+        "reportOnlySuccess",
+        "reportOnlyFailure",
+        "reportOnlyInterrupted"
+    )),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by PolicyName, PolicyId
+| extend Applied = Success + Failure + UserActionRequired
+| extend AppliedPercent = round(100.0 * Applied / Evaluated, 2)
+| project
+    PolicyName,
+    PolicyId,
+    Evaluated,
+    Applied,
+    AppliedPercent,
+    AppliedUsers,
+    Success,
+    Failure,
+    UserActionRequired,
+    NotApplied,
+    FirstSeen,
+    LastSeen
+| order by Applied asc, NotApplied desc, PolicyName asc</code></pre>
+    <div id="usageQueryStatus" class="muted query-status"></div>
+    <div class="callout callout-warn" style="margin-top:14px">
+      <strong>Interpretation.</strong> Success includes enforced and report-only
+      success. Failure includes enforced and report-only failure. User action
+      required is the report-only interrupted result. Applied is the sum of
+      those three categories. Not applied means the policy was evaluated but
+      its assignments or conditions did not match that sign-in.
+    </div>
+    <h3>Useful additions</h3>
+    <p class="muted">The Entra workbook also supports a users view and condition
+      breakdowns. For retirement screening, <b>AppliedUsers</b> is the useful
+      extra signal: it prevents a frequently signing-in user from making a
+      narrowly used policy look broadly adopted. App, client, location, device,
+      and risk breakdowns are better used during a follow-up investigation than
+      in the first unused-policy screening query.</p>
   </div>
 </div>
 
