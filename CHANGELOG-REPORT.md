@@ -41,6 +41,35 @@ schema version** on that entry so users know a re-export is required.
 ## [Unreleased]
 
 ### Added
+- **Coverage-gap sign-in queries and run instructions in the report** — the
+  "Policy usage query" tab becomes **"Sign-in log queries"** and now carries
+  three copy-ready KQL queries with a numbered "Before you run these" procedure:
+  confirming a diagnostic setting actually exports `SignInLogs` to a workspace,
+  obtaining *Log Analytics Reader* on it, opening the Logs editor, and setting
+  the observation period in the time-range picker. Alongside the existing
+  per-policy usage query, two new queries invert the question and report
+  coverage gaps: sign-ins where **no policy applied at all**, and sign-ins where
+  **no policy enforced a multifactor grant**.
+
+  Both gap queries substitute a placeholder for an empty
+  `ConditionalAccessPolicies` array before expanding it, because `mv-expand` and
+  `mv-apply` silently drop those rows — and they are exactly the ungoverned
+  sign-ins the queries exist to surface. A query written without it under-reports
+  the gap. Report-only results are excluded from the applied counts, since a
+  report-only match enforces nothing.
+
+  Every query deliberately omits a `TimeGenerated` filter, which Basic,
+  Auxiliary, Bronze, federated, and data lake tables reject with *"Bronze Logs
+  table query is missing time range"*; the restriction applies to filtering, so
+  `min()`/`max()` inside `summarize` are still used. The MFA query documents that
+  a gap is not proof MFA was absent — per-user MFA, security defaults, or an
+  existing multifactor claim can satisfy it without a policy grant — and points
+  at `AuthenticationRequirement` for the genuine single-factor exposure.
+
+  The tab states that gap output contains user principal names and IP addresses
+  and is therefore deliberately outside the name-free safe export. The copy-button
+  handler is now generic (`data-query-copy`) instead of bound to one element id.
+
 - **"Export safely" button in the HTML report** — one click saves a single,
   name-free JSON containing the policy structure plus every analysis result, so
   sharing a report for review no longer requires running a second script. A

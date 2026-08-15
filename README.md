@@ -128,14 +128,25 @@ actual method secrets. See
 
 ![Auth methods tab](docs/images/07-authmethods.png)
 
-**Policy usage query** - a copy-ready KQL query for the Log Analytics,
+**Sign-in log queries** - three copy-ready KQL queries for the Log Analytics,
 Microsoft Sentinel, or Sentinel data lake destination that receives Entra
-interactive sign-in logs. CAPVisualizer does not download the logs itself. The
-query uses the editor's selected time range and returns each policy's name and
-id, evaluated and applied counts, success, failure, report-only user action
-required, not-applied count, distinct affected users, and first/last seen
-timestamps. A zero applied count is presented as no observed impact during the
-selected period, not proof that a policy is safe to remove.
+interactive sign-in logs, with step-by-step instructions for running them.
+CAPVisualizer does not download the logs itself. The queries use the editor's
+selected time range rather than an in-query `TimeGenerated` filter, which
+Basic, Auxiliary, Bronze, federated, and data lake tables reject.
+
+The first reports per-policy usage: name and id, evaluated and applied counts,
+success, failure, report-only user action required, not-applied count, distinct
+affected users, and first/last seen timestamps. A zero applied count is
+presented as no observed impact during the selected period, not proof that a
+policy is safe to remove.
+
+The other two invert the question and report coverage gaps: sign-ins where no
+policy applied at all, and sign-ins where no policy enforced a multifactor
+grant. Both preserve sign-ins with an empty `ConditionalAccessPolicies` array,
+which `mv-expand` and `mv-apply` would otherwise drop - those are precisely the
+ungoverned sign-ins. Their output contains user principal names and IP
+addresses, so it is deliberately outside the name-free safe export.
 
 **Export safely** saves the Conditional Access policy definitions on their own -
 no tenant id, no display names, no directory enrichment - as a single file you

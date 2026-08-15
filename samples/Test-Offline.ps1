@@ -126,7 +126,9 @@ New-CapVisual -FriendlyPolicies $friendly2 -Summary $summary2 -Findings $finding
     -AssetsPath (Join-Path $root 'assets') -OutputFile $out2
 $h2 = Get-Content -Raw $out2
 foreach ($needle in 'MS.AAD.1.1','app-include-exclude-overlap','Assertion results',
-    'Conditional Access policy usage query','PolicyName = tostring(Policy.displayName)',
+    'Conditional Access sign-in log queries','PolicyName = tostring(Policy.displayName)',
+    'Coverage gap: no policy applied','Coverage gap: no MFA grant applied',
+    'AppliedCount == 0','MfaApplied == 0',
     'UserActionRequired = countif','AppliedUsers = dcountif') {
     if (-not $h2.Contains($needle)) { throw "Viewer missing analysis content: $needle" }
 }
