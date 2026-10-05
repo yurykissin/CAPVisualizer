@@ -63,11 +63,3 @@ pwsh -NoProfile -File /opt/CAPVisualizer/scripts/Invoke-CapVisualizer.ps1 \
   -CertificateThumbprint A1B2C3D4E5F60718293A4B5C6D7E8F9012345678 \
   -Delta -NoTranscript
 ```
-
-## Optional cloud path (leaves the local-only model)
-
-If you specifically want the run to happen in Azure rather than on a local
-machine, an **opt-in** ARM/Bicep template is provided under [`../arm/`](../arm).
-It provisions an Azure Automation Account with a managed identity and a daily
-runbook. **This is not local** - the run executes in Azure and results live in
-Azure. Use it only if that trade-off is acceptable. See `arm/README.md`.

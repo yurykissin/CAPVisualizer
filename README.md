@@ -70,7 +70,7 @@ Get-Help ./scripts/Invoke-CapVisualizer.ps1 -Examples
 | **Offline rerendering** | Recreates reports and analysis from JSON using `-FromJson`; a local `names.json` can restore readable names without reconnecting to Graph. |
 | **Integrity manifest** | Records SHA-256 hashes for snapshot files so accidental changes or incomplete copies can be detected. |
 | **Interactive and unattended auth** | Supports delegated browser/device-code sign-in and certificate-based application authentication for scheduled runs. |
-| **Scheduling** | Includes local cron/Task Scheduler guidance and an optional Azure Automation scaffold. |
+| **Scheduling** | Includes local cron and Windows Task Scheduler guidance for unattended runs. |
 | **Cross-platform execution** | Runs under PowerShell 7 on Windows, macOS, and Linux. |
 
 ## Offline analysis engines
@@ -255,7 +255,6 @@ assets/reference/            baselines, app groups, roles, assertions
 docs/                        detailed operational and technical documentation
 samples/                     sanitized data and offline demonstration
 tests/                       offline Pester regression suite
-arm/                         optional Azure Automation scaffold
 ```
 
 ## Documentation
