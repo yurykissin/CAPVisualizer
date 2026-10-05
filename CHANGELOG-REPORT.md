@@ -64,6 +64,7 @@ schema version** on that entry so users know a re-export is required.
   Policy-as-code assertions now cover deterministic compliance results and
   finding thresholds only.
 
+### Added
 - **Coverage-gap sign-in queries and run instructions in the report** — the
   "Policy usage query" tab becomes **"Sign-in log queries"** and now carries
   three copy-ready KQL queries with a numbered "Before you run these" procedure:
