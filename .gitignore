@@ -33,3 +33,8 @@ names.json
 # never publish to the public repo)
 capvisualizer-security-review.md
 testResults.xml
+
+# Personal CAPreviewer companion documentation and local working files.
+# CAPreviewer is proprietary and is not part of the public CAPVisualizer repo.
+docs/CAPREVIEWER-PRIVATE.md
+.capreviewer/
