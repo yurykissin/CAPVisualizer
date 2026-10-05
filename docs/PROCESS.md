@@ -124,13 +124,12 @@ approved for sharing: consolidation, compliance, audit, and policy-scoped or
 aggregated findings. Per-user authentication-method details and assertion
 results are deliberately not exported.
 
-The two paths use different safety controls:
-
-- The report button serves an allowlist-built payload. Its self-check reports
-  unexpected content to the run log but does not disable the button.
-- `Export-CapSafeBundle.ps1` additionally runs a file-level leak test and
-  **fails closed**: any surviving name, unallowlisted GUID, or IP-shaped string
-  deletes the generated `safe/` folder and throws.
+Both paths call the same canonical builder and **fail closed** before returning
+the JSON: classified fields are rebuilt from the allowlist, tenant-specific ids
+are aliased, and any surviving name, unallowlisted GUID, or IP-shaped string
+rejects the artifact. The command-line path also writes a README beside the
+single review JSON and deletes the generated `safe/` folder if verification
+fails.
 
 ### Stage 6 - Review
 

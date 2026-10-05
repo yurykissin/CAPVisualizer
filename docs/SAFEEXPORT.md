@@ -48,7 +48,7 @@ is why the button is always available and is not gated on a leak test.
 **What it carries**
 
 - Policy structure: id, state, conditions, targeting, grant and session
-  controls. Every id is a GUID.
+  controls. Every tenant-specific id is a stable alias.
 - Authentication strengths and authentication contexts, structure only. A policy
   gated on a custom strength is unreviewable without its definition - there is
   no way to tell phishing-resistant from SMS - so `allowedCombinations` travels.
@@ -91,7 +91,8 @@ score them. Declaring the gap matters: without it, a policy carrying a location
 exclusion looks *tidier* than one without, because there is nothing left to
 criticise.
 
-The same guidance requires every object to be cited by its **full id, verbatim**.
+The same guidance requires every object to be cited by its **full alias,
+verbatim**.
 That is what makes the round trip work - you run `Restore-CapNames.ps1` over the
 returned report and the ids become real names on your machine.
 
@@ -114,11 +115,11 @@ other properties, so it changed how the scope of a policy reads, not just how it
 looks. The export now restores array shape for every collection-valued Graph
 property before writing.
 
-Nothing is masked in the browser. The payload is built by PowerShell during the
-run and embedded verbatim, so what the button hands you is what the run
-produced. It is built from the export as collected, before any dictionary
-re-hydration, so re-rendering a snapshot with `-FromJson` cannot leak names back
-into it.
+Nothing is masked by browser-side JavaScript. PowerShell builds, aliases, and
+leak-tests the canonical payload during the run, then embeds it verbatim, so
+what the button hands you is exactly what was verified. It is built from the
+on-disk masked export, before dictionary re-hydration, so re-rendering a
+snapshot with `-FromJson` cannot leak names back into it.
 
 Embedding it adds no exposure: the HTML already contains the *real* names, which
 is exactly why it must stay local while the exported file may travel.
@@ -127,7 +128,7 @@ On a real tenant the file is roughly 175 KB, down from an 11.5 MB export.
 
 ## The workflow - from the command line
 
-Use this when you want the artifacts as separate files, or you are scripting.
+Use this when you are scripting or want a README beside the review artifact.
 
 ```powershell
 # 1. Normal run. Writes the name-free export and the local dictionary.
@@ -136,17 +137,17 @@ Use this when you want the artifacts as separate files, or you are scripting.
 # 2. Assemble the bundle you are allowed to upload.
 ./scripts/Export-CapSafeBundle.ps1 -SnapshotPath ./output/20261005-120000
 
-# 3. Hand ONLY output/20261005-120000/safe/ to the model or third party.
+# 3. Hand ONLY the review JSON (or its safe/ folder) to the model or third party.
 
 # 4. Map the model's output back to real names, locally.
 ./scripts/Restore-CapNames.ps1 -Path ./ai-report.md `
     -Names ./output/20261005-120000/raw/names.json -InPlace
 ```
 
-`Export-CapSafeBundle.ps1` **fails closed**: after assembling the bundle it
-scans every file for every value in the dictionary, plus unallowlisted GUIDs and
-IP-shaped strings. If anything is found, the bundle is deleted and the run
-throws. A bundle that exists has been verified clean.
+`Export-CapSafeBundle.ps1` **fails closed**: after assembling the canonical
+review JSON it scans it for every value in the dictionary, plus unallowlisted
+GUIDs and IP-shaped strings. If anything is found, the `safe/` folder is deleted
+and the run throws. A bundle that exists has been verified clean.
 
 The folder also contains `cap-safe-review-<snapshot>.json` - the same single
 file the **Export safely** button produces, so either route gives a reviewer an
@@ -198,9 +199,9 @@ share from. Point it at the review or report written *from* the bundle. Use
 
 ## Pseudonymization
 
-By default the token *is* the object's own GUID: names are removed, ids are left
-alone. That is the smallest possible change and keeps the export structurally
-identical.
+The local `raw/export.json` keeps object GUIDs while separating names into the
+local dictionary. This is useful for offline rendering, but it is not the file
+to share.
 
 The safe bundle goes one step further and **pseudonymizes by default**: every
 tenant-specific GUID becomes a stable alias (`OBJ-004`, `POL-002`,

@@ -521,24 +521,14 @@ try {
     # substitution is idempotent, so masking twice costs nothing and closes the
     # gap where a re-render of last month's snapshot is less safe than a fresh run.
     if ($dictionary) { $bundleSource = ConvertTo-CapSafeObject -InputObject $bundleSource -Dictionary $dictionary }
-    $safeBundle = New-CapPolicyOnlyExport -Export $bundleSource -Snapshot $stamp -Analysis $safeAnalysis
+    # The browser and CLI use the same canonical builder. Add aliases only after
+    # raw/export.json has been produced so the local raw export keeps its default
+    # GUID shape, then persist the augmented dictionary before the manifest.
+    $null = Add-CapIdAliases -Dictionary $dictionary -Source $bundleSource
+    $policyOnlyBundle = New-CapPolicyOnlyExport -Export $bundleSource -Snapshot $stamp -Analysis $safeAnalysis
+    $safeBundle = New-CapSafeReviewBundle -SafeExport $policyOnlyBundle -Dictionary $dictionary -Snapshot $stamp
     $analysisNote = if ($safeBundle.Contains('consolidation') -or $safeBundle.Contains('compliance')) { ', with the deterministic analysis included' } else { '' }
     Write-CapLog "Shareable export ready: $(@($safeBundle.policies).Count) policies, no tenant id or display names$analysisNote (use 'Export safely' in the report)." 'OK'
-
-    # Belt and braces: the allowlist is the control, this only reports. It must
-    # never gate the button - that was the previous design's mistake.
-    try {
-        $residual = @(Test-CapNameLeak -Dictionary $dictionary -InputObject $safeBundle -RequirePseudonymized)
-        if ($residual.Count) {
-            $detail = ($residual | Select-Object -First 5 | ForEach-Object {
-                if ($_.context) { "$($_.kind): $($_.value) [$($_.context)]" } else { "$($_.kind): $($_.value)" }
-            }) -join '; '
-            Write-CapLog "Shareable export self-check flagged $($residual.Count) item(s) for review: $detail" 'WARN'
-        }
-    }
-    catch {
-        Write-CapLog "Shareable export self-check could not run: $($_.Exception.Message)" 'WARN'
-    }
 
     if (-not $NoNames) {
         Save-CapJson -InputObject $dictionary -Path (Join-Path $snapshot 'raw/names.json')

@@ -526,14 +526,21 @@ Describe 'End-to-end safe bundle' {
 
     It 'produces a safe bundle that passes the leak test' {
         & (Join-Path $script:Repo 'scripts/Export-CapSafeBundle.ps1') -SnapshotPath $script:Snap -Force *>$null
-        Test-Path (Join-Path $script:Snap 'safe/raw/export.json') | Should -BeTrue
+        $review = @(Get-ChildItem -LiteralPath (Join-Path $script:Snap 'safe') -Filter 'cap-safe-review-*.json')
+        $review.Count | Should -Be 1
+        Test-Path (Join-Path $script:Snap 'safe/README.txt') | Should -BeTrue
         Test-Path (Join-Path $script:Snap 'safe/raw/names.json') | Should -BeFalse
     }
 
     It 'pseudonymizes the bundle by default and records the aliases locally' {
-        $safe = Get-Content (Join-Path $script:Snap 'safe/raw/export.json') -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
-        $safe.metadata.tenantId | Should -Be 'TENANT-001'
-        $dict = Get-Content (Join-Path $script:Snap 'raw/names.json') -Raw | ConvertFrom-Json -Depth 20 -AsHashtable
+        $reviewFile = @(Get-ChildItem -LiteralPath (Join-Path $script:Snap 'safe') -Filter 'cap-safe-review-*.json')[0].FullName
+        $safe = Get-Content $reviewFile -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
+        $safe.safeBundle.pseudonymized | Should -BeTrue
+        $safe.policies[0].id | Should -Match '^POL-\d+$'
+        $dictPath = if (Test-Path (Join-Path $script:Snap 'raw/names.review.json')) {
+            Join-Path $script:Snap 'raw/names.review.json'
+        } else { Join-Path $script:Snap 'raw/names.json' }
+        $dict = Get-Content $dictPath -Raw | ConvertFrom-Json -Depth 20 -AsHashtable
         $dict.pseudonymized | Should -BeTrue
         @($dict.idAliases.Values) | Should -Contain 'POL-001'
     }
@@ -581,7 +588,14 @@ Describe 'Safe review bundle' {
         $script:BundleDict = New-CapNameDictionary -Export $script:Export -NameMap $script:NameMap -Snapshot '20260101-000000'
         $script:BundleSafe = ConvertTo-CapSafeObject -InputObject $script:Export -Dictionary $script:BundleDict
         $script:Bundle = New-CapSafeReviewBundle -SafeExport $script:BundleSafe -Dictionary $script:BundleDict `
-            -Analysis ([ordered]@{ findings = @{ findings = @(@{ message = 'Break Glass Admin is excluded' }) } }) `
+            -Analysis ([ordered]@{
+                findings = @{ findings = @(@{
+                    id = 'f1'; checkId = 'legacy-auth-not-blocked'; title = 'Break Glass Admin is excluded'
+                    severity = 'high'; affectedObjects = @('p1')
+                }) }
+                authMethods = @{ users = @(@{ userId = 'u1'; isMfaCapable = $false }) }
+                tests = @{ assertions = @(@{ id = 'a1'; result = 'fail' }) }
+            }) `
             -Snapshot '20260101-000000'
         $script:BundleJson = $script:Bundle | ConvertTo-Json -Depth 30
     }
@@ -615,6 +629,11 @@ Describe 'Safe review bundle' {
         $script:BundleDict['idAliases'].Count | Should -BeGreaterThan 0
     }
 
+    It 'excludes analysis sections that are not explicitly classified' {
+        $script:Bundle.Contains('authMethods') | Should -BeFalse
+        $script:Bundle.Contains('tests') | Should -BeFalse
+    }
+
     It 'refuses to return a document that still contains a name' {
         $d = New-CapNameDictionary -Export $script:Export -NameMap $script:NameMap -Snapshot 's'
         $planted = ConvertTo-CapSafeObject -InputObject $script:Export -Dictionary $d
@@ -638,6 +657,7 @@ Describe 'Export safely button' {
         if ($script:BtnHtml -match '(?s)window\.__CAP_SAFE__ = (.*?);\r?\nwindow\.__CAP_SNAPSHOT__') {
             $script:BtnPayload = $Matches[1] | ConvertFrom-Json -Depth 30 -AsHashtable
         }
+        $script:BtnDict = Import-CapNameDictionary -Path (Join-Path $script:BtnSnap 'raw/names.json')
     }
 
     AfterAll {
@@ -660,7 +680,7 @@ Describe 'Export safely button' {
         # already established what is true, and dropping it forced the reviewer
         # to re-derive it and disagree with the engine's own numbers.
         $allowed = @('capExport', 'policies', 'authenticationStrengths', 'authenticationContexts',
-                     'consolidation', 'compliance', 'audit', 'findings', 'analysisExposure')
+                     'consolidation', 'compliance', 'audit', 'findings', 'analysisExposure', 'safeBundle')
         foreach ($k in @($script:BtnPayload.Keys)) {
             $allowed | Should -Contain $k -Because "$k is not on the allowlist"
         }
@@ -668,6 +688,9 @@ Describe 'Export safely button' {
         foreach ($k in 'enrichment', 'nameMap', 'metadata') {
             $script:BtnPayload.Contains($k) | Should -BeFalse -Because "$k is not a policy definition"
         }
+        $script:BtnPayload.safeBundle.pseudonymized | Should -BeTrue
+        @(Test-CapNameLeak -Dictionary $script:BtnDict -InputObject $script:BtnPayload -RequirePseudonymized).Count |
+            Should -Be 0
     }
 
     It 'keeps authentication strengths reviewable without naming them' {
@@ -798,12 +821,12 @@ Describe 'Export safely button' {
         @(Test-CapNameLeak -Dictionary $dict -InputObject $script:BtnPayload).Count | Should -Be 0
     }
 
-    It 'keeps every policy id a guid rather than a display name' {
+    It 'keeps every policy id as a stable alias rather than a display name' {
         # Regression: re-hydration is a blind text substitution, so building the
         # payload from the re-hydrated export put the display name into the id
         # field and shipped real names.
         foreach ($p in $script:BtnPayload['policies']) {
-            "$($p.id)" | Should -Match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+            "$($p.id)" | Should -Match '^POL-\d+$'
             $p.Contains('displayName') | Should -BeFalse
         }
     }
@@ -820,7 +843,7 @@ Describe 'Export safely button' {
         $script:BtnHtml | Should -BeLike "*__CAP_SNAPSHOT__ = `"$(Split-Path -Leaf $script:BtnSnap)`"*"
     }
 
-    It 'ships guids and no names even when re-rendering a masked export with its dictionary' {
+    It 'ships aliases and no names even when re-rendering a masked export with its dictionary' {
         # The reported bug: re-running -FromJson against raw/export.json finds
         # raw/names.json beside it and re-hydrates, which put real display names
         # and user principal names into the shared file. The payload must be
@@ -843,9 +866,9 @@ Describe 'Export safely button' {
             # ... while the shared payload must not.
             $shared | Should -Not -BeLike '*Require MFA for all users*'
             foreach ($p in $payload['policies']) {
-                "$($p.id)" | Should -Match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+                "$($p.id)" | Should -Match '^POL-\d+$'
             }
-            $dict = Import-CapNameDictionary -Path (Join-Path $script:BtnSnap 'raw/names.json')
+            $dict = Import-CapNameDictionary -Path (Join-Path $snap 'raw/names.json')
             @(Test-CapNameLeak -Dictionary $dict -InputObject $payload).Count | Should -Be 0
         }
         finally {
@@ -1121,10 +1144,10 @@ Describe 'Safe export stays backward compatible' {
         $bundle.Contains('analysisExposure') | Should -BeFalse
     }
 
-    It 'moves to 1.3 and carries the analysis when one is supplied' {
+    It 'moves to 1.4 and carries the analysis when one is supplied' {
         $analysis = @{ consolidation = @{ summary = @{ total = 1 } } }
         $bundle = New-CapPolicyOnlyExport -Export $script:Safe -Analysis $analysis
-        $bundle.capExport.schemaVersion | Should -Be '1.3'
+        $bundle.capExport.schemaVersion | Should -Be '1.4'
         $bundle.consolidation.summary.total | Should -Be 1
         $bundle.analysisExposure | Should -Not -BeNullOrEmpty
     }

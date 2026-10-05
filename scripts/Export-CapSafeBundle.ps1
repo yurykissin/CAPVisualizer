@@ -5,11 +5,10 @@
     before the folder is declared clean.
 
 .DESCRIPTION
-    Copies only the name-free artifacts of a snapshot (raw/export.json and
-    analysis/*) into <snapshot>/safe, optionally pseudonymizing tenant-specific
-    object ids, then runs the leak test. If any real name, unallowlisted GUID or
-    IP-shaped string survives, the bundle is deleted and the command fails: a
-    bundle that cannot be proven clean must never be uploaded.
+    Builds the same canonical, allowlisted review JSON used by the report's
+    "Export safely" button. Only classified policy analysis is included;
+    per-user authentication-method details, assertions, and unknown future
+    sections remain local.
 
     The dictionary (raw/names.json) is never copied. Keep it: it is what turns
     the AI's report back into real names, via Restore-CapNames.ps1.
@@ -49,25 +48,6 @@ $modules = Join-Path $PSScriptRoot 'modules'
 Import-Module (Join-Path $modules 'CapCommon.psm1') -Force
 Import-Module (Join-Path $modules 'CapNames.psm1') -Force
 
-# Binding token: a fingerprint over the snapshot id and dictionary shape, stamped
-# into the bundle so Restore-CapNames.ps1 can refuse a dictionary that does not
-# match. It carries no name. Derivation must match Restore-CapNames.ps1.
-function Get-CapBindingToken {
-    param($Dictionary)
-    if (-not $Dictionary) { return $null }
-    $snap = if ($Dictionary.Contains('snapshot')) { "$($Dictionary['snapshot'])" } else { '' }
-    if (-not $snap) { return $null }
-    $count = if ($Dictionary.Contains('count')) { "$($Dictionary['count'])" } else { '0' }
-    $pseudo = if ($Dictionary.Contains('pseudonymized')) { "$([bool]$Dictionary['pseudonymized'])".ToLowerInvariant() } else { 'false' }
-    $sha = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$snap|$count|$pseudo"))
-    }
-    finally { $sha.Dispose() }
-    $fp = (-join ($bytes[0..3] | ForEach-Object { $_.ToString('x2') }))
-    return "CAPBIND:${snap}:${fp}"
-}
-
 $snapshot = (Resolve-Path -LiteralPath $SnapshotPath).Path
 $exportFile = Join-Path $snapshot 'raw/export.json'
 if (-not (Test-Path -LiteralPath $exportFile)) {
@@ -80,14 +60,23 @@ if (-not $dictionary) {
 }
 
 $pseudonymize = -not $NoPseudonymize
+$originalDictPath = if ($Names) { (Resolve-Path -LiteralPath $Names).Path } else { Join-Path $snapshot 'raw/names.json' }
+$dictPath = $originalDictPath
 if ($pseudonymize) {
     # The run-time dictionary holds names only; the aliases that remove the last
     # tenant-correlatable ids are added now and persisted, so Restore-CapNames
     # can still resolve them after the review comes back.
     $exportDoc = Get-Content -LiteralPath $exportFile -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
+    $beforeAliasCount = if ($dictionary.Contains('idAliases') -and $dictionary['idAliases']) { $dictionary['idAliases'].Count } else { 0 }
     $dictionary = Add-CapIdAliases -Dictionary $dictionary -Source $exportDoc
-    $dictPath = if ($Names) { $Names } else { Join-Path $snapshot 'raw/names.json' }
-    Save-CapJson -InputObject $dictionary -Path $dictPath
+    $afterAliasCount = if ($dictionary.Contains('idAliases') -and $dictionary['idAliases']) { $dictionary['idAliases'].Count } else { 0 }
+    # Never modify the snapshot's original dictionary after its manifest was
+    # generated. A legacy snapshot that lacks aliases gets a separate local-only
+    # review dictionary for restoring returned reports.
+    if ($afterAliasCount -gt $beforeAliasCount) {
+        $dictPath = Join-Path $snapshot 'raw/names.review.json'
+        Save-CapJson -InputObject $dictionary -Path $dictPath
+    }
 }
 
 $safeDir = if ($OutputPath) { $OutputPath } else { Join-Path $snapshot 'safe' }
@@ -97,64 +86,24 @@ if (Test-Path -LiteralPath $safeDir) {
 }
 New-Item -ItemType Directory -Force -Path $safeDir | Out-Null
 
-# Only these are name-free by construction. report/* and visual/index.html carry
-# resolved names on purpose and stay behind.
-$sources = @('raw/export.json')
-$analysisDir = Join-Path $snapshot 'analysis'
-if (Test-Path -LiteralPath $analysisDir) {
-    foreach ($f in Get-ChildItem -LiteralPath $analysisDir -File) { $sources += "analysis/$($f.Name)" }
-}
-$deltaFile = Join-Path $snapshot 'delta/delta.json'
-if (Test-Path -LiteralPath $deltaFile) { $sources += 'delta/delta.json' }
-
-$copied = [System.Collections.Generic.List[string]]::new()
-foreach ($rel in $sources) {
-    $src = Join-Path $snapshot $rel
-    if (-not (Test-Path -LiteralPath $src)) { continue }
-    $dst = Join-Path $safeDir ($rel -replace '/', [IO.Path]::DirectorySeparatorChar)
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
-
-    if ($pseudonymize -and $src -like '*.json') {
-        # A second pass with an alias-bearing dictionary; the file is already
-        # name-free, this removes the remaining tenant-correlatable ids.
-        $doc = Get-Content -LiteralPath $src -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
-        Save-CapJson -InputObject (ConvertTo-CapSafeObject -InputObject $doc -Dictionary $dictionary) -Path $dst
-    }
-    else {
-        Copy-Item -LiteralPath $src -Destination $dst -Force
-    }
-    $copied.Add($rel)
-}
-
-# The same single-file review bundle the report's "Export safely" button hands
-# out, so the CLI and the button produce an interchangeable artifact.
-$bundleExport = Get-Content -LiteralPath (Join-Path $safeDir 'raw/export.json') -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
+$bundleExport = Get-Content -LiteralPath $exportFile -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
 $bundleAnalysis = [ordered]@{}
 foreach ($sec in @{ 'audit.json' = 'audit'; 'findings.json' = 'findings'; 'compliance.json' = 'compliance';
                     'authmethods.json' = 'authMethods'; 'consolidation.json' = 'consolidation'; 'tests.json' = 'tests' }.GetEnumerator()) {
-    $f = Join-Path $safeDir "analysis/$($sec.Key)"
+    $f = Join-Path $snapshot "analysis/$($sec.Key)"
     if (Test-Path -LiteralPath $f) {
         $bundleAnalysis[$sec.Value] = Get-Content -LiteralPath $f -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
     }
 }
-$reviewBundle = New-CapSafeReviewBundle -SafeExport $bundleExport -Dictionary $dictionary `
-    -Analysis $bundleAnalysis -Snapshot (Split-Path -Leaf $snapshot)
+$policyOnly = New-CapPolicyOnlyExport -Export $bundleExport -Snapshot (Split-Path -Leaf $snapshot) -Analysis $bundleAnalysis
+$reviewBundle = New-CapSafeReviewBundle -SafeExport $policyOnly -Dictionary $dictionary `
+    -Snapshot (Split-Path -Leaf $snapshot) -NoPseudonymize:$NoPseudonymize
 $bindingToken = Get-CapBindingToken -Dictionary $dictionary
-if ($bindingToken) {
-    # Stamped after masking; the token is a snapshot/dictionary fingerprint, not a
-    # name, so it does not need re-verifying. The reviewer or model is asked to
-    # echo this line so Restore-CapNames.ps1 can bind the returned report.
-    $reviewBundle['safeBundle']['binding'] = [ordered]@{
-        token   = $bindingToken
-        purpose = "Reproduce this exact token in any report generated from this bundle. Restore-CapNames.ps1 refuses a dictionary whose token does not match, so the token is what stops a report being re-hydrated with the wrong tenant's names."
-    }
-}
 $bundleName = "cap-safe-review-$(Split-Path -Leaf $snapshot).json"
 Save-CapJson -InputObject $reviewBundle -Path (Join-Path $safeDir $bundleName)
-$copied.Add($bundleName)
 
 $requirePseudo = $pseudonymize -and [bool](& { $v = $dictionary['pseudonymized']; $v })
-$files = @(Get-ChildItem -LiteralPath $safeDir -Recurse -File | ForEach-Object { $_.FullName })
+$files = @((Join-Path $safeDir $bundleName))
 $violations = @(Test-CapNameLeak -Dictionary $dictionary -Path $files -RequirePseudonymized:$requirePseudo)
 
 if ($violations.Count) {
@@ -200,10 +149,10 @@ bundle is still a map of where the Conditional Access gaps are. Share it with
 the same care you would give the configuration itself.
 
 To turn an AI-generated report back into real names:
-  pwsh ./scripts/Restore-CapNames.ps1 -Path ./ca-review.md -Names ./output/20261005-120000/raw/names.json
+  pwsh ./scripts/Restore-CapNames.ps1 -Path ./ca-review.md -Names $dictPath
 "@
 Set-Content -LiteralPath (Join-Path $safeDir 'README.txt') -Value $readme -Encoding utf8
 
 Write-CapLog "Safe bundle verified clean: $safeDir" 'OK'
-Write-CapLog ("  {0} file(s); dictionary held back ({1} entries)." -f $copied.Count, $dictionary['count']) 'INFO'
-Write-CapLog "  Upload this folder. Keep raw/names.json, report/ and visual/ local." 'INFO'
+Write-CapLog ("  Canonical review JSON plus README; dictionary held back ({0} entries)." -f $dictionary['count']) 'INFO'
+Write-CapLog "  Upload only the safe folder. Keep the review dictionary, report/ and visual/ local." 'INFO'

@@ -807,6 +807,12 @@ function New-CapNameDictionary {
         if ($wellKnown.names.Contains($trimmed)) { return }
         # A value that is itself an id needs no dictionary entry.
         if ($trimmed -eq $Id) { return }
+        # A masked export can be rendered without its original dictionary. Its
+        # display fields then contain CAPVisualizer aliases, not real names.
+        # Registering those aliases as names makes the leak checker reject the
+        # canonical safe bundle for containing the tokens it is meant to use.
+        $aliasMatch = $script:CapAliasTokenRegex.Match($trimmed)
+        if ($aliasMatch.Success -and $aliasMatch.Value.Length -eq $trimmed.Length) { return }
         # A name that is a bare guid is an identifier, not a name. Registering one
         # against an object that has its own id means the token minted for it is
         # that object's id, so masking rewrites the guid in the name into a
@@ -2358,10 +2364,9 @@ function New-CapPolicyOnlyExport {
         capExport = [ordered]@{
             tool          = 'CAPVisualizer'
             kind          = 'policyOnlyExport'
-            # 1.3 adds the analysis sections. Without them the file is exactly
-            # the 1.2 shape, so it keeps the 1.2 version and older consumers
-            # carry on working unchanged.
-            schemaVersion = $(if ($hasAnalysis) { '1.3' } else { '1.2' })
+            # 1.4 identifies the canonical, alias-ready safe-review shape.
+            # Without analysis the file remains the established 1.2 shape.
+            schemaVersion = $(if ($hasAnalysis) { '1.4' } else { '1.2' })
             snapshot      = $Snapshot
             generatedUtc  = if ($meta) { "$(_NmGet $meta 'generatedUtc')" } else { '' }
             policyCount   = @($clean).Count
@@ -2386,11 +2391,13 @@ function New-CapSafeReviewBundle {
     user hands to a reviewer or a model.
 
 .DESCRIPTION
-    Shaped so a consumer needs no unpacking: the export's own top-level keys
-    (metadata, policies, namedLocations, ...) sit alongside findings, audit,
-    compliance, tests and consolidation. Verification is not optional - a
-    document that fails the leak test throws rather than being returned, so a
-    caller cannot accidentally surface an unsafe payload.
+    Shaped so a consumer needs no unpacking. Only analysis sections and fields
+    classified by assets/reference/analysis-exposure.json may leave the
+    snapshot. Unknown sections fail closed by remaining absent.
+
+    Verification is not optional - a document that fails the leak test throws
+    rather than being returned, so a caller cannot accidentally surface an
+    unsafe payload.
 
 .PARAMETER Analysis
     Ordered map of section name -> already-masked analysis object. Passed
@@ -2402,39 +2409,42 @@ function New-CapSafeReviewBundle {
         [Parameter(Mandatory)]$SafeExport,
         [Parameter(Mandatory)]$Dictionary,
         $Analysis,
-        [string]$Snapshot = ''
+        [string]$Snapshot = '',
+        [switch]$NoPseudonymize
     )
 
     # Aliases are added to the shared dictionary so Restore-CapNames can resolve
     # whatever the reviewer quotes back, and persisted by the caller.
-    $null = Add-CapIdAliases -Dictionary $Dictionary -Source $SafeExport
+    if (-not $NoPseudonymize) {
+        $null = Add-CapIdAliases -Dictionary $Dictionary -Source $SafeExport
+    }
 
     $doc = [ordered]@{}
     foreach ($k in (_NmKeys $SafeExport)) { $doc[$k] = $SafeExport[$k] }
     if ($Analysis) {
-        # Sections the classification covers are rebuilt from an allowlist;
-        # anything it does not cover (authMethods, tests) passes through as
-        # before. One tenant produced 2,646 findings naming which individuals
-        # cannot perform MFA, and that list was previously shipped in full.
+        # Sections the classification covers are rebuilt from an allowlist.
+        # Anything it does not cover (including authMethods and tests) is absent.
         $classified = New-CapExportableAnalysis -Analysis $Analysis
-        foreach ($k in (_NmKeys $Analysis)) {
-            if ($classified -and $classified.Contains($k)) { continue }
-            $v = $Analysis[$k]
-            if ($null -ne $v) { $doc[$k] = $v }
-        }
         foreach ($k in (_NmKeys $classified)) { $doc[$k] = $classified[$k] }
     }
+    $bindingToken = Get-CapBindingToken -Dictionary $Dictionary
     $doc['safeBundle'] = [ordered]@{
         tool          = 'CAPVisualizer'
         kind          = 'safeReviewBundle'
-        schemaVersion = '1.0'
+        schemaVersion = '1.1'
         snapshot      = $Snapshot
-        pseudonymized = $true
+        pseudonymized = (-not $NoPseudonymize)
         notice        = 'Name-free. Objects are identified by stable tokens; the token -> name dictionary was deliberately withheld. Reduces attribution, not exploitability - still treat as security-relevant.'
+        binding       = $(if ($bindingToken) {
+            [ordered]@{
+                token   = $bindingToken
+                purpose = "Reproduce this exact token in any report generated from this bundle. Restore-CapNames.ps1 refuses a dictionary whose token does not match."
+            }
+        } else { $null })
     }
 
     $safe = ConvertTo-CapSafeObject -InputObject $doc -Dictionary $Dictionary
-    $violations = @(Test-CapNameLeak -Dictionary $Dictionary -InputObject $safe -RequirePseudonymized)
+    $violations = @(Test-CapNameLeak -Dictionary $Dictionary -InputObject $safe -RequirePseudonymized:(-not $NoPseudonymize))
     if ($violations.Count) {
         $detail = ($violations | Select-Object -First 5 | ForEach-Object {
             if ($_.context) { "$($_.kind): $($_.value) [$($_.context)]" } else { "$($_.kind): $($_.value)" }
@@ -2442,6 +2452,27 @@ function New-CapSafeReviewBundle {
         throw "Safe review bundle rejected: $($violations.Count) leak(s) detected ($detail)."
     }
     return $safe
+}
+
+function Get-CapBindingToken {
+<#
+.SYNOPSIS
+    Build the name-free token that binds a returned review to one dictionary.
+#>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Dictionary)
+
+    $snap = if ($Dictionary.Contains('snapshot')) { "$($Dictionary['snapshot'])" } else { '' }
+    if (-not $snap) { return $null }
+    $count = if ($Dictionary.Contains('count')) { "$($Dictionary['count'])" } else { '0' }
+    $pseudo = if ($Dictionary.Contains('pseudonymized')) { "$([bool]$Dictionary['pseudonymized'])".ToLowerInvariant() } else { 'false' }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$snap|$count|$pseudo"))
+    }
+    finally { $sha.Dispose() }
+    $fp = (-join ($bytes[0..3] | ForEach-Object { $_.ToString('x2') }))
+    return "CAPBIND:${snap}:${fp}"
 }
 
 function Import-CapNameDictionary {
@@ -2503,7 +2534,7 @@ Export-ModuleMember -Function New-CapNameDictionary, ConvertTo-CapSafeObject, Co
     Restore-CapNameText, Test-CapNameLeak, Import-CapNameDictionary, Get-CapWellKnownIdSet, `
     Repair-CapRestoredIds, `
     Resolve-CapTruncatedIds, Get-CapUnresolvedIds, Get-CapTruncatedIds, `
-    Test-CapWellKnownId, Get-CapUnresolvedTokens, Clear-CapMatcherCache, Add-CapIdAliases, New-CapSafeReviewBundle, New-CapPolicyOnlyExport, `
+    Test-CapWellKnownId, Get-CapUnresolvedTokens, Clear-CapMatcherCache, Add-CapIdAliases, Get-CapBindingToken, New-CapSafeReviewBundle, New-CapPolicyOnlyExport, `
     Get-CapFirstPartyAppMap, Get-CapFirstPartyAppTokens, Get-CapGlobalConstantEntry, `
     Get-CapBuiltinRoleMap, Get-CapBuiltinAuthStrengthMap, Test-CapReservedName, `
     Get-CapAnalysisExposure, New-CapExportableAnalysis, `

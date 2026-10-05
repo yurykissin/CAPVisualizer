@@ -147,7 +147,7 @@ organization and its security design.
 | `raw/names.json` | Local ID/alias-to-name dictionary | **Never** |
 | `visual/index.html` | Local report, normally containing real names | **No** |
 | `cap-safe-review-<snapshot>.json` | Allowlisted policy and analysis structure produced by **Export safely** | Intended for controlled review |
-| `safe/` bundle | CLI-produced pseudonymized bundle; deleted if its leak checks fail | Intended for controlled review |
+| `safe/` bundle | The same canonical review JSON plus a README; deleted if leak checks fail | Intended for controlled review |
 
 Recommended workflow:
 
@@ -167,6 +167,10 @@ Recommended workflow:
      -Names ./output/<timestamp>/raw/names.json `
      -InPlace
    ```
+
+For a legacy snapshot whose dictionary did not yet contain aliases, the CLI
+creates `raw/names.review.json` without modifying the original manifested
+dictionary. Use that path for restoration.
 
 Safe export removes names, the explicit tenant ID, directory enrichment, named
 location definitions, IP ranges, descriptions, and tenant-specific filter
