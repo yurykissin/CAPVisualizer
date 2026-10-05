@@ -53,7 +53,16 @@ secrets such as phone numbers or security-key names. See
 Both active and PIM-eligible role assignments are retained for privilege
 analysis. Per-user Conditional Access scope resolution counts only active role
 assignments; eligibility alone does not make a user a current member of a
-role-targeted policy.
+role-targeted policy. The snapshot records both the tenant-specific role
+definition ID and the stable built-in role template ID. It also records whether
+active members, PIM eligibility, and role definitions were collected completely;
+permission or per-role failures make the dataset `partial` rather than silently
+omitting coverage.
+
+PIM eligibility assigned to a group is retained as an assignment to that group;
+CAPVisualizer does not expand it into eligible users. Group-based eligibility
+therefore requires local verification when assessing an individual user's
+potential privilege.
 
 The collected enrichment is embedded in `raw/export.json`, so a later
 `-FromJson` render (and all analysis engines) run **fully offline** against the

@@ -361,12 +361,25 @@ function Invoke-CapFindings {
         $bySeverity[$sev] = @($sorted | Where-Object { $_.severity -eq $sev }).Count
     }
 
+    $roleDataset = _FiGet $Enrichment 'roleAssignments'
+    $roleCoverage = [ordered]@{
+        completeness            = "$(_FiGet $roleDataset 'completeness')"
+        activeComplete          = _FiGet $roleDataset 'activeComplete'
+        eligibleComplete        = _FiGet $roleDataset 'eligibleComplete'
+        roleDefinitionsComplete = _FiGet $roleDataset 'roleDefinitionsComplete'
+        groupEligibilityExpanded= _FiGet $roleDataset 'groupEligibilityExpanded'
+        warnings                = @(_FiArr (_FiGet $roleDataset 'warnings'))
+    }
+
     [ordered]@{
         findings = $sorted
         summary  = [ordered]@{
             total      = @($sorted).Count
             bySeverity = $bySeverity
             topRisk    = if (@($sorted).Count) { $sorted[0].riskScore } else { 0 }
+        }
+        coverage = [ordered]@{
+            roleAssignments = $roleCoverage
         }
     }
 }
