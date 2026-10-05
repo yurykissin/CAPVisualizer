@@ -95,6 +95,8 @@ function New-CapVisual {
         Replace('__SNAPSHOT__', $SnapshotName).
         Replace('__TENANT__', [string]$tenant).
         Replace('__GENERATED__', [string]$Summary.generatedUtc).
+        Replace('__TOOL_VERSION__', [string]$Summary.toolVersion).
+        Replace('__TOOL_COMMIT__', [string]$Summary.toolCommit).
         Replace('__POLICYCOUNT__', [string]$Summary.totalPolicies)
 
     $OutputFile = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputFile)

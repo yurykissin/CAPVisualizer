@@ -10,11 +10,11 @@ viewer's **Compliance** tab.
 
 ## Controls (bundled MS.AAD reference pack)
 
-The bundled pack currently contains 34 CISA SCuBA MS.AAD control identifiers,
-including controls outside Conditional Access. Its exact revision is reported
-as `baselineVersion` in `analysis/compliance.json`; it should not be described
-as the latest official CISA assessment without comparing that version with the
-current published baseline. Each control carries a `scope`:
+The bundled pack contains 34 CISA SCuBA MS.AAD control identifiers, including
+controls outside Conditional Access. It is pinned to baseline **1.6** and records
+the exact ScubaGear source commit, retrieval date, and official revision for
+each control (`sourceControlId`, such as `MS.AAD.3.2v2`). These values are
+reported in `analysis/compliance.json`. Each control carries a `scope`:
 
 - `conditional-access` - evaluated automatically from the read-only CA export
   (result `pass` / `fail`).
@@ -43,7 +43,7 @@ Conditional Access.
 
 ## Result model
 
-Per control: `{ id, statement, criticality, scope, result, rationale,
+Per control: `{ id, sourceControlId, statement, criticality, scope, result, rationale,
 evidence[], nist[], mitre[] }` where `result` is `pass` / `fail` / `manual`.
 Evidence lists the policies that satisfy the control. The summary reports
 pass/fail/manual counts, the number of `automatable` controls, and a pass rate
@@ -57,7 +57,9 @@ criticality, and standards references. Evaluation predicates live in
 `CapCompliance.psm1` keyed by `checkId`, so a new control that reuses an existing
 check can be added to the pack **without code changes**. The pack is versioned (`baselineVersion`) so its revision is visible and can
 evolve independently. Refreshing the pack is a separate maintenance action; the
-tool does not download baseline updates at runtime.
+tool does not download baseline updates at runtime. Maintainers can run
+`scripts/Test-CapBaselineCurrency.ps1` to compare the packaged revisions with
+upstream; tenant collection remains offline from this maintenance check.
 
 ## Independence
 

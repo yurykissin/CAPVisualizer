@@ -41,6 +41,13 @@ schema version** on that entry so users know a re-export is required.
 ## [Unreleased]
 
 ### Added
+- **Output and baseline provenance** — exports, manifests, safe-review bundles,
+  and the viewer now identify the CAPVisualizer version and Git commit. The CISA
+  SCuBA 1.6 pack is pinned to an exact upstream commit and preserves each
+  official versioned control identifier.
+- **Baseline drift check** — `Test-CapBaselineCurrency.ps1` compares the packaged
+  control revisions with the current upstream baseline without adding network
+  access to normal tenant runs.
 - **Cross-platform unattended certificate authentication** — app-only runs now
   accept `-CertificatePath` (plus optional `-CertificatePassword`) for PFX-based
   authentication on macOS/Linux, while retaining certificate-store thumbprint

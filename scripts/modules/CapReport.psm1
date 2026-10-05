@@ -424,6 +424,9 @@ function New-CapSummary {
     return [ordered]@{
         tenantId        = $Export.metadata.tenantId
         generatedUtc    = $Export.metadata.generatedUtc
+        toolVersion     = $Export.metadata.toolVersion
+        toolCommit      = $Export.metadata.toolCommit
+        toolDirty       = $Export.metadata.toolDirty
         totalPolicies   = @($FriendlyPolicies).Count
         byState         = $stateMap
         blockPolicies   = @($FriendlyPolicies | Where-Object { $_.isBlock }).Count

@@ -111,4 +111,14 @@ Describe 'Compliance summary' {
         $s.manual | Should -BeGreaterThan 0
         $s.passRate | Should -BeGreaterThan 0
     }
+
+    Describe 'Baseline provenance' {
+        It 'pins the source and preserves official control revisions' {
+            $script:Result.baselineVersion | Should -Be '1.6'
+            $script:Result.sourceCommit | Should -Match '^[0-9a-f]{40}$'
+            $script:Result.source | Should -Match $script:Result.sourceCommit
+            @($script:Result.controls | Where-Object { -not $_.sourceControlId }).Count | Should -Be 0
+            @($script:Result.controls | Where-Object id -eq 'MS.AAD.3.2')[0].sourceControlId | Should -Be 'MS.AAD.3.2v2'
+        }
+    }
 }

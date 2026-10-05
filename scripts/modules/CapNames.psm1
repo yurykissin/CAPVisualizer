@@ -527,7 +527,7 @@ $script:CapSweepSkipProps = [System.Collections.Generic.HashSet[string]]::new(
         'members', 'memberIds', 'ownerIds', 'termsOfUse',
         # Tool and export metadata, not tenant data.
         'schemaVersion', 'tool', 'kind', 'snapshot', 'generatedUtc', 'policyApi',
-        'source', 'authType',
+        'source', 'authType', 'toolVersion', 'toolCommit', 'toolDirty', 'sourceProvenance',
         # Timestamps.
         'createdDateTime', 'modifiedDateTime', 'deletedDateTime', 'lastUpdatedDateTime',
         # Structural discriminators and enum-valued fields.
@@ -2369,6 +2369,8 @@ function New-CapPolicyOnlyExport {
             schemaVersion = $(if ($hasAnalysis) { '1.4' } else { '1.2' })
             snapshot      = $Snapshot
             generatedUtc  = if ($meta) { "$(_NmGet $meta 'generatedUtc')" } else { '' }
+            toolVersion   = if ($meta) { "$(_NmGet $meta 'toolVersion')" } else { '' }
+            toolCommit    = if ($meta) { "$(_NmGet $meta 'toolCommit')" } else { '' }
             policyCount   = @($clean).Count
             contains      = $contains
             excludes      = 'Tenant id, operator account, display names, descriptions, named-location definitions, and directory enrichment (users, groups, role assignments, MFA capability).'
@@ -2432,6 +2434,8 @@ function New-CapSafeReviewBundle {
         tool          = 'CAPVisualizer'
         kind          = 'safeReviewBundle'
         schemaVersion = '1.1'
+        toolVersion   = "$(_NmGet (_NmGet $SafeExport 'capExport') 'toolVersion')"
+        toolCommit    = "$(_NmGet (_NmGet $SafeExport 'capExport') 'toolCommit')"
         snapshot      = $Snapshot
         pseudonymized = (-not $NoPseudonymize)
         notice        = 'Name-free. Objects are identified by stable tokens; the token -> name dictionary was deliberately withheld. Reduces attribution, not exploitability - still treat as security-relevant.'

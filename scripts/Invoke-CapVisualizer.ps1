@@ -338,6 +338,20 @@ try {
         $export = Get-CapExport -IncludeDirectory $includeDirectory
     }
 
+    $toolProvenance = Get-CapToolProvenance
+    if (-not $export.Contains('metadata') -or -not $export['metadata']) { $export['metadata'] = [ordered]@{} }
+    $sourceVersion = "$($export['metadata']['toolVersion'])"
+    $sourceCommit = "$($export['metadata']['toolCommit'])"
+    if ($offline -and ($sourceVersion -or $sourceCommit)) {
+        $export['metadata']['sourceProvenance'] = [ordered]@{
+            toolVersion = $sourceVersion
+            toolCommit  = $sourceCommit
+        }
+    }
+    $export['metadata']['toolVersion'] = $toolProvenance['version']
+    $export['metadata']['toolCommit'] = $toolProvenance['commit']
+    $export['metadata']['toolDirty'] = $toolProvenance['dirty']
+
     # --- Name / location maps ---
     $locationMap = @{}
     foreach ($nl in $export.namedLocations) { $nlId = if ($nl -is [System.Collections.IDictionary]) { $nl['id'] } else { $nl.id }; $nlName = if ($nl -is [System.Collections.IDictionary]) { $nl['displayName'] } else { $nl.displayName }; if ($nlId) { $locationMap[$nlId] = $nlName } }
@@ -654,6 +668,9 @@ try {
     }
     $manifest = [ordered]@{
         tool          = 'CAPVisualizer'
+        toolVersion   = $toolProvenance['version']
+        toolCommit    = $toolProvenance['commit']
+        toolDirty     = $toolProvenance['dirty']
         snapshot      = $stamp
         generatedUtc  = $summary.generatedUtc
         tenantId      = $summary.tenantId

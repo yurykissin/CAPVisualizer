@@ -69,6 +69,7 @@ Get-Help ./scripts/Invoke-CapVisualizer.ps1 -Examples
 | **Safe export** | Builds a review artifact without display names, the tenant ID, directory inventory, named-location definitions, or IP ranges. |
 | **Offline rerendering** | Recreates reports and analysis from JSON using `-FromJson`; a local `names.json` can restore readable names without reconnecting to Graph. |
 | **Integrity manifest** | Records SHA-256 hashes and supports verification of changed, missing, or unexpected files, an optional external anchor, and keyed HMAC. |
+| **Output provenance** | Stamps the tool version and Git commit into exports, manifests, safe bundles, and the viewer; the CISA pack records its exact source commit and control revisions. |
 | **Interactive and unattended auth** | Supports delegated browser/device-code sign-in and certificate-based application authentication for scheduled runs. |
 | **Scheduling** | Includes local cron and Windows Task Scheduler guidance for unattended runs. |
 | **Snapshot retention** | Safely previews and removes expired timestamped snapshots without following links or deleting unrelated folders. |

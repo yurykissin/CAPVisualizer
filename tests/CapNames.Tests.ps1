@@ -612,6 +612,16 @@ Describe 'Safe review bundle' {
         $script:Bundle['safeBundle']['snapshot'] | Should -Be '20260101-000000'
     }
 
+    It 'carries producer provenance when the export provides it' {
+        $safe = $script:BundleSafe
+        $safe.metadata.toolVersion = '0.1.0'
+        $safe.metadata.toolCommit = 'abcdef123456'
+        $policyOnly = New-CapPolicyOnlyExport -Export $safe -Snapshot 's'
+        $bundle = New-CapSafeReviewBundle -SafeExport $policyOnly -Dictionary $script:BundleDict -Snapshot 's'
+        $bundle.safeBundle.toolVersion | Should -Be '0.1.0'
+        $bundle.safeBundle.toolCommit | Should -Be 'abcdef123456'
+    }
+
     It 'aliases ids so nothing tenant-correlatable ships' {
         # Well-known Microsoft app and role ids are global constants and stay
         # readable on purpose; the leak test knows the difference.

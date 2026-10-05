@@ -28,6 +28,20 @@ Describe 'Snapshot integrity' {
         $result.FileCount | Should -BeGreaterThan 0
     }
 
+    It 'stamps the export, manifest, and viewer with tool provenance' {
+        $version = (Get-Content (Join-Path (Split-Path -Parent $PSScriptRoot) 'VERSION') -Raw).Trim()
+        $export = Get-Content (Join-Path $script:Snapshot 'raw/export.json') -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
+        $manifest = Get-Content (Join-Path $script:Snapshot 'manifest.json') -Raw | ConvertFrom-Json -Depth 30 -AsHashtable
+        $html = Get-Content (Join-Path $script:Snapshot 'visual/index.html') -Raw
+
+        $export.metadata.toolVersion | Should -Be $version
+        $export.metadata.toolCommit | Should -Match '^[0-9a-f]{12}$'
+        $manifest.toolVersion | Should -Be $version
+        $manifest.toolCommit | Should -Be $export.metadata.toolCommit
+        $html | Should -BeLike "*v$version*"
+        $html | Should -BeLike "*$($export.metadata.toolCommit)*"
+    }
+
     It 'rejects a changed file' {
         Add-Content -LiteralPath (Join-Path $script:Snapshot 'report/summary.json') -Value 'changed'
         { & $script:VerifyPath -SnapshotPath $script:Snapshot -ErrorAction SilentlyContinue } |

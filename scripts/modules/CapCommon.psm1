@@ -18,6 +18,32 @@ $ErrorActionPreference = 'Stop'
 $script:CapGraphV1   = 'https://graph.microsoft.com/v1.0'
 $script:CapGraphBeta = 'https://graph.microsoft.com/beta'
 
+function Get-CapToolProvenance {
+    [CmdletBinding()]
+    param()
+
+    $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+    $versionPath = Join-Path $root 'VERSION'
+    $version = if (Test-Path -LiteralPath $versionPath) {
+        (Get-Content -LiteralPath $versionPath -Raw).Trim()
+    } else { 'unknown' }
+    $commit = $null
+    $dirty = $null
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($git -and (Test-Path -LiteralPath (Join-Path $root '.git'))) {
+        try {
+            $commit = (& $git.Source -C $root rev-parse --short=12 HEAD 2>$null).Trim()
+            $dirty = [bool](& $git.Source -C $root status --porcelain --untracked-files=no 2>$null)
+        }
+        catch { }
+    }
+    return [ordered]@{
+        version = $version
+        commit  = $commit
+        dirty   = $dirty
+    }
+}
+
 function Write-CapLog {
     [CmdletBinding()]
     param(
@@ -477,4 +503,5 @@ function Get-CapWellKnownAppMap {
 
 Export-ModuleMember -Function Write-CapLog, Connect-CapGraph, Invoke-CapGraphGet, `
     ConvertTo-CapHashtable, Get-CapFileSha256, Save-CapJson, Get-CapDirectoryNameMap, `
-    Get-CapRoleTemplateMap, Get-CapServicePrincipalMap, Get-CapWellKnownAppMap, Open-CapBrowser
+    Get-CapRoleTemplateMap, Get-CapServicePrincipalMap, Get-CapWellKnownAppMap, Open-CapBrowser, `
+    Get-CapToolProvenance

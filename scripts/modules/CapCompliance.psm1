@@ -176,6 +176,7 @@ function Invoke-CapCompliance {
 
         $controls.Add([ordered]@{
             id          = "$(_CoGet $c 'id')"
+            sourceControlId = "$(_CoGet $c 'sourceControlId')"
             checkId     = $checkId
             statement   = "$(_CoGet $c 'statement')"
             criticality = "$(_CoGet $c 'criticality')"
@@ -198,6 +199,9 @@ function Invoke-CapCompliance {
     [ordered]@{
         baseline        = "$(_CoGet $pack 'baseline')"
         baselineVersion = "$(_CoGet $pack 'baselineVersion')"
+        source          = "$(_CoGet $pack 'source')"
+        sourceCommit    = "$(_CoGet $pack 'sourceCommit')"
+        sourceRetrieved = "$(_CoGet $pack 'sourceRetrieved')"
         controls        = $all
         summary         = [ordered]@{
             total         = $all.Count

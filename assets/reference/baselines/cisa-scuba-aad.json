@@ -2,8 +2,8 @@
   "_comment": "Independently authored Conditional Access compliance baseline that enumerates the full public CISA SCuBA Microsoft Entra ID secure configuration baseline (MS.AAD.*) so the report covers every recommended control, not only Conditional Access. Control statements are paraphrased from the public baseline; NIST 800-53 and MITRE ATT&CK identifiers are public references. Controls with scope \"conditional-access\" are evaluated automatically from the read-only CA export by predicates in CapCompliance.psm1 keyed by checkId. All other controls live outside Conditional Access (identity protection, authentication methods, app management, privileged access, external collaboration, logging, password policy) and are reported as manual with official guidance on where to verify them. No third-party tool code or logic is reused.",
   "schemaVersion": "2.0",
   "baseline": "CISA SCuBA - Microsoft Entra ID (full MS.AAD baseline)",
-  "baselineVersion": "reference-2025",
-  "source": "https://github.com/cisagov/ScubaGear/blob/main/PowerShell/ScubaGear/baselines/aad.md (control identifiers and statements only)",
+  "baselineVersion": "1.6",
+  "source": "https://github.com/cisagov/ScubaGear/blob/103e144df2db05dca873047a8df00279fa738a3a/PowerShell/ScubaGear/baselines/aad.md",
   "controls": [
     {
       "id": "MS.AAD.1.1",
@@ -19,7 +19,8 @@
         "T1078"
       ],
       "rationalePass": "An enabled policy blocks legacy authentication clients for all users and applications.",
-      "rationaleFail": "No enabled policy broadly blocks legacy authentication (exchangeActiveSync / other)."
+      "rationaleFail": "No enabled policy broadly blocks legacy authentication (exchangeActiveSync / other).",
+      "sourceControlId": "MS.AAD.1.1v1"
     },
     {
       "id": "MS.AAD.2.1",
@@ -36,7 +37,8 @@
         "T1078.004"
       ],
       "rationalePass": "An enabled policy blocks access for users at high risk.",
-      "rationaleFail": "No enabled policy blocks high user-risk sign-ins for all users and applications."
+      "rationaleFail": "No enabled policy blocks high user-risk sign-ins for all users and applications.",
+      "sourceControlId": "MS.AAD.2.1v1"
     },
     {
       "id": "MS.AAD.2.2",
@@ -53,7 +55,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Configure in Entra ID Protection > Users at risk detected alerts (recipients and threshold). Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Configure in Entra ID Protection > Users at risk detected alerts (recipients and threshold). Review manually.",
+      "sourceControlId": "MS.AAD.2.2v1"
     },
     {
       "id": "MS.AAD.2.3",
@@ -70,7 +73,8 @@
         "T1078.004"
       ],
       "rationalePass": "An enabled policy blocks high-risk sign-ins.",
-      "rationaleFail": "No enabled policy blocks high sign-in-risk events for all users and applications."
+      "rationaleFail": "No enabled policy blocks high sign-in-risk events for all users and applications.",
+      "sourceControlId": "MS.AAD.2.3v1"
     },
     {
       "id": "MS.AAD.3.1",
@@ -91,7 +95,8 @@
         "T1566.002"
       ],
       "rationalePass": "An enabled policy enforces a phishing-resistant authentication strength for all users and applications.",
-      "rationaleFail": "No enabled policy enforces phishing-resistant MFA (authentication strength) for all users and applications."
+      "rationaleFail": "No enabled policy enforces phishing-resistant MFA (authentication strength) for all users and applications.",
+      "sourceControlId": "MS.AAD.3.1v1"
     },
     {
       "id": "MS.AAD.3.2",
@@ -107,7 +112,8 @@
         "T1110"
       ],
       "rationalePass": "An enabled policy requires multifactor authentication for all users and applications.",
-      "rationaleFail": "No enabled policy requires MFA for all users and applications."
+      "rationaleFail": "No enabled policy requires MFA for all users and applications.",
+      "sourceControlId": "MS.AAD.3.2v2"
     },
     {
       "id": "MS.AAD.3.3",
@@ -128,7 +134,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Configure in Entra Authentication methods > Microsoft Authenticator (show application name and geographic location). Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Configure in Entra Authentication methods > Microsoft Authenticator (show application name and geographic location). Review manually.",
+      "sourceControlId": "MS.AAD.3.3v2"
     },
     {
       "id": "MS.AAD.3.4",
@@ -142,7 +149,8 @@
       "mitre": [],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Verify Entra Authentication methods > Manage migration is set to Migration Complete. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Verify Entra Authentication methods > Manage migration is set to Migration Complete. Review manually.",
+      "sourceControlId": "MS.AAD.3.4v1"
     },
     {
       "id": "MS.AAD.3.5",
@@ -161,7 +169,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Disable SMS, Voice Call, and Email OTP in Entra Authentication methods policy. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Disable SMS, Voice Call, and Email OTP in Entra Authentication methods policy. Review manually.",
+      "sourceControlId": "MS.AAD.3.5v2"
     },
     {
       "id": "MS.AAD.3.6",
@@ -181,7 +190,8 @@
         "T1078.004"
       ],
       "rationalePass": "An enabled policy enforces a phishing-resistant authentication strength for directory roles (or all users) across all applications.",
-      "rationaleFail": "No enabled policy enforces phishing-resistant MFA (authentication strength) targeting privileged directory roles."
+      "rationaleFail": "No enabled policy enforces phishing-resistant MFA (authentication strength) targeting privileged directory roles.",
+      "sourceControlId": "MS.AAD.3.6v1"
     },
     {
       "id": "MS.AAD.3.7",
@@ -198,7 +208,8 @@
         "T1078.004"
       ],
       "rationalePass": "An enabled policy requires a compliant or hybrid Entra joined device for all users and applications.",
-      "rationaleFail": "No enabled policy broadly requires a managed (compliant or hybrid joined) device."
+      "rationaleFail": "No enabled policy broadly requires a managed (compliant or hybrid joined) device.",
+      "sourceControlId": "MS.AAD.3.7v1"
     },
     {
       "id": "MS.AAD.3.8",
@@ -217,7 +228,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Requires a policy targeting the security-info registration user action with a compliant/hybrid device grant. Verify the \"Register security information\" user-action policy manually."
+      "manualGuidance": "Requires a policy targeting the security-info registration user action with a compliant/hybrid device grant. Verify the \"Register security information\" user-action policy manually.",
+      "sourceControlId": "MS.AAD.3.8v1"
     },
     {
       "id": "MS.AAD.3.9",
@@ -234,7 +246,8 @@
         "T1078.004"
       ],
       "rationalePass": "An enabled policy blocks the device code authentication flow for all users.",
-      "rationaleFail": "No enabled policy blocks the device code authentication flow (device-code phishing gap)."
+      "rationaleFail": "No enabled policy blocks the device code authentication flow (device-code phishing gap).",
+      "sourceControlId": "MS.AAD.3.9v1"
     },
     {
       "id": "MS.AAD.4.1",
@@ -251,7 +264,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Verify Entra Diagnostic settings stream AuditLogs and SignInLogs to a Log Analytics workspace / SIEM. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Verify Entra Diagnostic settings stream AuditLogs and SignInLogs to a Log Analytics workspace / SIEM. Review manually.",
+      "sourceControlId": "MS.AAD.4.1v1"
     },
     {
       "id": "MS.AAD.5.1",
@@ -270,7 +284,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Set Entra > Users > User settings > \"Users can register applications\" to No. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Set Entra > Users > User settings > \"Users can register applications\" to No. Review manually.",
+      "sourceControlId": "MS.AAD.5.1v1"
     },
     {
       "id": "MS.AAD.5.2",
@@ -289,7 +304,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Set Enterprise applications > Consent and permissions to \"Do not allow user consent\" (or allow for verified publishers, limited permissions). Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Set Enterprise applications > Consent and permissions to \"Do not allow user consent\" (or allow for verified publishers, limited permissions). Review manually.",
+      "sourceControlId": "MS.AAD.5.2v1"
     },
     {
       "id": "MS.AAD.5.3",
@@ -307,7 +323,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Enable the admin consent request workflow with designated reviewers. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Enable the admin consent request workflow with designated reviewers. Review manually.",
+      "sourceControlId": "MS.AAD.5.3v1"
     },
     {
       "id": "MS.AAD.5.5",
@@ -325,7 +342,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Restrict application password (client secret) addition via the application registration authorization policy. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Restrict application password (client secret) addition via the application registration authorization policy. Review manually.",
+      "sourceControlId": "MS.AAD.5.5v1"
     },
     {
       "id": "MS.AAD.5.6",
@@ -343,7 +361,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Enforce an app management policy limiting client secret lifetime to <=180 days. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Enforce an app management policy limiting client secret lifetime to <=180 days. Review manually.",
+      "sourceControlId": "MS.AAD.5.6v1"
     },
     {
       "id": "MS.AAD.5.7",
@@ -360,7 +379,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Enforce an app management policy limiting certificate credential lifetime to <=365 days. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Enforce an app management policy limiting certificate credential lifetime to <=365 days. Review manually.",
+      "sourceControlId": "MS.AAD.5.7v1"
     },
     {
       "id": "MS.AAD.6.1",
@@ -374,7 +394,8 @@
       "mitre": [],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Set the password expiration policy to never expire (cloud-only) per NIST guidance. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Set the password expiration policy to never expire (cloud-only) per NIST guidance. Review manually.",
+      "sourceControlId": "MS.AAD.6.1v1"
     },
     {
       "id": "MS.AAD.7.1",
@@ -391,7 +412,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Count active Global Administrator assignments in Entra Roles / PIM (target 2-8). Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Count active Global Administrator assignments in Entra Roles / PIM (target 2-8). Review manually.",
+      "sourceControlId": "MS.AAD.7.1v1"
     },
     {
       "id": "MS.AAD.7.2",
@@ -409,7 +431,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Prefer least-privilege roles over Global Administrator. Review role assignments manually."
+      "manualGuidance": "Not expressible in Conditional Access. Prefer least-privilege roles over Global Administrator. Review role assignments manually.",
+      "sourceControlId": "MS.AAD.7.2v1"
     },
     {
       "id": "MS.AAD.7.3",
@@ -426,7 +449,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Verify privileged accounts are cloud-only (not synced from on-prem). Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Verify privileged accounts are cloud-only (not synced from on-prem). Review manually.",
+      "sourceControlId": "MS.AAD.7.3v1"
     },
     {
       "id": "MS.AAD.7.4",
@@ -443,7 +467,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Use PIM eligible (not permanent active) assignments for privileged roles. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Use PIM eligible (not permanent active) assignments for privileged roles. Review manually.",
+      "sourceControlId": "MS.AAD.7.4v1"
     },
     {
       "id": "MS.AAD.7.5",
@@ -459,7 +484,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Provision privileged roles only through PIM/PAM. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Provision privileged roles only through PIM/PAM. Review manually.",
+      "sourceControlId": "MS.AAD.7.5v1"
     },
     {
       "id": "MS.AAD.7.6",
@@ -476,7 +502,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Configure PIM to require approval to activate Global Administrator. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Configure PIM to require approval to activate Global Administrator. Review manually.",
+      "sourceControlId": "MS.AAD.7.6v1"
     },
     {
       "id": "MS.AAD.7.7",
@@ -493,7 +520,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Configure PIM alerts / notifications on privileged role assignment. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Configure PIM alerts / notifications on privileged role assignment. Review manually.",
+      "sourceControlId": "MS.AAD.7.7v1"
     },
     {
       "id": "MS.AAD.7.8",
@@ -510,7 +538,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Configure PIM activation alerts for Global Administrator. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Configure PIM activation alerts for Global Administrator. Review manually.",
+      "sourceControlId": "MS.AAD.7.8v1"
     },
     {
       "id": "MS.AAD.7.9",
@@ -528,7 +557,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Configure PIM activation alerts for other highly privileged roles. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Configure PIM activation alerts for other highly privileged roles. Review manually.",
+      "sourceControlId": "MS.AAD.7.9v1"
     },
     {
       "id": "MS.AAD.8.1",
@@ -546,7 +576,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Set External collaboration settings > Guest user access to the most restrictive level. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Set External collaboration settings > Guest user access to the most restrictive level. Review manually.",
+      "sourceControlId": "MS.AAD.8.1v1"
     },
     {
       "id": "MS.AAD.8.2",
@@ -563,7 +594,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Restrict guest invitations to the Guest Inviter role in External collaboration settings. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Restrict guest invitations to the Guest Inviter role in External collaboration settings. Review manually.",
+      "sourceControlId": "MS.AAD.8.2v1"
     },
     {
       "id": "MS.AAD.8.3",
@@ -580,7 +612,8 @@
       ],
       "rationalePass": "",
       "rationaleFail": "",
-      "manualGuidance": "Not expressible in Conditional Access. Configure an allow list of collaboration domains in External collaboration settings. Review manually."
+      "manualGuidance": "Not expressible in Conditional Access. Configure an allow list of collaboration domains in External collaboration settings. Review manually.",
+      "sourceControlId": "MS.AAD.8.3v1"
     },
     {
       "id": "MS.AAD.9.1",
@@ -598,7 +631,11 @@
         "T1078.004"
       ],
       "rationalePass": "An enabled policy blocks agent identities detected at high agent risk.",
-      "rationaleFail": "No enabled policy blocks high agent-risk (agent identity) access. Note: this condition is currently in preview and requires the beta export."
+      "rationaleFail": "No enabled policy blocks high agent-risk (agent identity) access. Note: this condition is currently in preview and requires the beta export.",
+      "sourceControlId": "MS.AAD.9.1v1"
     }
-  ]
+  ],
+  "scubaGearRelease": "v1.8.0",
+  "sourceCommit": "103e144df2db05dca873047a8df00279fa738a3a",
+  "sourceRetrieved": "2026-10-05"
 }
