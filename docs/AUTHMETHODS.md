@@ -5,6 +5,8 @@ registered for MFA, passwordless, phishing-resistant methods, and self-service
 password reset (SSPR). Runs automatically as part of `Invoke-CapVisualizer.ps1`
 (`analysis/authmethods.json`) and drives the viewer's **Auth methods** tab.
 
+![Authentication methods audit tab](images/07-authmethods.png)
+
 ## Data source and privacy
 
 The engine consumes only the **aggregate** authentication method registration
@@ -35,8 +37,8 @@ accordingly. The viewer shows a sensitivity banner above the audit.
     passwordlessCapable, passwordlessCapablePct,
     phishResistant, phishResistantPct,
     ssprRegistered, ssprRegisteredPct,
-    smsVoiceUsers, smsVoiceUsersPct,
-    admins, adminsMfaRegistered, adminsPhishResistant, adminsSmsVoice,
+    telephonyRegisteredUsers, telephonyRegisteredUsersPct,
+    admins, adminsMfaRegistered, adminsPhishResistant, adminsTelephonyRegistered,
     methodBreakdown: [ { method, label, count } ]
   },
   gaps: [ { id, title, severity, detail, count, users: [ { id, displayName, userPrincipalName } ] } ],
@@ -45,7 +47,7 @@ accordingly. The viewer shows a sensitivity banner above the audit.
     isMfaCapable, isMfaRegistered, isPasswordlessCapable,
     isSsprCapable, isSsprRegistered, isSsprEnabled,
     methodsRegistered[], methodCount, hasPhishResistant,
-    usesTelephonyMfa, telephonyMethods[], defaultMfaMethod
+    hasTelephonyRegistration, telephonyMethods[], defaultMfaMethod
   } ]
 }
 ```
@@ -64,12 +66,19 @@ A user is counted as phishing-resistant when they have registered any of:
 
 ## Telephony (SMS/voice) methods
 
-Microsoft is retiring SMS text message and voice call as MFA methods. A user is
-flagged with `usesTelephonyMfa` when they have registered any of `mobilePhone`,
-`alternateMobilePhone`, or `officePhone`. The registered telephony identifiers
-are listed in `telephonyMethods`, and the summary rolls the counts up into
-`smsVoiceUsers` / `smsVoiceUsersPct` (and `adminsSmsVoice` for privileged
-accounts) so you can size a migration to stronger methods before retirement.
+Microsoft-provided SMS and voice delivery is being retired. The registration
+report does not show recent method usage; it shows only which methods remain
+registered. A user is flagged with `hasTelephonyRegistration` when
+`methodsRegistered` contains `mobilePhone`, `alternateMobilePhone`, or
+`officePhone`. The summary rolls these registrations up into
+`telephonyRegisteredUsers` / `telephonyRegisteredUsersPct` and
+`adminsTelephonyRegistered`.
+
+Microsoft's published retirement dates are February 1, 2027 for most users and
+July 1, 2027 for Global Administrators and external users. A third-party
+telephony provider can preserve SMS/voice where an organization has a justified
+operational need, so registration is a migration-review signal rather than
+proof that the account is currently insecure or actively using telephony.
 
 ## Gaps
 
@@ -77,10 +86,9 @@ accounts) so you can size a migration to stronger methods before retirement.
 | ------ | -------- | ------- |
 | `admin-not-mfa-registered`        | critical | Admin has no registered MFA method (single-factor capable). |
 | `admin-no-phishing-resistant`     | high     | Admin is MFA-registered but has no phishing-resistant method. |
-| `admin-uses-sms-voice-mfa`        | high     | Admin still uses a retiring SMS/voice (telephony) method. |
-| `user-no-mfa-method`              | high     | User has no MFA-capable method (lockout or single-factor risk). |
-| `user-uses-sms-voice-mfa`         | medium   | Non-admin user still uses a retiring SMS/voice (telephony) method. |
-| `user-mfa-capable-not-registered` | medium   | User can register a strong method but has not. |
+| `admin-telephony-registered`      | high     | Admin still has an SMS/voice method registered; verify a phishing-resistant replacement before removal. |
+| `user-no-mfa-method`              | high     | User has no registered strong method currently allowed by the authentication methods policy. |
+| `user-telephony-registered`       | medium   | Non-admin user still has an SMS/voice method registered. |
 | `user-no-methods`                 | medium   | User has registered no authentication method at all. |
 | `user-sspr-not-registered`        | low      | User is SSPR-capable but not registered. |
 
@@ -95,7 +103,7 @@ The per-user table is interactive and stays fully offline:
 - **Sort** any column by clicking its header (click again to reverse).
 - **Show only** filters the table to a single attribute value, for example show
   only users who are not MFA-capable, not registered for MFA, without a
-  phishing-resistant method, still using SMS/voice MFA, or admins. Pick the
+  phishing-resistant method, with SMS/voice registered, or admins. Pick the
   attribute and Yes/No.
 - **Export CSV** downloads the current (filtered) view as a UTF-8 CSV with the
   display name, UPN, user type, admin flag, MFA/passwordless/phishing-resistant/

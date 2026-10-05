@@ -53,12 +53,15 @@ contexts), then enriches from the directory: users, groups and owners, privilege
 role assignments, sign-in activity, and MFA registration capability from the
 aggregate registration report.
 
-Two files are written, never one:
+By default, identity-bearing data is split across two files:
 
 | File | Contains | Share? |
 | --- | --- | --- |
 | `raw/export.json` | Structure and object ids, **and the tenant id**. No names. | No |
 | `raw/names.json` | The alias -> name dictionary. | Never |
+
+`-NoNames` intentionally omits the dictionary. The run also writes smaller
+split raw files, reports, analysis artifacts, and the HTML viewer.
 
 See [SAFEEXPORT.md](SAFEEXPORT.md) for why the split exists and why
 `raw/export.json` is still not the thing you share.
@@ -116,11 +119,18 @@ per-user scope answers all exist, on disk, in the report.
 
 The **Export safely** button in the report, or
 [`Export-CapSafeBundle.ps1`](../scripts/Export-CapSafeBundle.ps1), produces one
-JSON file that contains the policy structure plus every analysis result, with
-tenant-specific identifiers aliased and no display names.
+JSON review file with policy structure and the analysis sections explicitly
+approved for sharing: consolidation, compliance, audit, and policy-scoped or
+aggregated findings. Per-user authentication-method details and assertion
+results are deliberately not exported.
 
-It **fails closed**. Any surviving name, unallowlisted GUID or IP-shaped string
-deletes the bundle and throws, rather than writing a file that looks safe.
+The two paths use different safety controls:
+
+- The report button serves an allowlist-built payload. Its self-check reports
+  unexpected content to the run log but does not disable the button.
+- `Export-CapSafeBundle.ps1` additionally runs a file-level leak test and
+  **fails closed**: any surviving name, unallowlisted GUID, or IP-shaped string
+  deletes the generated `safe/` folder and throws.
 
 ### Stage 6 - Review
 

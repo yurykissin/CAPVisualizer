@@ -6,6 +6,8 @@ export, writes machine-readable results (JUnit / SARIF / JSON), and exits
 non-zero on failure - so it can gate a pipeline. It is an **independent DSL**,
 not Pester.
 
+![Assertion results tab](images/05-tests.png)
+
 ## Assertion types
 
 - **compliance** - a baseline control must have an expected result.
@@ -23,7 +25,7 @@ from a single export, so one snapshot drives the whole gate offline.
 
 ```powershell
 ./scripts/Invoke-CapTest.ps1 `
-    -FromJson ./export.json `
+    -FromJson ./output/20261005-120000/raw/export.json `
     -AssertionPath ./my-assertions.json `
     -JUnitPath ./results.xml -SarifPath ./results.sarif.json
 # exit code 0 = all passed, 1 = at least one failed/errored

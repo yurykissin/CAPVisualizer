@@ -19,12 +19,10 @@ so the interactive default requests **`Policy.Read.All` + `Directory.Read.All`**
 |------------|-----------------------|------|
 | Resolve users/groups (`directoryObjects/getByIds`), roles (`directoryRoleTemplates`), and apps (`servicePrincipals` by appId) to display names | `Directory.Read.All` | Delegated **or** Application |
 
-`Directory.Read.All` can be replaced by the narrower set
-`User.Read.All` + `Group.Read.All` + `Application.Read.All` +
-`RoleManagement.Read.Directory` if your organization prefers minimal scopes.
-
 To keep the **minimal `Policy.Read.All`-only** footprint (output then shows
-GUIDs), pass **`-SkipResolveNames`**.
+GUIDs), pass **both `-SkipResolveNames` and `-SkipDirectory`**. The current
+entry point uses `Directory.Read.All` for name resolution; it does not
+automatically substitute a per-object narrower scope set.
 
 ## Directory enrichment (on by default)
 
@@ -39,7 +37,7 @@ of failing the run.
 | Capability | Microsoft Graph scope | Type |
 |------------|-----------------------|------|
 | Groups + protection state (`groups`, `groups/{id}/owners`) | `Group.Read.All` (or `Directory.Read.All`) | Delegated **or** Application |
-| Directory-role assignments (active + PIM-eligible) | `RoleManagement.Read.Directory` (or `Directory.Read.All`) | Delegated **or** Application |
+| Directory-role assignments (active + PIM-eligible inventory) | `RoleManagement.Read.Directory` (or `Directory.Read.All`) | Delegated **or** Application |
 | Users + account state | `User.Read.All` (or `Directory.Read.All`) | Delegated **or** Application |
 | Last sign-in activity (`signInActivity`) | `AuditLog.Read.All` | Delegated **or** Application |
 | Per-user MFA capability (`reports/authenticationMethods/userRegistrationDetails`) | `AuditLog.Read.All` + `UserAuthenticationMethod.Read.All` (or `Reports.Read.All`) | Delegated **or** Application |
@@ -51,6 +49,11 @@ table). No additional scope is needed: the tool only reads the aggregate
 `/users/{id}/authentication/methods` endpoint, so it never sees actual method
 secrets such as phone numbers or security-key names. See
 [AUTHMETHODS.md](AUTHMETHODS.md).
+
+Both active and PIM-eligible role assignments are retained for privilege
+analysis. Per-user Conditional Access scope resolution counts only active role
+assignments; eligibility alone does not make a user a current member of a
+role-targeted policy.
 
 The collected enrichment is embedded in `raw/export.json`, so a later
 `-FromJson` render (and all analysis engines) run **fully offline** against the
@@ -67,9 +70,14 @@ checks that rely on directory data will then be limited or unavailable.
   directory role. A **Security Reader** (or higher) with `Policy.Read.All`
   consented is sufficient. Nothing runs unattended.
 - **Application** (app registration with certificate or secret): required for
-  **unattended, scheduled** runs. Grant the app the **application** permission
-  `Policy.Read.All` (and optionally `Directory.Read.All`) and admin-consent it.
-  Prefer a **certificate** over a client secret.
+  **unattended, scheduled** runs. For a policy-only run, grant and admin-consent
+  application `Policy.Read.All` and run with `-SkipResolveNames
+  -SkipDirectory`. For the default full-analysis run, grant the application
+  equivalents used by interactive collection: `Policy.Read.All`,
+  `Directory.Read.All`, `Group.Read.All`, `User.Read.All`,
+  `RoleManagement.Read.Directory`, `AuditLog.Read.All`, and
+  `UserAuthenticationMethod.Read.All`. Prefer a **certificate** over a client
+  secret.
 
 ## Directory roles that can read CA policies (interactive)
 

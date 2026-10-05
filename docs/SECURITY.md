@@ -25,8 +25,9 @@ excluded/break-glass accounts, named locations, and object identifiers.
   carries no display names, but it still contains every object GUID and the
   tenant id in the clear, and the tenant id maps directly to your organization.
   The only artifacts intended to leave the machine are the ones produced by
-  **Export safely** or `Export-CapSafeBundle.ps1`, which alias those ids and are
-  leak-tested before they are written.
+  **Export safely** or `Export-CapSafeBundle.ps1`, which build an allowlisted
+  review artifact and alias those ids. The command-line bundle adds a
+  fail-closed file-level leak test.
 - Run `scripts/Export-CapSafeBundle.ps1` to assemble a `safe/` folder for
   sharing. It pseudonymizes tenant-specific GUIDs, then **fails closed** - if
   any name, unallowlisted GUID or IP-shaped string survives, the bundle is
@@ -51,7 +52,10 @@ excluded/break-glass accounts, named locations, and object identifiers.
 
 ## Integrity
 Each snapshot includes `manifest.json` with a SHA-256 hash of every output file,
-so you can verify outputs were not tampered with after generation.
+which detects accidental modification and incomplete copies. The plain manifest
+is not a signature: someone who deliberately changes a file can regenerate its
+hash. For tamper evidence, either record the printed manifest hash outside the
+snapshot or run with `-ManifestKey` to add a keyed HMAC.
 
 ## Verify before you trust
 This is a community project provided without warranty. Review the source before

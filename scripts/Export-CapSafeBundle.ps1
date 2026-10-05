@@ -200,7 +200,7 @@ bundle is still a map of where the Conditional Access gaps are. Share it with
 the same care you would give the configuration itself.
 
 To turn an AI-generated report back into real names:
-  pwsh ./scripts/Restore-CapNames.ps1 -Path <report.md> -Names <snapshot>/raw/names.json
+  pwsh ./scripts/Restore-CapNames.ps1 -Path ./ca-review.md -Names ./output/20261005-120000/raw/names.json
 "@
 Set-Content -LiteralPath (Join-Path $safeDir 'README.txt') -Value $readme -Encoding utf8
 

@@ -743,7 +743,7 @@
       card((s.passwordlessCapablePct || 0) + "%", "Passwordless capable (" + (s.passwordlessCapable || 0) + ")") +
       card((s.phishResistantPct || 0) + "%", "Phishing-resistant (" + (s.phishResistant || 0) + ")") +
       card((s.ssprRegisteredPct || 0) + "%", "SSPR registered (" + (s.ssprRegistered || 0) + ")") +
-      card((s.smsVoiceUsers || 0) + "", "SMS/voice MFA \u26a0 (" + (s.adminsSmsVoice || 0) + " admins) - retiring") +
+      card((s.telephonyRegisteredUsers || 0) + "", "SMS/voice registered \u26a0 (" + (s.adminsTelephonyRegistered || 0) + " admins)") +
       card((s.admins || 0) + "", "Admins (" + (s.adminsMfaRegistered || 0) + " MFA, " + (s.adminsPhishResistant || 0) + " phish-resistant)") +
       "</div>";
 
@@ -805,7 +805,7 @@
           '<option value="hasPhishResistant">Phishing-resistant</option>' +
           '<option value="isPasswordlessCapable">Passwordless capable</option>' +
           '<option value="isSsprRegistered">SSPR registered</option>' +
-          '<option value="usesTelephonyMfa">Uses SMS/voice MFA</option>' +
+          '<option value="hasTelephonyRegistration">SMS/voice registered</option>' +
           '<option value="isAdmin">Admin</option>' +
         '</select></label>' +
         '<select id="amval"><option value="yes">= Yes</option><option value="no">= No</option></select>' +
@@ -837,7 +837,7 @@
     { key: "hasPhishResistant", label: "Phish-resistant", type: "bool" },
     { key: "isPasswordlessCapable", label: "Passwordless", type: "bool" },
     { key: "isSsprRegistered", label: "SSPR reg.", type: "bool" },
-    { key: "usesTelephonyMfa", label: "SMS/voice", type: "bool" },
+    { key: "hasTelephonyRegistration", label: "SMS/voice registered", type: "bool" },
     { key: "methodsText", label: "Methods", type: "methods" }
   ];
 
@@ -884,7 +884,7 @@
         "<td>" + yn(r.hasPhishResistant) + "</td>" +
         "<td>" + yn(r.isPasswordlessCapable) + "</td>" +
         "<td>" + yn(r.isSsprRegistered) + "</td>" +
-        "<td>" + (r.usesTelephonyMfa ? '<span class="warn">Yes \u26a0</span>' : '<span class="muted">No</span>') + "</td>" +
+        "<td>" + (r.hasTelephonyRegistration ? '<span class="warn">Yes \u26a0</span>' : '<span class="muted">No</span>') + "</td>" +
         "<td>" + (u.methodsText ? esc(u.methodsText) : '<span class="muted">-</span>') + "</td></tr>";
     }).join("");
     host.innerHTML = '<table><thead><tr>' + heads + "</tr></thead><tbody>" +
@@ -924,7 +924,7 @@
       var r = u.row;
       return [u.displayName, u.upn, r.userType || "", yn(r.isAdmin),
         yn(r.isMfaRegistered), yn(r.isMfaCapable), yn(r.hasPhishResistant),
-        yn(r.isPasswordlessCapable), yn(r.isSsprRegistered), yn(r.usesTelephonyMfa), u.methodsText];
+        yn(r.isPasswordlessCapable), yn(r.isSsprRegistered), yn(r.hasTelephonyRegistration), u.methodsText];
     });
     var stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
     downloadCsv("authentication-methods-" + stamp + ".csv", header, rows);

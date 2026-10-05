@@ -9,12 +9,18 @@ wins. This engine expands the principal to its user id + transitive group
 memberships + role assignments (from the embedded directory enrichment) and
 evaluates every policy against that context.
 
+Only **active** directory-role assignments count as current role membership for
+Conditional Access targeting. PIM-eligible assignments remain in the snapshot
+for privilege analysis, but they do not put the user in scope for a role-targeted
+policy until the role is activated.
+
 ## How it works
 
 1. **Principal context** - `Resolve-CapPrincipalContext` builds
    `{ id, displayName, isGuest, groupIds[], roleTemplateIds[] }` from
-   `enrichment.groups` (transitive members), `enrichment.roleAssignments`, and
-   `enrichment.users`. Missing enrichment degrades gracefully with warnings.
+   `enrichment.groups` (transitive members), active entries from
+   `enrichment.roleAssignments`, and `enrichment.users`. Missing enrichment
+   degrades gracefully with warnings.
 2. **Per-policy bucket** - each policy is classified:
    - `InScopeDirect` - the user id is directly included.
    - `InScopeVia` - included through a named group or role (the group/role is

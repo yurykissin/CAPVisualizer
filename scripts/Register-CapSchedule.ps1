@@ -26,10 +26,10 @@
     Actually install the schedule (otherwise just prints what it would do).
 
 .EXAMPLE
-    pwsh ./scripts/Register-CapSchedule.ps1 -TenantId contoso.com -ClientId <id> -CertificateThumbprint <thumb> -Time 02:30
+    pwsh ./scripts/Register-CapSchedule.ps1 -TenantId contoso.com -ClientId 11111111-2222-3333-4444-555555555555 -CertificateThumbprint A1B2C3D4E5F6 -Time 02:30
 
 .EXAMPLE
-    pwsh ./scripts/Register-CapSchedule.ps1 -TenantId contoso.com -ClientId <id> -CertificateThumbprint <thumb> -Apply
+    pwsh ./scripts/Register-CapSchedule.ps1 -TenantId contoso.com -ClientId 11111111-2222-3333-4444-555555555555 -CertificateThumbprint A1B2C3D4E5F6 -Apply
 #>
 [CmdletBinding()]
 param(

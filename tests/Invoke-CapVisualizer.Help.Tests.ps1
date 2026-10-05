@@ -20,6 +20,7 @@ Describe 'Invoke-CapVisualizer comment-based help' {
         $examples = Get-Help $script:EntryPoint -Examples | Out-String -Width 240
 
         $examples | Should -Match '-ClientId 11111111-2222-3333-4444-555555555555 -CertificateThumbprint A1B2C3D4E5F6'
+        $examples | Should -Match '-SkipResolveNames -SkipDirectory -Delta'
         $examples | Should -Match '-FromJson ./cap-safe-review.json -Names ./names.json'
         $examples | Should -Match '-Pseudonymize -Delta'
     }

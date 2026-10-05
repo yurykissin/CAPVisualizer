@@ -4,6 +4,8 @@ A uniform, sortable finding model with a deterministic risk score. Runs
 automatically as part of `Invoke-CapVisualizer.ps1` (`analysis/findings.json`)
 and drives the viewer's **Findings** tab.
 
+![Risk-scored findings tab](images/03-findings.png)
+
 ## Schema
 
 Each finding:
@@ -59,7 +61,9 @@ likely to bite).
   [AUDIT.md](AUDIT.md), mapped into this schema with impact/likelihood and
   standards references.
 
-The inactivity threshold is configurable via `-InactiveDays` (default 30).
+The engine currently uses a 30-day inactivity threshold. The module function
+supports an `InactiveDays` override, but the main `Invoke-CapVisualizer.ps1`
+entry point does not currently expose that setting.
 
 ## Every finding is self-explaining
 

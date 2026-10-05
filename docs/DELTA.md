@@ -3,9 +3,11 @@
 CAPVisualizer is built to run periodically and show **what changed** between
 runs, so you can review Conditional Access drift over time.
 
+![Snapshot comparison tab](images/06-compare.png)
+
 ## How snapshots work
 
-Every run writes an **immutable, timestamped** snapshot under `output/`:
+Every run writes a separate, timestamped snapshot under `output/`:
 
 ```
 output/20260101-090000/
@@ -13,10 +15,12 @@ output/20260201-090000/
 output/20260301-090000/
 ```
 
-The verbatim Graph data in each snapshot's `raw/export.json` is the source of
-truth used for comparisons, so diffs are stable and independent of formatting.
+The name-free, normalized collection in each snapshot's `raw/export.json` is
+the source of truth used for comparisons. Snapshots are ordinary files rather
+than write-protected storage; preserve or protect the folder if it is being used
+as an audit trail.
 
-## Automatic delta (offset from the previous run)
+## Automatic delta (against the previous run)
 
 Add `-Delta`:
 

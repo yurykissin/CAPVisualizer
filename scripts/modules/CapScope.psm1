@@ -80,7 +80,9 @@ function Resolve-CapPrincipalContext {
     }
     else {
         foreach ($ra in @(_SGet $rolesDs 'data')) {
-            if ("$(_SGet $ra 'principalId')" -eq $PrincipalId) { [void]$roleIds.Add("$(_SGet $ra 'roleTemplateId')") }
+            if ("$(_SGet $ra 'principalId')" -eq $PrincipalId -and "$(_SGet $ra 'assignmentType')" -eq 'active') {
+                [void]$roleIds.Add("$(_SGet $ra 'roleTemplateId')")
+            }
         }
     }
 

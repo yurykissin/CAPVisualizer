@@ -10,6 +10,8 @@ and is also available standalone via `scripts/Invoke-CapConsolidate.ps1`.
 Where [CapAudit](AUDIT.md) looks *inside* a single policy for self-defeating
 configuration, CapConsolidate looks *across* the estate for redundancy and gaps.
 
+![Policy comparison and consolidation view](images/08-compare-policies.png)
+
 ## How comparison works - the fingerprint
 
 Each policy is reduced to a four-part fingerprint so that functionally identical
@@ -133,7 +135,8 @@ break-glass-only exclusion group).
 ## Output
 
 `Invoke-CapConsolidate` returns
-`{ summary, duplicates{exact,overlap,merge}, deadWeight[], completeness[], exclusionConcentration[] }`.
+`{ summary, duplicates{exact,overlap,merge}, deadWeight[], completeness[],
+exclusionConcentration[], unreadShapes[] }`.
 `summary` carries the state counts, cluster counts, dead-weight and gap counts,
 and `estimatedTarget` / `estimatedReduction`. The estimate starts from the
 enforced count (report-only and disabled policies are dropped anyway, so they are

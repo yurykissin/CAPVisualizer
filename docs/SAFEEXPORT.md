@@ -134,13 +134,13 @@ Use this when you want the artifacts as separate files, or you are scripting.
 ./scripts/Invoke-CapVisualizer.ps1
 
 # 2. Assemble the bundle you are allowed to upload.
-./scripts/Export-CapSafeBundle.ps1 -SnapshotPath ./output/<snapshot>
+./scripts/Export-CapSafeBundle.ps1 -SnapshotPath ./output/20261005-120000
 
-# 3. Hand ONLY <snapshot>/safe/ to the model or the third party.
+# 3. Hand ONLY output/20261005-120000/safe/ to the model or third party.
 
 # 4. Map the model's output back to real names, locally.
 ./scripts/Restore-CapNames.ps1 -Path ./ai-report.md `
-    -Names ./output/<snapshot>/raw/names.json -InPlace
+    -Names ./output/20261005-120000/raw/names.json -InPlace
 ```
 
 `Export-CapSafeBundle.ps1` **fails closed**: after assembling the bundle it

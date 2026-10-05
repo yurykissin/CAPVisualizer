@@ -37,8 +37,8 @@
 .PARAMETER SkipResolveNames
     By default the tool resolves object GUIDs (users, groups, roles, apps) to
     display names, which needs the read-only Directory.Read.All scope in addition
-    to Policy.Read.All. Use -SkipResolveNames to keep the minimal
-    Policy.Read.All-only footprint (output will then show GUIDs).
+    to Policy.Read.All. Use -SkipResolveNames to show GUIDs instead. Combine it
+    with -SkipDirectory for the minimal Policy.Read.All-only footprint.
 
 .PARAMETER SkipDirectory
     By default the tool also collects read-only directory enrichment (groups,
@@ -112,7 +112,7 @@
     Interactive sign-in; resolves names; export + report + visualization.
 
 .EXAMPLE
-    pwsh ./scripts/Invoke-CapVisualizer.ps1 -SkipResolveNames -Delta
+    pwsh ./scripts/Invoke-CapVisualizer.ps1 -SkipResolveNames -SkipDirectory -Delta
     Minimal permissions (GUIDs only) and diff against the previous run.
 
 .EXAMPLE
@@ -184,8 +184,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Name resolution is ON by default (GUIDs -> display names). It needs the
-# read-only Directory.Read.All scope in addition to Policy.Read.All. Use
-# -SkipResolveNames to keep the minimal Policy.Read.All-only footprint.
+# read-only Directory.Read.All scope in addition to Policy.Read.All. Combine
+# -SkipResolveNames and -SkipDirectory for a Policy.Read.All-only run.
 $resolveNames = -not $SkipResolveNames
 $includeDirectory = -not $SkipDirectory
 

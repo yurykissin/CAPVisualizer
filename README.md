@@ -30,18 +30,17 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1
 # Open output/<timestamp>/visual/index.html
 ```
 
-The default run resolves names and collects directory context for the analysis
-engines. For the smallest permission footprint:
-
-```powershell
-pwsh ./scripts/Invoke-CapVisualizer.ps1 -SkipResolveNames -SkipDirectory
-```
+The default run includes the read-only directory context needed by the analysis
+engines. A policy-only mode with fewer permissions is also available; see
+[Permissions](#permissions) for the exact trade-off.
 
 No tenant access available? Render a previously collected export with no
-authentication or network access:
+authentication or network access. Point `-FromJson` at the snapshot folder so
+CAPVisualizer can also find its local name dictionary:
 
 ```powershell
-pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./export.json
+pwsh ./scripts/Invoke-CapVisualizer.ps1 `
+  -FromJson ./output/20261005-120000
 ```
 
 Full command reference: [docs/USAGE.md](docs/USAGE.md). Built-in help:
@@ -220,7 +219,8 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1
 pwsh ./scripts/Invoke-CapVisualizer.ps1 -Delta
 
 # Fully offline rerender
-pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./export.json
+pwsh ./scripts/Invoke-CapVisualizer.ps1 `
+  -FromJson ./output/20261005-120000
 
 # Offline rerender with a separately stored dictionary
 pwsh ./scripts/Invoke-CapVisualizer.ps1 `
