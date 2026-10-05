@@ -10,6 +10,7 @@ Describe 'Remove-CapSnapshot' {
         $script:Root = Join-Path ([System.IO.Path]::GetTempPath()) ("cap-retention-{0}" -f ([guid]::NewGuid()))
         New-Item -ItemType Directory -Path $script:Root | Out-Null
         New-Item -ItemType Directory -Path (Join-Path $script:Root '20260101-000000') | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $script:Root '20260102-000000-123-a1b2c3') | Out-Null
         New-Item -ItemType Directory -Path (Join-Path $script:Root '20261001-000000') | Out-Null
         New-Item -ItemType Directory -Path (Join-Path $script:Root 'manual-backup') | Out-Null
     }
@@ -23,7 +24,7 @@ Describe 'Remove-CapSnapshot' {
     It 'is a dry run by default' {
         $result = @(& $script:ScriptPath -OutputRoot $script:Root -RetainDays 90 -AsOf ([datetime]'2026-10-05'))
 
-        $result.Count | Should -Be 1
+        $result.Count | Should -Be 2
         $result[0].Action | Should -Be 'WouldRemove'
         $result[0].Snapshot | Should -Be '20260101-000000'
         Test-Path -LiteralPath (Join-Path $script:Root '20260101-000000') | Should -BeTrue
@@ -32,9 +33,10 @@ Describe 'Remove-CapSnapshot' {
     It 'removes only eligible timestamped direct children with Apply' {
         $result = @(& $script:ScriptPath -OutputRoot $script:Root -RetainDays 90 -AsOf ([datetime]'2026-10-05') -Apply)
 
-        $result.Count | Should -Be 1
-        $result[0].Action | Should -Be 'Removed'
+        $result.Count | Should -Be 2
+        @($result.Action | Select-Object -Unique) | Should -Be @('Removed')
         Test-Path -LiteralPath (Join-Path $script:Root '20260101-000000') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $script:Root '20260102-000000-123-a1b2c3') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $script:Root '20261001-000000') | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $script:Root 'manual-backup') | Should -BeTrue
     }

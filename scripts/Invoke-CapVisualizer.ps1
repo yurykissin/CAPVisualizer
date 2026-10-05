@@ -111,7 +111,8 @@
     HMAC-SHA256 over the file hash list, keyed with this value. Unlike the plain
     hashes, an HMAC cannot be recomputed by someone who edits a file without also
     knowing the key, so it turns the manifest from a corruption check into a
-    tamper-evidence check for whoever holds the key. The key itself is never
+    tamper-evidence check for whoever holds the key. Pass a SecureString so the
+    key is not exposed as a plain command-line argument. The key itself is never
     written to disk.
 
 .EXAMPLE
@@ -196,7 +197,7 @@ param(
     [switch]$NoVisual,
     [switch]$NoOpen,
     [switch]$NoTranscript,
-    [string]$ManifestKey
+    [securestring]$ManifestKey
 )
 
 Set-StrictMode -Version Latest
@@ -228,9 +229,25 @@ Import-Module (Join-Path $modules 'CapDelta.psm1')  -Force
 $assetsPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'assets'
 
 # --- Snapshot folder ---
-$stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
-$snapshot = Join-Path $OutputRoot $stamp
-foreach ($sub in 'raw', 'report', 'visual') { New-Item -ItemType Directory -Force -Path (Join-Path $snapshot $sub) | Out-Null }
+if (-not (Test-Path -LiteralPath $OutputRoot)) {
+    New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
+}
+$outputRootResolved = (Resolve-Path -LiteralPath $OutputRoot).Path
+$snapshot = $null
+$stamp = $null
+for ($attempt = 0; $attempt -lt 10; $attempt++) {
+    $baseStamp = (Get-Date).ToString('yyyyMMdd-HHmmss-fff')
+    $stamp = if ($attempt -eq 0) { $baseStamp } else {
+        '{0}-{1}' -f $baseStamp, ([guid]::NewGuid().ToString('N').Substring(0, 6))
+    }
+    try {
+        $snapshot = (New-Item -ItemType Directory -Path (Join-Path $outputRootResolved $stamp) -ErrorAction Stop).FullName
+        break
+    }
+    catch [System.IO.IOException] { Start-Sleep -Milliseconds 2 }
+}
+if (-not $snapshot) { throw "Could not allocate a unique snapshot directory under $outputRootResolved." }
+foreach ($sub in 'raw', 'report', 'visual') { New-Item -ItemType Directory -Path (Join-Path $snapshot $sub) | Out-Null }
 Write-CapLog "Snapshot: $snapshot" 'INFO'
 
 $transcriptPath = Join-Path $snapshot 'transcript.txt'
@@ -653,11 +670,15 @@ try {
         # Keyed over the canonical "path:sha256" list, which is exactly what the
         # per-file hashes attest to. Someone without the key cannot forge it.
         $hashList = (($fileEntries | ForEach-Object { "$($_.path):$($_.sha256)" }) -join "`n")
-        $hmac = [System.Security.Cryptography.HMACSHA256]::new([System.Text.Encoding]::UTF8.GetBytes($ManifestKey))
+        $plainManifestKey = [System.Net.NetworkCredential]::new('', $ManifestKey).Password
+        $hmac = [System.Security.Cryptography.HMACSHA256]::new([System.Text.Encoding]::UTF8.GetBytes($plainManifestKey))
         try {
             $mac = (-join ($hmac.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hashList)) | ForEach-Object { $_.ToString('x2') }))
         }
-        finally { $hmac.Dispose() }
+        finally {
+            $hmac.Dispose()
+            $plainManifestKey = $null
+        }
         $manifest['integrity']['hmacSha256'] = $mac
         $manifest['integrity']['hmacScope'] = 'newline-joined path:sha256 list, in file order'
     }

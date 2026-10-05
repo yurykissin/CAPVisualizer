@@ -54,7 +54,7 @@ lands in a timestamped folder under `output/`.
 | `-NoOpen` | Do not auto-open the HTML report in the browser when the run finishes (it opens by default on interactive runs). |
 | `-NoTranscript` | Do not write a PowerShell transcript into the snapshot. |
 | `-OutputRoot <path>` | Change the output root (default `./output`). |
-| `-ManifestKey <secret>` | Add an HMAC-SHA256 to the manifest for keyed tamper evidence. The key is not written to disk. |
+| `-ManifestKey <SecureString>` | Add an HMAC-SHA256 to the manifest for keyed tamper evidence. Prompt with `Read-Host -AsSecureString`; the key is not written to disk or passed as plain command-line text. |
 
 Example (policy-only collection with the minimum permission, showing GUIDs):
 
@@ -144,7 +144,7 @@ authentication is recommended. Microsoft Graph's app-only setup reference:
 Each run produces:
 
 ```
-output/<yyyyMMdd-HHmmss>/
+output/<yyyyMMdd-HHmmss-fff>/
   raw/export.json          # collected policies, identifiers, and directory context; tenant-sensitive
   raw/policies.json        # policy definitions split from the larger export
   raw/references.json      # named locations, authentication strengths, and contexts
@@ -165,6 +165,10 @@ output/<yyyyMMdd-HHmmss>/
   manifest.json            # hashes, sensitivity flags, and optional keyed HMAC
   transcript.txt           # run log (unless -NoTranscript)
 ```
+
+Run `Test-CapManifest.ps1 -SnapshotPath <snapshot>` to verify every listed hash
+and detect missing, changed, or unexpected files. It can also verify the
+optional HMAC and the externally recorded manifest hash.
 
 Open `visual/index.html` in any browser - it works fully offline. The
 `analysis/` folder is omitted when you pass `-SkipAnalysis`.

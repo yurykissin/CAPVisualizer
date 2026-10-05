@@ -64,7 +64,22 @@ Each snapshot includes `manifest.json` with a SHA-256 hash of every output file,
 which detects accidental modification and incomplete copies. The plain manifest
 is not a signature: someone who deliberately changes a file can regenerate its
 hash. For tamper evidence, either record the printed manifest hash outside the
-snapshot or run with `-ManifestKey` to add a keyed HMAC.
+snapshot or run with a prompted SecureString key to add a keyed HMAC:
+
+```powershell
+$key = Read-Host 'Manifest HMAC key' -AsSecureString
+./scripts/Invoke-CapVisualizer.ps1 -ManifestKey $key
+```
+
+Verify hashes, missing or unexpected files, and any HMAC before trusting a
+snapshot:
+
+```powershell
+./scripts/Test-CapManifest.ps1 -SnapshotPath ./output/<timestamp>
+```
+
+Add `-ExpectedManifestHash <sha256>` to compare the out-of-band anchor, and pass
+the same SecureString as `-ManifestKey` when the manifest contains an HMAC.
 
 ## Verify before you trust
 This is a community project provided without warranty. Review the source before

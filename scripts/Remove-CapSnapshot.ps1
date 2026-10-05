@@ -4,9 +4,9 @@
     Finds or removes expired CAPVisualizer snapshots.
 
 .DESCRIPTION
-    Examines only timestamped snapshot directories (yyyyMMdd-HHmmss) directly
-    beneath the resolved output root. The default is a dry run. Pass -Apply to
-    remove the listed directories.
+    Examines only timestamped snapshot directories directly beneath the resolved
+    output root. Both legacy yyyyMMdd-HHmmss names and collision-safe
+    yyyyMMdd-HHmmss-fff[-suffix] names are accepted.
 
     Reparse points and symbolic links are never followed or removed.
 
@@ -59,16 +59,21 @@ foreach ($broadRoot in @($repositoryRoot, $homeRoot, $fileSystemRoot)) {
 }
 
 $cutoff = $AsOf.AddDays(-$RetainDays)
-$timestampPattern = '^\d{8}-\d{6}$'
-$timestampFormat = 'yyyyMMdd-HHmmss'
+$timestampPattern = '^(?<timestamp>\d{8}-\d{6})(?:-(?<milliseconds>\d{3})(?:-[0-9a-f]{6})?)?$'
 $culture = [System.Globalization.CultureInfo]::InvariantCulture
 $style = [System.Globalization.DateTimeStyles]::AssumeLocal
 
 foreach ($directory in Get-ChildItem -LiteralPath $root -Directory -Force) {
-    if ($directory.Name -notmatch $timestampPattern) { continue }
-
+    $match = [regex]::Match($directory.Name, $timestampPattern)
+    if (-not $match.Success) { continue }
+    $timestampText = $match.Groups['timestamp'].Value
+    $timestampFormat = 'yyyyMMdd-HHmmss'
+    if ($match.Groups['milliseconds'].Success) {
+        $timestampText += "-$($match.Groups['milliseconds'].Value)"
+        $timestampFormat += '-fff'
+    }
     $snapshotTime = [datetime]::MinValue
-    if (-not [datetime]::TryParseExact($directory.Name, $timestampFormat, $culture, $style, [ref]$snapshotTime)) {
+    if (-not [datetime]::TryParseExact($timestampText, $timestampFormat, $culture, $style, [ref]$snapshotTime)) {
         continue
     }
     if ($snapshotTime -ge $cutoff) { continue }

@@ -68,7 +68,7 @@ Get-Help ./scripts/Invoke-CapVisualizer.ps1 -Examples
 | **Sign-in-log KQL** | Provides copy-ready queries for policy usage, sign-ins with no applied CA policy, and sign-ins with no MFA enforcement. CAPVisualizer does not download sign-in logs. |
 | **Safe export** | Builds a review artifact without display names, the tenant ID, directory inventory, named-location definitions, or IP ranges. |
 | **Offline rerendering** | Recreates reports and analysis from JSON using `-FromJson`; a local `names.json` can restore readable names without reconnecting to Graph. |
-| **Integrity manifest** | Records SHA-256 hashes for snapshot files so accidental changes or incomplete copies can be detected. |
+| **Integrity manifest** | Records SHA-256 hashes and supports verification of changed, missing, or unexpected files, an optional external anchor, and keyed HMAC. |
 | **Interactive and unattended auth** | Supports delegated browser/device-code sign-in and certificate-based application authentication for scheduled runs. |
 | **Scheduling** | Includes local cron and Windows Task Scheduler guidance for unattended runs. |
 | **Snapshot retention** | Safely previews and removes expired timestamped snapshots without following links or deleting unrelated folders. |
@@ -188,7 +188,7 @@ Full threat boundary and field-level behavior:
 Each run creates an immutable timestamped snapshot:
 
 ```text
-output/<yyyyMMdd-HHmmss>/
+output/<yyyyMMdd-HHmmss-fff>/
   raw/
     export.json               local source structure and enrichment
     names.json                local-only name dictionary

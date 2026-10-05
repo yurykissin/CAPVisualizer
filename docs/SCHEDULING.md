@@ -83,7 +83,8 @@ After reviewing the exact paths, delete them:
 pwsh ./scripts/Remove-CapSnapshot.ps1 -RetainDays 90 -Apply
 ```
 
-The script considers only `yyyyMMdd-HHmmss` directories directly beneath the
-resolved output root, never follows links, and is a dry run unless `-Apply` is
-specified. Add it as a separate scheduled command only after choosing and
-documenting an appropriate retention period.
+The script accepts both legacy `yyyyMMdd-HHmmss` and current
+`yyyyMMdd-HHmmss-fff[-suffix]` directories directly beneath the resolved output
+root, never follows links, and is a dry run unless `-Apply` is specified. Add it
+as a separate scheduled command only after choosing and documenting an
+appropriate retention period.
