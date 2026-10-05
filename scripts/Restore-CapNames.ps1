@@ -40,9 +40,9 @@
     the two runs describe the same tenant objects.
 
 .PARAMETER AllowUnresolved
-    Exit 0 even when ids were left unresolved. Off by default. A partial
-    restore that reports success is how a report shipped with 71 dangling
-    references.
+    Retained for compatibility. Unresolved ids are now always warning-only and
+    the restore exits successfully after reporting them. The switch has no
+    effect and can be removed from existing commands.
 
 .EXAMPLE
     pwsh ./scripts/Restore-CapNames.ps1 -Path ./ca-review.md -Names ./output/20260728-091141/raw/names.json
@@ -120,12 +120,9 @@ foreach ($file in $targets) {
     $head = Get-Content -LiteralPath $file -Raw
     if ($head -match '"kind"\s*:\s*"(policyOnlyExport|safeReviewBundle)"') { $refused += $file }
 }
-if ($refused.Count -and -not $AllowUnresolved) {
-    Write-CapLog ("Refusing to restore the shareable export itself: {0}. That file is name-free by design and re-hydrating it produces a document that looks shareable but is not. Point this at the review or report written from the bundle instead. Use -AllowUnresolved if you genuinely need a local named copy." -f ($refused -join ', ')) 'ERROR'
+if ($refused.Count) {
+    Write-CapLog ("Refusing to restore the shareable export itself: {0}. That file is name-free by design and re-hydrating it produces a document that looks shareable but is not. Point this at the review or report written from the bundle instead." -f ($refused -join ', ')) 'ERROR'
     exit 1
-}
-elseif ($refused.Count) {
-    Write-CapLog ("Restoring a shareable export in place because -AllowUnresolved was given: {0}. The result contains tenant names and must not be shared." -f ($refused -join ', ')) 'WARN'
 }
 
 # Automatic binding check. Scan the inputs for the binding token before writing
@@ -235,9 +232,8 @@ $failures = $totalUnresolvedIds.Count + $totalTruncated.Count + $totalUnresolved
 Write-CapLog ("Done. Re-hydrated {0} file(s) from {1} dictionary entries. Repaired {2}, unresolved {3}." -f `
     $targets.Count, $dictionary['count'], $totalRepaired.Count, $failures) 'OK'
 
-if ($failures -and -not $AllowUnresolved) {
-    Write-CapLog "Exiting non-zero: the deliverable still contains references that cannot be read as names. Use -AllowUnresolved to override." 'ERROR'
-    exit 1
+if ($failures) {
+    Write-CapLog "Restore completed with unresolved references. The output file was written successfully; review the warnings above because those objects will remain as aliases or raw ids." 'WARN'
 }
 
 # Exit explicitly on success too, so a caller always has a code to test rather

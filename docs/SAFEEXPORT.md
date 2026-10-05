@@ -99,10 +99,10 @@ returned report and the ids become real names on your machine.
 `Restore-CapNames.ps1` now polices that round trip rather than assuming it. It
 recovers an abbreviated id where the prefix matches exactly one dictionary
 entry, refuses to guess where a prefix matches more than one, prints an
-accounting of how many ids resolved and which did not, and **exits non-zero when
-any reference is left unreadable**. A partial restore can no longer look like a
-clean run. Use `-AllowUnresolved` only when you have decided the leftovers are
-acceptable.
+accounting of how many ids resolved and which did not, and emits a prominent
+warning when references remain unreadable. The restored file is still written
+and the command exits successfully, because stale or deleted directory objects
+can legitimately have no name to recover.
 
 ### Collections stay collections
 
@@ -194,8 +194,7 @@ duplicate cluster listed one policy twice and the other disappeared.
 non-zero. That file exists precisely so it can leave the building with no names
 in it; putting the names back turns the one artifact designed to be safe to send
 into the one artifact that must never be sent, sitting in the directory people
-share from. Point it at the review or report written *from* the bundle. Use
-`-AllowUnresolved` if you genuinely need a local named copy.
+share from. Point it at the review or report written *from* the bundle instead.
 
 ## Pseudonymization
 

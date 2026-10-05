@@ -41,6 +41,10 @@ schema version** on that entry so users know a re-export is required.
 ## [Unreleased]
 
 ### Added
+- **Warning-only unresolved name restoration** — `Restore-CapNames.ps1` now
+  writes the restored deliverable and exits successfully when deleted or stale
+  directory references have no recoverable name, while still listing every
+  unresolved alias, abbreviation, and GUID prominently.
 - **Output and baseline provenance** — exports, manifests, safe-review bundles,
   and the viewer now identify the CAPVisualizer version and Git commit. The CISA
   SCuBA 1.6 pack is pinned to an exact upstream commit and preserves each

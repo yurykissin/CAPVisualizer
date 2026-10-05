@@ -963,19 +963,23 @@ Describe 'Report id round trip' {
         finally { Remove-Item -LiteralPath $report -Force -ErrorAction SilentlyContinue }
     }
 
-    It 'fails the run when an id cannot be resolved' {
+    It 'warns but succeeds when an id cannot be resolved' {
         $report = Join-Path ([IO.Path]::GetTempPath()) "cap-rt-bad-$([guid]::NewGuid()).md"
         try {
             "Audit d29b2b05-8046-44ba-8758-1e26182fcf99 before the change." |
                 Set-Content -LiteralPath $report -Encoding utf8
 
-            & $script:RtRestore -Path $report -Names $script:RtDictPath *>$null
-            $LASTEXITCODE | Should -Be 1
+            $output = & $script:RtRestore -Path $report -Names $script:RtDictPath *>&1
+            $LASTEXITCODE | Should -Be 0
+            ($output -join "`n") | Should -BeLike '*unresolved references*'
+            ($output -join "`n") | Should -BeLike '*d29b2b05-8046-44ba-8758-1e26182fcf99*'
+
+            $named = $report -replace '\.md$', '.named.md'
+            Test-Path -LiteralPath $named | Should -BeTrue
 
             & $script:RtRestore -Path $report -Names $script:RtDictPath -AllowUnresolved *>$null
             $LASTEXITCODE | Should -Be 0
 
-            $named = $report -replace '\.md$', '.named.md'
             Remove-Item -LiteralPath $named -Force -ErrorAction SilentlyContinue
         }
         finally { Remove-Item -LiteralPath $report -Force -ErrorAction SilentlyContinue }

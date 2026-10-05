@@ -330,6 +330,10 @@ Describe 'Restore refuses the shareable export' {
             & pwsh -NoProfile -File $script -Path $bundle -Names $names -InPlace *> $null
             $LASTEXITCODE | Should -Be 1
             (Get-Content -LiteralPath $bundle -Raw) | Should -Be $before
+
+            & pwsh -NoProfile -File $script -Path $bundle -Names $names -InPlace -AllowUnresolved *> $null
+            $LASTEXITCODE | Should -Be 1
+            (Get-Content -LiteralPath $bundle -Raw) | Should -Be $before
         }
         finally { Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
     }
