@@ -53,7 +53,7 @@ $ErrorActionPreference = 'Stop'
 
 $pwsh = (Get-Process -Id $PID).Path
 if (-not $pwsh) { $pwsh = 'pwsh' }
-$script = Join-Path $PSScriptRoot 'Invoke-CapVisualizer.ps1'
+$script = Join-Path $PSScriptRoot 'Invoke-CapScheduledRun.ps1'
 $hh, $mm = $Time.Split(':')
 
 $certificateArgument = if ($PSCmdlet.ParameterSetName -eq 'File') {
@@ -63,7 +63,7 @@ $certificateArgument = if ($PSCmdlet.ParameterSetName -eq 'File') {
 else {
     "-CertificateThumbprint `"$CertificateThumbprint`""
 }
-$argLine = "-NoProfile -File `"$script`" -TenantId `"$TenantId`" -ClientId `"$ClientId`" $certificateArgument -Delta -NoTranscript"
+$argLine = "-NoProfile -File `"$script`" -TenantId `"$TenantId`" -ClientId `"$ClientId`" $certificateArgument"
 
 if ($IsWindows) {
     Write-Host "Windows Scheduled Task 'CAPVisualizer-Daily' at ${Time}:" -ForegroundColor Cyan
@@ -71,7 +71,9 @@ if ($IsWindows) {
     if ($Apply) {
         $action  = New-ScheduledTaskAction -Execute $pwsh -Argument $argLine
         $trigger = New-ScheduledTaskTrigger -Daily -At $Time
-        Register-ScheduledTask -TaskName 'CAPVisualizer-Daily' -Action $action -Trigger $trigger -Description 'Daily read-only Conditional Access export' -Force | Out-Null
+        $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew
+        Register-ScheduledTask -TaskName 'CAPVisualizer-Daily' -Action $action -Trigger $trigger -Settings $settings `
+            -Description "Daily read-only Conditional Access export. Runs as the registering identity: $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)" -Force | Out-Null
         Write-Host "Scheduled task registered." -ForegroundColor Green
     }
     else {
@@ -79,11 +81,12 @@ if ($IsWindows) {
     }
 }
 else {
-    $cronLine = "$([int]$mm) $([int]$hh) * * * $pwsh $argLine >> `"$(Join-Path (Split-Path -Parent $PSScriptRoot) 'output/cron.log')`" 2>&1"
+    $marker = '# CAPVisualizer-Daily'
+    $cronLine = "$([int]$mm) $([int]$hh) * * * $pwsh $argLine >> `"$(Join-Path (Split-Path -Parent $PSScriptRoot) 'output/cron.log')`" 2>&1 $marker"
     Write-Host "Crontab line (daily at $Time):" -ForegroundColor Cyan
     Write-Host $cronLine
     if ($Apply) {
-        $existing = (crontab -l 2>/dev/null) -split "`n" | Where-Object { $_ -and $_ -notmatch 'Invoke-CapVisualizer\.ps1' }
+        $existing = (crontab -l 2>/dev/null) -split "`n" | Where-Object { $_ -and $_ -notmatch [regex]::Escape($marker) }
         $new = @($existing + $cronLine | Where-Object { $_ }) -join "`n"
         $new + "`n" | crontab -
         Write-Host "Crontab updated." -ForegroundColor Green

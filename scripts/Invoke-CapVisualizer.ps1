@@ -144,8 +144,8 @@
 .NOTES
     Interactive minimum: Policy.Read.All.
     Name resolution: add Directory.Read.All.
-    Directory enrichment is read-only and requests Group.Read.All,
-    User.Read.All, RoleManagement.Read.Directory, AuditLog.Read.All, and
+    Directory enrichment is read-only and requests Directory.Read.All,
+    RoleManagement.Read.Directory, AuditLog.Read.All, and
     UserAuthenticationMethod.Read.All. Use -SkipDirectory for policy-only runs.
 #>
 [CmdletBinding(DefaultParameterSetName = 'Interactive')]
@@ -321,13 +321,8 @@ try {
             'AppCertFile' { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -CertificatePath $CertificatePath -CertificatePassword $CertificatePassword | Out-Null }
             'AppSecret' { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -ClientSecret $ClientSecret | Out-Null }
             default     {
-                $connectScopes = @($Scopes)
-                if ($resolveNames -and $connectScopes -notcontains 'Directory.Read.All') { $connectScopes += 'Directory.Read.All' }
-                if ($includeDirectory) {
-                    foreach ($s in 'Directory.Read.All', 'Group.Read.All', 'User.Read.All', 'RoleManagement.Read.Directory', 'AuditLog.Read.All', 'UserAuthenticationMethod.Read.All') {
-                        if ($connectScopes -notcontains $s) { $connectScopes += $s }
-                    }
-                }
+                $connectScopes = Get-CapRequiredScopes -RequestedScopes $Scopes `
+                    -ResolveNames:$resolveNames -IncludeDirectory:$includeDirectory
                 $connectArgs = @{ Scopes = $connectScopes; UseDeviceCode = $UseDeviceCode }
                 if ($TenantId) { $connectArgs['TenantId'] = $TenantId }
                 Connect-CapGraph @connectArgs | Out-Null

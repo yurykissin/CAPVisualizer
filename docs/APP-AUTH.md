@@ -15,8 +15,8 @@ In **Microsoft Entra admin center**:
 3. Under **API permissions**, add Microsoft Graph **Application permissions**:
    - Policy-only: `Policy.Read.All`.
    - Default full analysis: `Policy.Read.All`, `Directory.Read.All`,
-     `Group.Read.All`, `User.Read.All`, `RoleManagement.Read.Directory`,
-     `AuditLog.Read.All`, and `UserAuthenticationMethod.Read.All`.
+     `RoleManagement.Read.Directory`, `AuditLog.Read.All`, and
+     `UserAuthenticationMethod.Read.All`.
 4. Grant tenant-wide admin consent.
 
 These are read permissions. Do not grant Conditional Access or directory write

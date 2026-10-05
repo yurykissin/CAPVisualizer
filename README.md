@@ -122,7 +122,7 @@ policy, or Conditional Access write scope is used.
 | --- | --- | --- |
 | **Policy-only, IDs** | `Policy.Read.All` | `-SkipResolveNames -SkipDirectory` |
 | **Policy-only, names** | `Policy.Read.All`, `Directory.Read.All` | `-SkipDirectory` |
-| **Full analysis, default** | `Policy.Read.All`, `Directory.Read.All`, `Group.Read.All`, `User.Read.All`, `RoleManagement.Read.Directory`, `AuditLog.Read.All`, `UserAuthenticationMethod.Read.All` | No reduction switches |
+| **Full analysis, default** | `Policy.Read.All`, `Directory.Read.All`, `RoleManagement.Read.Directory`, `AuditLog.Read.All`, `UserAuthenticationMethod.Read.All` | No reduction switches |
 | **Offline render** | None | `-FromJson <path>` |
 
 Directory datasets are best-effort. If a scope is unavailable, dependent checks

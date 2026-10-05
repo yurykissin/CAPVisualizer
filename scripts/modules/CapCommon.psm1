@@ -44,6 +44,29 @@ function Get-CapToolProvenance {
     }
 }
 
+function Get-CapRequiredScopes {
+    [CmdletBinding()]
+    param(
+        [string[]]$RequestedScopes = @('Policy.Read.All'),
+        [switch]$ResolveNames,
+        [switch]$IncludeDirectory
+    )
+
+    $scopes = [System.Collections.Generic.List[string]]::new()
+    foreach ($scope in @($RequestedScopes)) {
+        if ($scope -and -not ($scopes -contains $scope)) { $scopes.Add($scope) }
+    }
+    if (($ResolveNames -or $IncludeDirectory) -and -not ($scopes -contains 'Directory.Read.All')) {
+        $scopes.Add('Directory.Read.All')
+    }
+    if ($IncludeDirectory) {
+        foreach ($scope in 'RoleManagement.Read.Directory', 'AuditLog.Read.All', 'UserAuthenticationMethod.Read.All') {
+            if (-not ($scopes -contains $scope)) { $scopes.Add($scope) }
+        }
+    }
+    return @($scopes)
+}
+
 function Write-CapLog {
     [CmdletBinding()]
     param(
@@ -504,4 +527,4 @@ function Get-CapWellKnownAppMap {
 Export-ModuleMember -Function Write-CapLog, Connect-CapGraph, Invoke-CapGraphGet, `
     ConvertTo-CapHashtable, Get-CapFileSha256, Save-CapJson, Get-CapDirectoryNameMap, `
     Get-CapRoleTemplateMap, Get-CapServicePrincipalMap, Get-CapWellKnownAppMap, Open-CapBrowser, `
-    Get-CapToolProvenance
+    Get-CapToolProvenance, Get-CapRequiredScopes

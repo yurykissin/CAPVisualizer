@@ -83,8 +83,7 @@ checks that rely on directory data will then be limited or unavailable.
   application `Policy.Read.All` and run with `-SkipResolveNames
   -SkipDirectory`. For the default full-analysis run, grant the application
   equivalents used by interactive collection: `Policy.Read.All`,
-  `Directory.Read.All`, `Group.Read.All`, `User.Read.All`,
-  `RoleManagement.Read.Directory`, `AuditLog.Read.All`, and
+  `Directory.Read.All`, `RoleManagement.Read.Directory`, `AuditLog.Read.All`, and
   `UserAuthenticationMethod.Read.All`. Prefer a **certificate** over a client
   secret. See [APP-AUTH.md](APP-AUTH.md) for app registration, certificate
   installation, scheduler identity, verification, and rotation.
@@ -109,9 +108,8 @@ process and signing in independently:
 
 The second prompt may also show a **consent** screen, because the actual run
 requests the additional read-only scopes it needs for name resolution and
-enrichment (for example `Directory.Read.All`, and with MFA/risk enrichment also
-`Group.Read.All`, `User.Read.All`, `RoleManagement.Read.Directory`,
-`AuditLog.Read.All`, `UserAuthenticationMethod.Read.All`) that were not consented
+enrichment (`Directory.Read.All`, `RoleManagement.Read.Directory`,
+`AuditLog.Read.All`, and `UserAuthenticationMethod.Read.All`) that were not consented
 during the prerequisites check.
 
 **To get a single sign-in**, skip the prerequisites check and run

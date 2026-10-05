@@ -108,9 +108,11 @@ One-time preparation:
    `Policy.Read.All`.
 3. Add the optional Application permissions required by the features you want:
    - `Directory.Read.All` for display-name resolution.
-   - `Group.Read.All`, `User.Read.All`, `RoleManagement.Read.Directory`,
-     `AuditLog.Read.All`, and `UserAuthenticationMethod.Read.All` for the full
-     directory-enriched analysis. See [PERMISSIONS.md](PERMISSIONS.md).
+   - `RoleManagement.Read.Directory`, `AuditLog.Read.All`, and
+     `UserAuthenticationMethod.Read.All` for the full directory-enriched
+     analysis. `Directory.Read.All` already covers the group and user reads, so
+     separate `Group.Read.All` and `User.Read.All` grants are not requested by
+     the default. See [PERMISSIONS.md](PERMISSIONS.md).
 4. Grant tenant-wide admin consent for those application permissions.
 5. Create or obtain an X.509 certificate. Upload **only its public certificate**
    (`.cer`, `.pem`, or `.crt`) under **Certificates & secrets > Certificates**

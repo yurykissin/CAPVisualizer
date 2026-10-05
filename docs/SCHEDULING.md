@@ -37,8 +37,9 @@ pwsh ./scripts/Register-CapSchedule.ps1 \
   -Time 03:00 -Apply
 ```
 
-This adds a daily `crontab` line that runs the exporter with `-Delta` and logs
-to `output/cron.log`.
+This adds one marked `# CAPVisualizer-Daily` crontab line. It runs through
+`Invoke-CapScheduledRun.ps1`, which prevents overlapping runs and rejects a PFX
+readable by group or other users, then logs to `output/cron.log`.
 
 ### Windows (Task Scheduler)
 
@@ -50,24 +51,34 @@ pwsh .\scripts\Register-CapSchedule.ps1 `
   -Time 03:00 -Apply
 ```
 
-Registers a daily Scheduled Task named `CAPVisualizer-Daily`.
+Registers a daily Scheduled Task named `CAPVisualizer-Daily` under the identity
+running the registration command and configures duplicate triggers to
+`IgnoreNew`. The default registration is appropriate only when that identity's
+logon type and certificate store remain available. For a service account, gMSA,
+or a task that must run while the user is logged off, create the task under that
+identity using your organization's credential-management process and verify it
+while signed in as that identity.
 
 ## Manual scheduling
 
 You can also wire the exporter into any scheduler yourself. The command to run:
 
 ```bash
-pwsh -NoProfile -File /opt/CAPVisualizer/scripts/Invoke-CapVisualizer.ps1 \
+pwsh -NoProfile -File /opt/CAPVisualizer/scripts/Invoke-CapScheduledRun.ps1 \
   -TenantId contoso.onmicrosoft.com \
   -ClientId 11111111-2222-3333-4444-555555555555 \
-  -CertificatePath /secure/capvisualizer.pfx \
-  -Delta -NoTranscript
+  -CertificatePath /secure/capvisualizer.pfx
 ```
 
 The scheduled identity must own or have access to the certificate's private
 key. On Windows, a certificate installed only for your interactive user is not
 automatically available to another Scheduled Task identity. On macOS/Linux,
 restrict the PFX to the cron identity with mode `600`.
+
+The scheduler wrapper keeps an exclusive lock at `output/.capvisualizer.lock`.
+The file may remain on disk, but the operating-system lock is released on
+process exit; a concurrent trigger fails before authentication instead of
+writing into the same run window.
 
 ## Snapshot retention
 

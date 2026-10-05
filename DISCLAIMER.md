@@ -90,15 +90,14 @@ needs only `Policy.Read.All`.
 By **default** the tool also resolves object GUIDs to friendly names and collects
 read-only directory context to power the analysis engines, so an interactive run
 requests additional read-only scopes - typically `Directory.Read.All`, and with
-MFA and risk enrichment also `Group.Read.All`, `User.Read.All`,
-`RoleManagement.Read.Directory`, `AuditLog.Read.All` and
+MFA and risk enrichment also `RoleManagement.Read.Directory`, `AuditLog.Read.All` and
 `UserAuthenticationMethod.Read.All`.
 
 To reduce that footprint:
 
-- `-SkipResolveNames` keeps the minimal `Policy.Read.All`-only footprint (output
-  then shows GUIDs instead of names).
-- `-SkipDirectory` skips directory enrichment.
+- Use **both** `-SkipResolveNames` and `-SkipDirectory` for the minimal
+  `Policy.Read.All`-only footprint. Either switch by itself leaves the other
+  directory-dependent behavior enabled.
 
 [docs/PERMISSIONS.md](docs/PERMISSIONS.md) is the authoritative list of scopes,
 including the narrower alternatives to `Directory.Read.All` and the directory
