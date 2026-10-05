@@ -34,7 +34,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $modules = Join-Path $PSScriptRoot 'modules'
-foreach ($m in 'CapCommon', 'CapExport', 'CapNormalize', 'CapScope', 'CapWhatIf', 'CapAudit', 'CapFindings', 'CapCompliance', 'CapTest') {
+foreach ($m in 'CapCommon', 'CapExport', 'CapNormalize', 'CapScope', 'CapAudit', 'CapFindings', 'CapCompliance', 'CapTest') {
     Import-Module (Join-Path $modules "$m.psm1") -Force
 }
 

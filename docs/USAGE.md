@@ -98,6 +98,8 @@ pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./output/20261005-120000
 
 **Yes, you must prepare the app registration and certificate before running
 this command. CAPVisualizer does not create or grant permissions to the app.**
+For complete Windows, macOS, and Linux setup and rotation guidance, see
+[APP-AUTH.md](APP-AUTH.md).
 
 One-time preparation:
 
@@ -180,25 +182,14 @@ pwsh ./scripts/Get-CapUserScope.ps1 \
   -FromJson ./output/20261005-120000/raw/export.json \
   -PrincipalId 11111111-2222-3333-4444-555555555555
 
-# Simulate one sign-in (definitive vs signal-dependent outcome).
-pwsh ./scripts/Invoke-CapWhatIf.ps1 \
-  -FromJson ./output/20261005-120000/raw/export.json \
-  -PrincipalId 11111111-2222-3333-4444-555555555555 \
-  -Resource 00000003-0000-0ff1-ce00-000000000000 -ClientApp browser
-
-# Permute unspecified signals to surface bypasses / no-enforcement paths.
-pwsh ./scripts/Invoke-CapAnalyze.ps1 \
-  -FromJson ./output/20261005-120000/raw/export.json
-
 # Run a declarative assertion pack; exit code 0 = pass, 1 = failure (CI-friendly).
 pwsh ./scripts/Invoke-CapTest.ps1 \
   -FromJson ./output/20261005-120000/raw/export.json \
   -AssertionPath ./my-assertions.json -JUnitPath ./results.xml -SarifPath ./results.sarif.json
 ```
 
-See [SCOPE.md](SCOPE.md), [WHATIF.md](WHATIF.md), [ANALYZE.md](ANALYZE.md),
-[AUDIT.md](AUDIT.md), [FINDINGS.md](FINDINGS.md), [COMPLIANCE.md](COMPLIANCE.md),
-and [TESTING.md](TESTING.md) for each engine.
+See [SCOPE.md](SCOPE.md), [AUDIT.md](AUDIT.md), [FINDINGS.md](FINDINGS.md),
+[COMPLIANCE.md](COMPLIANCE.md), and [TESTING.md](TESTING.md) for each engine.
 
 ## 6. Compare two arbitrary snapshots
 

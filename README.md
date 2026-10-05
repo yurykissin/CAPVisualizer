@@ -71,6 +71,7 @@ Get-Help ./scripts/Invoke-CapVisualizer.ps1 -Examples
 | **Integrity manifest** | Records SHA-256 hashes for snapshot files so accidental changes or incomplete copies can be detected. |
 | **Interactive and unattended auth** | Supports delegated browser/device-code sign-in and certificate-based application authentication for scheduled runs. |
 | **Scheduling** | Includes local cron and Windows Task Scheduler guidance for unattended runs. |
+| **Snapshot retention** | Safely previews and removes expired timestamped snapshots without following links or deleting unrelated folders. |
 | **Cross-platform execution** | Runs under PowerShell 7 on Windows, macOS, and Linux. |
 
 ## Offline analysis engines
@@ -81,8 +82,6 @@ do not call a model or make tenant changes.
 | Engine | Question answered | Details |
 | --- | --- | --- |
 | **Scope resolution** | Which policies include or exclude a specific user through direct, group, or role targeting? | [SCOPE.md](docs/SCOPE.md) |
-| **What-if evaluation** | For a described sign-in, which policies definitely apply and which depend on missing signals? | [WHATIF.md](docs/WHATIF.md) |
-| **Gap permutation** | Do combinations of platform, client, location, risk, or authentication-flow signals create uncovered paths? | [ANALYZE.md](docs/ANALYZE.md) |
 | **Contradiction audit** | Are includes, exclusions, controls, or exemptions internally inconsistent or unexpectedly broad? | [AUDIT.md](docs/AUDIT.md) |
 | **Consolidation** | Which policies are duplicates, overlaps, merge candidates, dead weight, or evidence of a missing baseline? | [CONSOLIDATE.md](docs/CONSOLIDATE.md) |
 | **Risk-scored findings** | What configuration and identity-posture gaps exist, how were they detected, and why do they matter? | [FINDINGS.md](docs/FINDINGS.md) |
@@ -264,6 +263,7 @@ tests/                       offline Pester regression suite
 | End-to-end data and decision flow | [PROCESS.md](docs/PROCESS.md) |
 | Commands, switches, and unattended use | [USAGE.md](docs/USAGE.md) |
 | Graph permissions and directory roles | [PERMISSIONS.md](docs/PERMISSIONS.md) |
+| App registration and certificate setup | [APP-AUTH.md](docs/APP-AUTH.md) |
 | Safe export and name restoration | [SAFEEXPORT.md](docs/SAFEEXPORT.md) |
 | Security and privacy model | [SECURITY.md](docs/SECURITY.md) |
 | Snapshot comparison | [DELTA.md](docs/DELTA.md) |

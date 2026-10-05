@@ -77,7 +77,8 @@ checks that rely on directory data will then be limited or unavailable.
   `Directory.Read.All`, `Group.Read.All`, `User.Read.All`,
   `RoleManagement.Read.Directory`, `AuditLog.Read.All`, and
   `UserAuthenticationMethod.Read.All`. Prefer a **certificate** over a client
-  secret.
+  secret. See [APP-AUTH.md](APP-AUTH.md) for app registration, certificate
+  installation, scheduler identity, verification, and rotation.
 
 ## Directory roles that can read CA policies (interactive)
 

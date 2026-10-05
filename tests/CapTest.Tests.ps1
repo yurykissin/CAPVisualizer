@@ -7,7 +7,7 @@
 BeforeAll {
     $repo = Split-Path $PSScriptRoot -Parent
     $modules = Join-Path $repo 'scripts/modules'
-    foreach ($m in 'CapCommon', 'CapExport', 'CapNormalize', 'CapScope', 'CapWhatIf', 'CapAudit', 'CapFindings', 'CapCompliance', 'CapTest') {
+    foreach ($m in 'CapCommon', 'CapExport', 'CapNormalize', 'CapScope', 'CapAudit', 'CapFindings', 'CapCompliance', 'CapTest') {
         Import-Module (Join-Path $modules "$m.psm1") -Force
     }
 
@@ -24,8 +24,7 @@ BeforeAll {
         assertions = @(
             @{ id = 'a1'; name = 'legacy blocked'; type = 'compliance'; control = 'MS.AAD.1.1'; expect = 'pass' }
             @{ id = 'a2'; name = 'high signin risk blocked (should fail)'; type = 'compliance'; control = 'MS.AAD.2.3'; expect = 'pass' }
-            @{ id = 'a3'; name = 'nomfa user must get MFA'; type = 'whatif'; principalId = '77777777-7777-7777-7777-777777777777'; resource = '00000002-0000-0ff1-ce00-000000000000'; signals = @{ ClientApp = 'browser' }; expect = @{ mfaRequired = $true } }
-            @{ id = 'a4'; name = 'legacy client must be blocked'; type = 'whatif'; principalId = '77777777-7777-7777-7777-777777777777'; resource = '00000002-0000-0ff1-ce00-000000000000'; signals = @{ ClientApp = 'exchangeActiveSync' }; expect = @{ blocked = $true } }
+            @{ id = 'a3'; name = 'no critical findings'; type = 'findingThreshold'; disallowSeverity = 'critical'; maxCount = 10 }
         )
     } | ConvertTo-Json -Depth 8 | Set-Content -Path $script:PackPath -Encoding utf8
 
@@ -45,12 +44,8 @@ Describe 'Assertion evaluation' {
         (@($script:Result.assertions | Where-Object { $_.id -eq 'a2' })[0]).result | Should -Be 'fail'
     }
 
-    It 'passes the what-if MFA assertion' {
+    It 'passes the finding threshold assertion' {
         (@($script:Result.assertions | Where-Object { $_.id -eq 'a3' })[0]).result | Should -Be 'pass'
-    }
-
-    It 'passes the what-if legacy-block assertion' {
-        (@($script:Result.assertions | Where-Object { $_.id -eq 'a4' })[0]).result | Should -Be 'pass'
     }
 
     It 'reports overall failure because one assertion failed' {
@@ -63,7 +58,7 @@ Describe 'Machine-readable output' {
     It 'emits well-formed JUnit XML with the failure count' {
         $xml = [xml](ConvertTo-CapJUnit -TestResult $script:Result)
         $xml.testsuites.failures | Should -Be '1'
-        [int]$xml.testsuites.tests | Should -Be 4
+        [int]$xml.testsuites.tests | Should -Be 3
     }
 
     It 'emits SARIF 2.1.0 containing only the failing result' {

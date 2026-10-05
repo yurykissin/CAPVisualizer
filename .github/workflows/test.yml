@@ -1,0 +1,29 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force
+
+      - name: Run PowerShell tests
+        shell: pwsh
+        run: Invoke-Pester -Path ./tests -Output Detailed
+
+      - name: Check viewer JavaScript syntax
+        run: node --check ./assets/app.js

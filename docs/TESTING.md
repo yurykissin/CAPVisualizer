@@ -15,11 +15,9 @@ not Pester.
 - **findingThreshold** - the finding set must not contain more than N findings at
   or above a severity.
   `{ type:"findingThreshold", disallowSeverity:"critical", maxCount:0 }`
-- **whatif** - a simulated sign-in must yield an expected outcome.
-  `{ type:"whatif", principalId:"...", resource:"...", signals:{ ClientApp:"browser" }, expect:{ mfaRequired:true } }`
 
-The engine lazily computes the compliance, findings, and what-if results it needs
-from a single export, so one snapshot drives the whole gate offline.
+The engine lazily computes the compliance and findings results it needs from a
+single export, so one snapshot drives the whole gate offline.
 
 ## Usage
 

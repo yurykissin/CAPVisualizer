@@ -27,20 +27,36 @@ schema version** on that entry so users know a re-export is required.
 ## Component scope (files owned by the report side)
 
 - Analysis engines: `CapNormalize`, `CapAudit`, `CapCompliance`, `CapConsolidate`,
-  `CapFindings`, `CapAnalyze`, `CapScope`, `CapWhatIf`, `CapTest`, `CapDelta`,
+  `CapFindings`, `CapScope`, `CapTest`, `CapDelta`,
   `CapAuthMethods`, `CapReport`, `CapVisual` (all under `scripts/modules/`).
 - Viewer assets: `assets/template.html`, `assets/app.js`, `assets/styles.css`.
 - Baseline / reference packs: `assets/reference/baselines/*` (e.g. CISA SCuBA
   `MS.AAD.*`).
 - Offline orchestrators: the `-FromJson` path of `scripts/Invoke-CapVisualizer.ps1`,
-  and `Invoke-CapConsolidate.ps1`, `Invoke-CapAnalyze.ps1`, `Invoke-CapTest.ps1`,
-  `Invoke-CapWhatIf.ps1`, `Compare-CapSnapshot.ps1`, `Get-CapUserScope.ps1`.
+  and `Invoke-CapConsolidate.ps1`, `Invoke-CapTest.ps1`,
+  `Compare-CapSnapshot.ps1`, `Get-CapUserScope.ps1`.
 
 ---
 
 ## [Unreleased]
 
 ### Added
+- **Cross-platform unattended certificate authentication** — app-only runs now
+  accept `-CertificatePath` (plus optional `-CertificatePassword`) for PFX-based
+  authentication on macOS/Linux, while retaining certificate-store thumbprint
+  authentication for Windows.
+- **Safe snapshot retention** — `Remove-CapSnapshot.ps1` previews by default and
+  only removes expired timestamped snapshot directories directly beneath the
+  resolved output root. It rejects broad roots and never follows links.
+- **Repository governance** — added pull-request CI, CODEOWNERS, and a private
+  vulnerability-reporting policy.
+
+### Removed
+- **Offline what-if and gap permutation** — removed the standalone what-if
+  evaluator, gap-permutation engine, and the assertion DSL's `whatif` type.
+  Policy-as-code assertions now cover deterministic compliance results and
+  finding thresholds only.
+
 - **Coverage-gap sign-in queries and run instructions in the report** — the
   "Policy usage query" tab becomes **"Sign-in log queries"** and now carries
   three copy-ready KQL queries with a numbered "Before you run these" procedure:

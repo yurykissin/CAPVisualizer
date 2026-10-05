@@ -2,7 +2,7 @@
 .SYNOPSIS
     CAPVisualizer normalization layer (Phase 1). Converts a raw Conditional
     Access policy into a canonical, match-ready shape that downstream engines
-    (scope, what-if, gap analysis, audit, compliance) can evaluate deterministically
+    (scope, audit, findings, consolidation, compliance) can evaluate deterministically
     offline.
 
 .DESCRIPTION
@@ -419,7 +419,7 @@ function ConvertTo-CapNormalizedPolicy {
     $session = _NGet $Policy 'sessionControls'
 
     # Which sign-in signals gate this policy's applicability (used to classify
-    # definitive vs signal-dependent in the what-if engine).
+    # normalized condition inventory).
     $signals = [System.Collections.Generic.List[string]]::new()
     if ($signInRisk.Count) { [void]$signals.Add('signInRisk') }
     if ($userRisk.Count)   { [void]$signals.Add('userRisk') }

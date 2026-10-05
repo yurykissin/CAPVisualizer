@@ -82,6 +82,13 @@ function Connect-CapGraph {
 .PARAMETER CertificateThumbprint
     Thumbprint of a certificate in the local store for app-based auth.
 
+.PARAMETER CertificatePath
+    Path to a PFX file containing the certificate and private key. Intended for
+    platforms where certificate-store private-key persistence is unavailable.
+
+.PARAMETER CertificatePassword
+    Optional SecureString password for the PFX file.
+
 .PARAMETER ClientSecret
     Client secret (SecureString) for app-based auth. Certificate is preferred.
 
@@ -102,15 +109,23 @@ function Connect-CapGraph {
 
         [Parameter(ParameterSetName = 'Interactive')]
         [Parameter(Mandatory, ParameterSetName = 'AppCert')]
+        [Parameter(Mandatory, ParameterSetName = 'AppCertFile')]
         [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
         [string]$TenantId,
 
         [Parameter(Mandatory, ParameterSetName = 'AppCert')]
+        [Parameter(Mandatory, ParameterSetName = 'AppCertFile')]
         [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
         [string]$ClientId,
 
         [Parameter(Mandatory, ParameterSetName = 'AppCert')]
         [string]$CertificateThumbprint,
+
+        [Parameter(Mandatory, ParameterSetName = 'AppCertFile')]
+        [string]$CertificatePath,
+
+        [Parameter(ParameterSetName = 'AppCertFile')]
+        [System.Security.SecureString]$CertificatePassword,
 
         [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
         [System.Security.SecureString]$ClientSecret
@@ -126,6 +141,21 @@ function Connect-CapGraph {
             Write-CapLog "Connecting to Graph (app + certificate) tenant $TenantId" 'INFO'
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId `
                 -CertificateThumbprint $CertificateThumbprint -NoWelcome -ErrorAction Stop
+        }
+        'AppCertFile' {
+            $resolvedCertificatePath = (Resolve-Path -LiteralPath $CertificatePath -ErrorAction Stop).Path
+            $certificate = if ($CertificatePassword) {
+                Get-PfxCertificate -LiteralPath $resolvedCertificatePath -Password $CertificatePassword -ErrorAction Stop
+            }
+            else {
+                Get-PfxCertificate -LiteralPath $resolvedCertificatePath -NoPromptForPassword -ErrorAction Stop
+            }
+            if (-not $certificate.HasPrivateKey) {
+                throw "Certificate file does not contain an accessible private key: $resolvedCertificatePath"
+            }
+            Write-CapLog "Connecting to Graph (app + certificate file) tenant $TenantId" 'INFO'
+            Connect-MgGraph -TenantId $TenantId -ClientId $ClientId `
+                -Certificate $certificate -NoWelcome -ErrorAction Stop
         }
         'AppSecret' {
             Write-CapLog "Connecting to Graph (app + secret) tenant $TenantId" 'INFO'

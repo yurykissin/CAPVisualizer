@@ -19,6 +19,10 @@
 .PARAMETER CertificateThumbprint
     Certificate thumbprint for app-based auth.
 
+.PARAMETER CertificatePath
+    Path to an unencrypted PFX file readable only by the scheduled identity.
+    Use this on macOS/Linux when certificate-store lookup is unavailable.
+
 .PARAMETER Time
     Time of day HH:mm for the daily run. Default 03:00.
 
@@ -30,12 +34,16 @@
 
 .EXAMPLE
     pwsh ./scripts/Register-CapSchedule.ps1 -TenantId contoso.com -ClientId 11111111-2222-3333-4444-555555555555 -CertificateThumbprint A1B2C3D4E5F6 -Apply
+
+.EXAMPLE
+    pwsh ./scripts/Register-CapSchedule.ps1 -TenantId contoso.com -ClientId 11111111-2222-3333-4444-555555555555 -CertificatePath /secure/capvisualizer.pfx -Apply
 #>
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Thumbprint')]
 param(
     [Parameter(Mandatory)][string]$TenantId,
     [Parameter(Mandatory)][string]$ClientId,
-    [Parameter(Mandatory)][string]$CertificateThumbprint,
+    [Parameter(Mandatory, ParameterSetName = 'Thumbprint')][string]$CertificateThumbprint,
+    [Parameter(Mandatory, ParameterSetName = 'File')][string]$CertificatePath,
     [ValidatePattern('^\d{2}:\d{2}$')][string]$Time = '03:00',
     [switch]$Apply
 )
@@ -48,7 +56,14 @@ if (-not $pwsh) { $pwsh = 'pwsh' }
 $script = Join-Path $PSScriptRoot 'Invoke-CapVisualizer.ps1'
 $hh, $mm = $Time.Split(':')
 
-$argLine = "-NoProfile -File `"$script`" -TenantId `"$TenantId`" -ClientId `"$ClientId`" -CertificateThumbprint `"$CertificateThumbprint`" -Delta -NoTranscript"
+$certificateArgument = if ($PSCmdlet.ParameterSetName -eq 'File') {
+    $resolvedCertificatePath = (Resolve-Path -LiteralPath $CertificatePath -ErrorAction Stop).Path
+    "-CertificatePath `"$resolvedCertificatePath`""
+}
+else {
+    "-CertificateThumbprint `"$CertificateThumbprint`""
+}
+$argLine = "-NoProfile -File `"$script`" -TenantId `"$TenantId`" -ClientId `"$ClientId`" $certificateArgument -Delta -NoTranscript"
 
 if ($IsWindows) {
     Write-Host "Windows Scheduled Task 'CAPVisualizer-Daily' at ${Time}:" -ForegroundColor Cyan

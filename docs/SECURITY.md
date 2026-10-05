@@ -17,6 +17,13 @@ Snapshots under `output/` can contain sensitive configuration: policy targeting,
 excluded/break-glass accounts, named locations, and object identifiers.
 
 - `output/` is git-ignored by default.
+- Store snapshots on encrypted storage. Full-disk encryption protects data at
+  rest when the machine or disk is lost; it does not replace OS access control.
+- Define a retention period appropriate to the tenant and customer. Do not mix
+  exports from different customers in a shared directory with broad access.
+- Preview expiry with `scripts/Remove-CapSnapshot.ps1 -RetainDays 90`, then use
+  `-Apply` only after reviewing the listed paths. The script limits deletion to
+  timestamped direct children of the resolved output root.
 - Treat exports as sensitive data per your organization's policy.
 - **Names are split out.** Each run writes a name-free `raw/export.json` plus a
   local-only `raw/names.json` dictionary. `manifest.json` flags every file with
@@ -47,6 +54,8 @@ excluded/break-glass accounts, named locations, and object identifiers.
   client secret. If you must use a secret, pass it as a `SecureString`
   (`-ClientSecret`) and never hard-code it. Do not commit secrets, `.pfx`,
   `.cer`, or `.key` files - they are git-ignored by default.
+- Install the certificate and private key for the actual scheduler identity,
+  not only the interactive administrator. See [APP-AUTH.md](APP-AUTH.md).
 - The run transcript (`transcript.txt`) captures console output, not tokens.
   Use `-NoTranscript` if you prefer no transcript.
 

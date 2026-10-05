@@ -22,6 +22,13 @@
 .PARAMETER CertificateThumbprint
     Certificate thumbprint for app-based auth (preferred over a secret).
 
+.PARAMETER CertificatePath
+    Path to a PFX certificate file for app-based auth on platforms where a
+    private key is not available through the certificate store.
+
+.PARAMETER CertificatePassword
+    Optional SecureString password for the PFX file.
+
 .PARAMETER ClientSecret
     Client secret (SecureString) for app-based auth. Certificate is preferred.
 
@@ -120,6 +127,10 @@
     Unattended run using an app registration with certificate auth.
 
 .EXAMPLE
+    pwsh ./scripts/Invoke-CapVisualizer.ps1 -TenantId contoso.com -ClientId 11111111-2222-3333-4444-555555555555 -CertificatePath /secure/capvisualizer.pfx -Delta
+    Unattended run using a file-based PFX certificate.
+
+.EXAMPLE
     pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./cap-safe-review.json -Names ./names.json -NoOpen
     Fully offline render of a safe export, restoring names from a local
     dictionary without connecting to Microsoft Graph.
@@ -148,15 +159,23 @@ param(
 
     [Parameter(ParameterSetName = 'Interactive')]
     [Parameter(Mandatory, ParameterSetName = 'AppCert')]
+    [Parameter(Mandatory, ParameterSetName = 'AppCertFile')]
     [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
     [string]$TenantId,
 
     [Parameter(Mandatory, ParameterSetName = 'AppCert')]
+    [Parameter(Mandatory, ParameterSetName = 'AppCertFile')]
     [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
     [string]$ClientId,
 
     [Parameter(Mandatory, ParameterSetName = 'AppCert')]
     [string]$CertificateThumbprint,
+
+    [Parameter(Mandatory, ParameterSetName = 'AppCertFile')]
+    [string]$CertificatePath,
+
+    [Parameter(ParameterSetName = 'AppCertFile')]
+    [System.Security.SecureString]$CertificatePassword,
 
     [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
     [System.Security.SecureString]$ClientSecret,
@@ -196,7 +215,6 @@ Import-Module (Join-Path $modules 'CapExport.psm1') -Force
 Import-Module (Join-Path $modules 'CapEnrich.psm1') -Force
 Import-Module (Join-Path $modules 'CapNormalize.psm1') -Force
 Import-Module (Join-Path $modules 'CapScope.psm1') -Force
-Import-Module (Join-Path $modules 'CapWhatIf.psm1') -Force
 Import-Module (Join-Path $modules 'CapAudit.psm1') -Force
 Import-Module (Join-Path $modules 'CapConsolidate.psm1') -Force
 Import-Module (Join-Path $modules 'CapFindings.psm1') -Force
@@ -283,6 +301,7 @@ try {
         # --- Connect ---
         switch ($PSCmdlet.ParameterSetName) {
             'AppCert'   { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint | Out-Null }
+            'AppCertFile' { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -CertificatePath $CertificatePath -CertificatePassword $CertificatePassword | Out-Null }
             'AppSecret' { Connect-CapGraph -TenantId $TenantId -ClientId $ClientId -ClientSecret $ClientSecret | Out-Null }
             default     {
                 $connectScopes = @($Scopes)
@@ -665,7 +684,7 @@ try {
 
     # Auto-open the report in the default browser (interactive runs only). App-only
     # (unattended) runs and -NoOpen / -NoVisual skip this.
-    $unattended = $PSCmdlet.ParameterSetName -in @('AppCert', 'AppSecret')
+    $unattended = $PSCmdlet.ParameterSetName -in @('AppCert', 'AppCertFile', 'AppSecret')
     if (-not $NoOpen -and -not $NoVisual -and -not $unattended -and (Test-Path $visualPath)) {
         Open-CapBrowser -Url $visualPath
     }

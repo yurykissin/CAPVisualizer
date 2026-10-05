@@ -10,12 +10,10 @@
       * compliance       - a baseline control must have an expected result.
       * findingThreshold - the finding set must not contain more than N findings
                            at/above a given severity.
-      * whatif           - a simulated sign-in for a principal/resource must yield
-                           an expected outcome (e.g. mfaRequired / blocked).
 
-    The engine computes any analysis result it needs (compliance, findings,
-    what-if) from the normalized policy set + enrichment, so a single export is
-    enough to drive a CI gate fully offline.
+    The engine computes any analysis result it needs (compliance and findings)
+    from the normalized policy set + enrichment, so a single export is enough
+    to drive a CI gate fully offline.
 
     Authored independently; no third-party tool code or logic is reused.
 #>
@@ -114,35 +112,6 @@ function Invoke-CapTest {
                     else {
                         $titles = @($over | Select-Object -First 5 | ForEach-Object { $_.title }) -join '; '
                         $results.Add((_TeResult $id $name $type 'fail' "$($over.Count) finding(s) at/above '$sev' exceed max ${maxCount}: $titles"))
-                    }
-                }
-                'whatif' {
-                    $principalId = "$(_TeGet $a 'principalId')"
-                    $resource = "$(_TeGet $a 'resource')"
-                    $signals = _TeGet $a 'signals'
-                    $expect = _TeGet $a 'expect'
-                    $wiArgs = @{ PrincipalId = $principalId; NormalizedPolicies = $policies; Enrichment = $Enrichment }
-                    if ($resource) { $wiArgs['Resource'] = $resource }
-                    if ($signals) {
-                        foreach ($k in @('Platform', 'ClientApp', 'Location', 'SignInRisk', 'UserRisk', 'AuthFlow', 'DeviceState')) {
-                            $v = _TeGet $signals $k
-                            if ($v) { $wiArgs[$k] = $v }
-                        }
-                    }
-                    $wi = Test-CapWhatIf @wiArgs
-                    $fails = [System.Collections.Generic.List[string]]::new()
-                    foreach ($k in @('blocked', 'mfaRequired')) {
-                        $exp = _TeGet $expect $k
-                        if ($null -ne $exp) {
-                            $actual = [bool]$wi.outcome.$k
-                            if ($actual -ne [bool]$exp) { $fails.Add("$k expected $([bool]$exp) but was $actual") }
-                        }
-                    }
-                    if ($fails.Count -eq 0) {
-                        $results.Add((_TeResult $id $name $type 'pass' 'Sign-in outcome matched expectations.'))
-                    }
-                    else {
-                        $results.Add((_TeResult $id $name $type 'fail' ($fails -join '; ')))
                     }
                 }
                 default {
