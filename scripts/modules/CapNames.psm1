@@ -127,7 +127,8 @@ $script:CapReservedVocabulary = [System.Collections.Generic.HashSet[string]]::ne
         # controls and outcomes
         'block', 'grant', 'allow', 'deny', 'require', 'session', 'control',
         'controls', 'pass', 'fail', 'manual', 'present', 'absent', 'gap',
-        'ok', 'error', 'warn', 'warning', 'skip', 'skipped',
+        'ok', 'error', 'warn', 'warning', 'skip', 'skipped', 'complete',
+        'partial', 'incomplete', 'available', 'unavailable',
         # severities and scoring
         'critical', 'high', 'medium', 'low', 'info', 'informational', 'none',
         # analysis vocabulary

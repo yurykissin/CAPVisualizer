@@ -713,6 +713,8 @@ try {
     }
 }
 finally {
-    if ($PSCmdlet.ParameterSetName -ne 'FromJson') { try { Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null } catch { } }
+    if ($PSCmdlet.ParameterSetName -ne 'FromJson') {
+        try { Disconnect-MgGraph -ErrorAction SilentlyContinue -WarningAction SilentlyContinue | Out-Null } catch { }
+    }
     if (-not $NoTranscript) { try { Stop-Transcript | Out-Null } catch { } }
 }

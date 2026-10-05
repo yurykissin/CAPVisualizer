@@ -1032,6 +1032,18 @@ Describe 'Schema vocabulary is never masked' {
         @(Test-CapNameLeak -Dictionary $dict -InputObject @{ type = 'user' }).Count | Should -Be 0
     }
 
+    It 'preserves collection-completeness statuses even when they enter the dictionary' {
+        foreach ($status in 'complete', 'partial', 'incomplete', 'available', 'unavailable') {
+            $map = @{ 'a0b1b346-4d3e-4e8b-98f8-753987be4970' = $status }
+            $dict = New-CapNameDictionary -Export @{ policies = @() } -NameMap $map -Snapshot 'test'
+            $doc = @{ roleAssignments = @{ completeness = $status } }
+            $safe = ConvertTo-CapSafeObject -InputObject $doc -Dictionary $dict
+
+            $safe.roleAssignments.completeness | Should -Be $status
+            @(Test-CapNameLeak -Dictionary $dict -InputObject $safe).Count | Should -Be 0
+        }
+    }
+
     It 'still masks a name that merely contains a schema word' {
         $map = @{ 'bbbbbbbb-0000-0000-0000-000000000001' = 'User Admins Contoso' }
         $dict = New-CapNameDictionary -Export @{ policies = @() } -NameMap $map -Snapshot 'test'
