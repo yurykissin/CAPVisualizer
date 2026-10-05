@@ -46,6 +46,16 @@
     contradiction/compliance analysis. Each dataset degrades gracefully if a
     scope is missing. Use -SkipDirectory to keep a policy-only run.
 
+.PARAMETER SkipAnalysis
+    Skip the offline audit, consolidation, findings, compliance, authentication
+    methods, and assertion engines. The export, reports, and optional HTML
+    visualization are still generated.
+
+.PARAMETER AssertionPath
+    Path to a custom JSON assertion pack for the built-in test engine. When
+    omitted, CAPVisualizer uses its bundled starter assertions. Ignored when
+    -SkipAnalysis is used.
+
 .PARAMETER FromJson
     Fully-offline render mode. Instead of connecting to Graph, load policies from
     an existing JSON file (a CAPVisualizer export.json, a snapshot folder, a raw
@@ -54,8 +64,23 @@
     Names show as GUIDs unless the JSON embeds a nameMap.
 
 .PARAMETER Redact
-    Replace tenant id and object GUIDs with stable pseudonyms so the output can be
-    shared externally.
+    Deprecated alias for -Pseudonymize. Retained for compatibility.
+
+.PARAMETER Pseudonymize
+    Replace tenant-specific GUIDs and the tenant id with stable aliases in the
+    local export. The reversible alias-to-name mapping is kept only in
+    raw/names.json unless -NoNames is also specified. For third-party sharing,
+    use the report's Export safely action or Export-CapSafeBundle.ps1 rather
+    than sharing raw/export.json.
+
+.PARAMETER NoNames
+    Do not write raw/names.json. Local reports render tenant objects as ids or
+    pseudonyms, and the names cannot be restored from this snapshot.
+
+.PARAMETER Names
+    Path to a local names.json dictionary used to restore display names while
+    rendering with -FromJson. If omitted, CAPVisualizer also looks beside the
+    input export for a matching dictionary.
 
 .PARAMETER Delta
     Compare this run against the most recent previous snapshot (or -BaselinePath).
@@ -91,8 +116,25 @@
     Minimal permissions (GUIDs only) and diff against the previous run.
 
 .EXAMPLE
-    pwsh ./scripts/Invoke-CapVisualizer.ps1 -TenantId contoso.com -ClientId <appId> -CertificateThumbprint <thumb> -Delta
+    pwsh ./scripts/Invoke-CapVisualizer.ps1 -TenantId contoso.com -ClientId 11111111-2222-3333-4444-555555555555 -CertificateThumbprint A1B2C3D4E5F6 -Delta
     Unattended run using an app registration with certificate auth.
+
+.EXAMPLE
+    pwsh ./scripts/Invoke-CapVisualizer.ps1 -FromJson ./cap-safe-review.json -Names ./names.json -NoOpen
+    Fully offline render of a safe export, restoring names from a local
+    dictionary without connecting to Microsoft Graph.
+
+.EXAMPLE
+    pwsh ./scripts/Invoke-CapVisualizer.ps1 -Pseudonymize -Delta
+    Interactive run with stable aliases in the export. Use Export safely in the
+    generated report before sending an artifact to an AI or third party.
+
+.NOTES
+    Interactive minimum: Policy.Read.All.
+    Name resolution: add Directory.Read.All.
+    Directory enrichment is read-only and requests Group.Read.All,
+    User.Read.All, RoleManagement.Read.Directory, AuditLog.Read.All, and
+    UserAuthenticationMethod.Read.All. Use -SkipDirectory for policy-only runs.
 #>
 [CmdletBinding(DefaultParameterSetName = 'Interactive')]
 param(
