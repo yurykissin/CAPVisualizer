@@ -21,9 +21,9 @@ $script:CapPhishResistantMethods = @(
     'certificateBasedAuthentication'
 )
 
-# Telephony method identifiers (SMS text message / voice call). Microsoft is
-# retiring SMS and voice as MFA methods, so any user still registered for these
-# is red-flagged for migration to a stronger method.
+# Telephony registration identifiers (SMS text message / voice call). The
+# registration report does not prove recent use; it only shows that a phone
+# method remains registered.
 $script:CapTelephonyMethods = @(
     'mobilePhone',
     'alternateMobilePhone',
@@ -129,7 +129,7 @@ function Invoke-CapAuthMethods {
             methodsRegistered   = @($methods)
             methodCount         = @($methods).Count
             hasPhishResistant   = @($phishResistant).Count -ge 1
-            usesTelephonyMfa    = @($telephony).Count -ge 1
+            hasTelephonyRegistration = @($telephony).Count -ge 1
             telephonyMethods    = @($telephony)
             defaultMfaMethod    = "$(_AmGet $m 'defaultMfaMethod')"
         }
@@ -158,11 +158,11 @@ function Invoke-CapAuthMethods {
     $pwless   = @($users | Where-Object { $_.isPasswordlessCapable }).Count
     $phishRes = @($users | Where-Object { $_.hasPhishResistant }).Count
     $ssprReg  = @($users | Where-Object { $_.isSsprRegistered }).Count
-    $smsVoice = @($users | Where-Object { $_.usesTelephonyMfa })
-    $smsVoiceCount = @($smsVoice).Count
+    $telephonyRegistered = @($users | Where-Object { $_.hasTelephonyRegistration })
+    $telephonyRegisteredCount = @($telephonyRegistered).Count
     $adminMfaReg   = @($admins | Where-Object { $_.isMfaRegistered }).Count
     $adminPhishRes = @($admins | Where-Object { $_.hasPhishResistant }).Count
-    $adminSmsVoice = @($admins | Where-Object { $_.usesTelephonyMfa }).Count
+    $adminsTelephonyRegistered = @($admins | Where-Object { $_.hasTelephonyRegistration }).Count
 
     $summary = [ordered]@{
         totalUsers            = $total
@@ -176,12 +176,12 @@ function Invoke-CapAuthMethods {
         phishResistantPct     = _AmPct $phishRes $total
         ssprRegistered        = $ssprReg
         ssprRegisteredPct     = _AmPct $ssprReg $total
-        smsVoiceUsers         = $smsVoiceCount
-        smsVoiceUsersPct      = _AmPct $smsVoiceCount $total
+        telephonyRegisteredUsers    = $telephonyRegisteredCount
+        telephonyRegisteredUsersPct = _AmPct $telephonyRegisteredCount $total
         admins                = $adminCount
         adminsMfaRegistered   = $adminMfaReg
         adminsPhishResistant  = $adminPhishRes
-        adminsSmsVoice        = $adminSmsVoice
+        adminsTelephonyRegistered = $adminsTelephonyRegistered
         methodBreakdown       = $methodBreakdown
     }
 
@@ -209,20 +209,16 @@ function Invoke-CapAuthMethods {
         -Detail 'A privileged (admin) account is registered for MFA but has no phishing-resistant method (FIDO2, Windows Hello, passkey, or certificate).' `
         -Matched @($admins | Where-Object { $_.isMfaRegistered -and -not $_.hasPhishResistant })
 
-    _Gap -Id 'admin-uses-sms-voice-mfa' -Title 'Admin still uses SMS/voice (telephony) MFA' -Severity 'high' `
-        -Detail 'A privileged (admin) account is registered for a telephony method (text message or voice call). Microsoft is retiring SMS and voice as MFA methods - migrate these admins to phishing-resistant methods (FIDO2, passkey, Windows Hello, or certificate).' `
-        -Matched @($admins | Where-Object { $_.usesTelephonyMfa })
+    _Gap -Id 'admin-telephony-registered' -Title 'Admin has a registered SMS/voice method' -Severity 'high' `
+        -Detail 'A privileged account has a telephony method registered. The registration report does not prove recent use, but Microsoft-provided SMS and voice delivery is being retired; verify the account has a working phishing-resistant method before removing telephony.' `
+        -Matched @($admins | Where-Object { $_.hasTelephonyRegistration })
 
-    _Gap -Id 'user-uses-sms-voice-mfa' -Title 'User still uses SMS/voice (telephony) MFA' -Severity 'medium' `
-        -Detail 'The user is registered for a telephony method (text message or voice call). Microsoft is retiring SMS and voice as MFA methods - migrate the user to the Microsoft Authenticator app or a phishing-resistant method before retirement.' `
-        -Matched @($users | Where-Object { $_.usesTelephonyMfa -and -not $_.isAdmin })
-
-    _Gap -Id 'user-mfa-capable-not-registered' -Title 'User is MFA-capable but not registered' -Severity 'medium' `
-        -Detail 'The user can register a strong method but has not completed registration, so an MFA policy cannot yet be satisfied.' `
-        -Matched @($users | Where-Object { $_.isMfaCapable -and -not $_.isMfaRegistered })
+    _Gap -Id 'user-telephony-registered' -Title 'User has a registered SMS/voice method' -Severity 'medium' `
+        -Detail 'The user has a telephony method registered. The registration report does not prove recent use; verify migration to a supported stronger method before Microsoft-provided SMS and voice delivery is retired.' `
+        -Matched @($users | Where-Object { $_.hasTelephonyRegistration -and -not $_.isAdmin })
 
     _Gap -Id 'user-no-mfa-method' -Title 'User has no MFA-capable method' -Severity 'high' `
-        -Detail 'The user has no method capable of satisfying multifactor authentication (lockout risk if MFA is enforced, single-factor risk if excluded).' `
+        -Detail 'The user has no registered strong method currently allowed by the authentication methods policy, so the user cannot satisfy MFA under the current configuration.' `
         -Matched @($users | Where-Object { -not $_.isMfaCapable })
 
     _Gap -Id 'user-no-methods' -Title 'User has no registered authentication methods' -Severity 'medium' `

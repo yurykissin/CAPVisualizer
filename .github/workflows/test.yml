@@ -1,0 +1,68 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force
+
+      - name: Run PowerShell tests
+        shell: pwsh
+        run: |
+          $result = Invoke-Pester -Path ./tests -PassThru -Output Detailed
+          if ($result.FailedCount -gt 0) { exit 1 }
+
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check viewer JavaScript syntax
+        run: node --check ./assets/app.js
+
+      - name: Install PowerShell analyzer
+        shell: pwsh
+        run: Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+
+      - name: Analyze PowerShell errors
+        shell: pwsh
+        run: |
+          $issues = @(Invoke-ScriptAnalyzer -Path ./scripts -Recurse -Severity Error)
+          $issues | Format-Table -AutoSize
+          if ($issues.Count -gt 0) { exit 1 }
+
+      - name: Check Markdown links
+        shell: pwsh
+        run: ./scripts/Test-MarkdownLinks.ps1
+
+      - name: Run offline smoke test
+        shell: pwsh
+        run: ./samples/Test-Offline.ps1
+
+      - name: Check current SCuBA revisions
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: ./scripts/Test-CapBaselineCurrency.ps1

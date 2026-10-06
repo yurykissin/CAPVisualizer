@@ -56,6 +56,7 @@ function Resolve-CapPrincipalContext {
     $roleIds  = [System.Collections.Generic.HashSet[string]]::new()
     $displayName = $PrincipalId
     $isGuest = $false
+    $homeTenantId = $null
     $kind = 'user'
 
     $groupsDs = _SGet $Enrichment 'groups'
@@ -79,7 +80,9 @@ function Resolve-CapPrincipalContext {
     }
     else {
         foreach ($ra in @(_SGet $rolesDs 'data')) {
-            if ("$(_SGet $ra 'principalId')" -eq $PrincipalId) { [void]$roleIds.Add("$(_SGet $ra 'roleTemplateId')") }
+            if ("$(_SGet $ra 'principalId')" -eq $PrincipalId -and "$(_SGet $ra 'assignmentType')" -eq 'active') {
+                [void]$roleIds.Add("$(_SGet $ra 'roleTemplateId')")
+            }
         }
     }
 
@@ -89,6 +92,8 @@ function Resolve-CapPrincipalContext {
                 $displayName = "$(_SGet $u 'displayName')"
                 $ut = "$(_SGet $u 'userType')"
                 if ($ut -eq 'Guest') { $isGuest = $true }
+                $ht = "$(_SGet $u 'homeTenantId')"
+                if ($ht) { $homeTenantId = $ht }
                 break
             }
         }
@@ -99,6 +104,7 @@ function Resolve-CapPrincipalContext {
         displayName    = $displayName
         kind           = $kind
         isGuest        = $isGuest
+        homeTenantId   = $homeTenantId
         groupIds       = @($groupIds)
         roleTemplateIds= @($roleIds)
         warnings       = @($warnings)
@@ -138,8 +144,12 @@ function Test-CapPolicyScope {
     if ($exR.Count) {
         return _ScopeResult $NormalizedPolicy 'Excluded' ($exR -join ',') "Excluded via directory role"
     }
-    if ($u.excludeGuests -and $Context.isGuest) {
+    $exGuest = _SGuestScope $u.excludeGuests $u.excludeGuestTenantMode $u.excludeGuestTenants $Context
+    if ($exGuest -eq 'yes') {
         return _ScopeResult $NormalizedPolicy 'Excluded' 'GuestsOrExternalUsers' "Excluded as guest/external user"
+    }
+    if ($exGuest -eq 'unknown') {
+        return _ScopeResult $NormalizedPolicy 'Excluded' 'GuestsOrExternalUsers' "Excluded as guest/external user if their home tenant is one of: $(@($u.excludeGuestTenants) -join ', ')"
     }
 
     # --- Inclusion. ---
@@ -157,11 +167,44 @@ function Test-CapPolicyScope {
     if ($inR.Count) {
         return _ScopeResult $NormalizedPolicy 'InScopeVia' ($inR -join ',') "In scope via directory role"
     }
-    if ($u.includeGuests -and $Context.isGuest) {
+    $inGuest = _SGuestScope $u.includeGuests $u.includeGuestTenantMode $u.includeGuestTenants $Context
+    if ($inGuest -eq 'yes') {
         return _ScopeResult $NormalizedPolicy 'InScopeVia' 'GuestsOrExternalUsers' "In scope as guest/external user"
+    }
+    if ($inGuest -eq 'unknown') {
+        return _ScopeResult $NormalizedPolicy 'InScopeVia' 'GuestsOrExternalUsers' "In scope as guest/external user if their home tenant is one of: $(@($u.includeGuestTenants) -join ', ')"
     }
 
     return _ScopeResult $NormalizedPolicy 'NotInScope' $null "Principal not targeted by this policy"
+}
+
+function _SGuestScope {
+<#
+.SYNOPSIS
+    Does this policy's guest/external selector cover this principal?
+
+.DESCRIPTION
+    Returns 'no', 'yes', or 'unknown'. A policy restricted to enumerated external
+    tenants only covers guests from those tenants, so claiming a plain yes would
+    tell someone a partner policy applies to a guest from a different partner.
+
+    When the policy names specific tenants and the principal's home tenant is not
+    known offline, the honest answer is 'unknown' rather than a guess in either
+    direction.
+#>
+    param($GuestFlag, $TenantMode, $TenantIds, $Context)
+
+    if (-not $GuestFlag) { return 'no' }
+    if (-not $Context.isGuest) { return 'no' }
+    if ("$TenantMode" -ne 'enumerated') { return 'yes' }
+
+    $ids = @($TenantIds)
+    if (-not $ids.Count) { return 'yes' }
+
+    $home = "$(if ($Context.Contains('homeTenantId')) { $Context['homeTenantId'] })"
+    if (-not $home) { return 'unknown' }
+    if ($ids -contains $home) { return 'yes' }
+    return 'no'
 }
 
 function _ScopeResult {

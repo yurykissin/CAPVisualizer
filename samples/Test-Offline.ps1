@@ -71,7 +71,6 @@ Remove-Item -Recurse -Force $snap
 # --- Offline analysis engines against the enriched fixture ---
 Import-Module (Join-Path $modules 'CapNormalize.psm1') -Force
 Import-Module (Join-Path $modules 'CapScope.psm1') -Force
-Import-Module (Join-Path $modules 'CapWhatIf.psm1') -Force
 Import-Module (Join-Path $modules 'CapAudit.psm1') -Force
 Import-Module (Join-Path $modules 'CapFindings.psm1') -Force
 Import-Module (Join-Path $modules 'CapCompliance.psm1') -Force
@@ -87,11 +86,6 @@ $enr       = $enrExport.enrichment
 $scope = Resolve-CapScope -PrincipalId '22222222-2222-2222-2222-222222222222' -NormalizedPolicies $norm -Enrichment $enr
 if ($scope.counts.excluded -lt 1) { throw "Scope: expected the break-glass account to be excluded from a policy." }
 Write-Host "Scope OK           : direct=$($scope.counts.inScopeDirect) via=$($scope.counts.inScopeVia) excluded=$($scope.counts.excluded)" -ForegroundColor Green
-
-$wi = Test-CapWhatIf -PrincipalId '77777777-7777-7777-7777-777777777777' -NormalizedPolicies $norm -Enrichment $enr `
-    -Resource '00000002-0000-0ff1-ce00-000000000000' -ClientApp 'browser'
-if (-not $wi.outcome.mfaRequired) { throw "What-if: expected MFA required for the standard user." }
-Write-Host "What-if OK         : mfaRequired=$($wi.outcome.mfaRequired) definitive=$(@($wi.definitive).Count)" -ForegroundColor Green
 
 $audit = Invoke-CapAudit -NormalizedPolicies $norm -Enrichment $enr
 if (@($audit.issues | Where-Object { $_.checkId -eq 'app-include-exclude-overlap' }).Count -lt 1) { throw "Audit: expected the CA004 app contradiction." }
@@ -125,7 +119,11 @@ New-CapVisual -FriendlyPolicies $friendly2 -Summary $summary2 -Findings $finding
     -RiskFindings $risk.findings -Audit $audit -Compliance $comp -TestResult $test -AuthMethods $authMethods `
     -AssetsPath (Join-Path $root 'assets') -OutputFile $out2
 $h2 = Get-Content -Raw $out2
-foreach ($needle in 'MS.AAD.1.1','app-include-exclude-overlap','Assertion results') {
+foreach ($needle in 'MS.AAD.1.1','app-include-exclude-overlap','Assertion results',
+    'Conditional Access sign-in log queries','PolicyName = tostring(Policy.displayName)',
+    'Coverage gap: no policy applied','Coverage gap: no MFA grant applied',
+    'AppliedCount == 0','MfaApplied == 0',
+    'UserActionRequired = countif','AppliedUsers = dcountif') {
     if (-not $h2.Contains($needle)) { throw "Viewer missing analysis content: $needle" }
 }
 Write-Host "Unified viewer OK  : analysis tabs embedded" -ForegroundColor Green

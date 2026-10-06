@@ -17,7 +17,52 @@ __STYLES__
     <div id="gresults" class="gresults hidden"></div>
   </div>
   <div class="disclaimer">Read-only export generated locally by CAPVisualizer. No changes were made to the tenant. This file bundles all assets and works offline. May contain sensitive configuration - handle accordingly.</div>
+  <div class="hdr-actions">
+    <button id="safeExportBtn" class="cmp-btn hidden" type="button">Export safely&hellip;</button>
+    <span id="safeExportHint" class="hdr-hint hidden">Saves a name-free copy you can share with an AI or a third party.</span>
+  </div>
 </header>
+
+<div id="safeModal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="safeModalTitle">
+    <h3 id="safeModalTitle">Export safely</h3>
+    <p>This saves a <strong>name-free copy</strong> of everything in this report: policy structure,
+       targeting, conditions, controls and all analysis results.</p>
+    <div class="safe-cols">
+      <div>
+        <div class="safe-h safe-ok">Removed</div>
+        <ul>
+          <li>Policy, user, group, role and app names</li>
+          <li>Sign-in names and email addresses</li>
+          <li>Named locations, IP ranges and countries</li>
+          <li>Device-filter rules and descriptions</li>
+          <li>Tenant id and every tenant-specific object id</li>
+        </ul>
+      </div>
+      <div>
+        <div class="safe-h">Kept</div>
+        <ul>
+          <li>Policy structure, state and conditions</li>
+          <li>Grant / session controls and operators</li>
+          <li>Who is included or excluded, as tokens</li>
+          <li>Findings, audit, compliance and test results</li>
+          <li>Microsoft built-in role and app identifiers</li>
+        </ul>
+      </div>
+    </div>
+    <p class="safe-note"><strong>Read this before you share it.</strong> Removing names reduces
+       <em>attribution</em>, not <em>exploitability</em>: this file still shows where your gaps are.
+       Send it only somewhere you would trust with a gap analysis.</p>
+    <p class="safe-note">Objects appear as tokens such as <code>POL-002</code> and <code>OBJ-004</code>.
+       To turn a reviewer's answer back into real names, run
+       <code>Restore-CapNames.ps1</code> with your local <code>raw/names.json</code>.</p>
+    <div id="safeModalErr" class="safe-err hidden"></div>
+    <div class="modal-actions">
+      <button id="safeCancel" class="cmp-btn cmp-btn-sec" type="button">Cancel</button>
+      <button id="safeConfirm" class="cmp-btn" type="button">Save file&hellip;</button>
+    </div>
+  </div>
+</div>
 
 <div class="tabs" style="padding: 12px 24px;">
   <div class="tab" data-tab="overview">Overview</div>
@@ -28,6 +73,7 @@ __STYLES__
   <div class="tab hidden" id="complianceTab" data-tab="compliance">Compliance</div>
   <div class="tab hidden" id="testsTab" data-tab="tests">Tests</div>
   <div class="tab hidden" id="authMethodsTab" data-tab="authmethods">Auth methods</div>
+  <div class="tab" data-tab="usagequery">Sign-in log queries</div>
   <div class="tab hidden" id="deltaTab" data-tab="delta">Delta</div>
   <div class="tab" id="compareTab" data-tab="compare">Compare</div>
 </div>
@@ -239,8 +285,215 @@ __STYLES__
   </div>
 </div>
 
+<div id="pane-usagequery" class="hidden">
+  <div class="main">
+    <h2>Conditional Access sign-in log queries</h2>
+    <div class="cmp-help">
+      <p>CAPVisualizer does not download sign-in logs. It reads policy
+        configuration only. The queries below answer the questions
+        configuration alone cannot: which policies actually fired, and which
+        sign-ins no policy protected. Run them in the Log Analytics workspace,
+        Microsoft Sentinel workspace, or Microsoft Sentinel data lake that
+        receives the tenant's Entra sign-in logs.</p>
+    </div>
+
+    <h3>Before you run these</h3>
+    <ol class="cmp-help">
+      <li><b>Confirm sign-in logs reach a workspace.</b> Entra sign-in logs are
+        only queryable here if a diagnostic setting exports them. Check
+        <i>Entra ID &rarr; Diagnostic settings</i> for a rule sending the
+        <code>SignInLogs</code> category (and, if you need them,
+        <code>NonInteractiveUserSignInLogs</code>) to a workspace. Without it
+        these tables are empty and every result below is misleading rather than
+        merely absent.</li>
+      <li><b>Get read access to that workspace.</b> The <i>Log Analytics
+        Reader</i> Azure role on the workspace is enough. This is Azure RBAC on
+        the resource, separate from the Entra permissions used to produce this
+        report, and is often approved by a different owner.</li>
+      <li><b>Open the right editor.</b> Azure portal &rarr; <i>Log Analytics
+        workspaces</i> &rarr; select the workspace &rarr; <i>Logs</i>. In
+        Microsoft Sentinel, use <i>Logs</i> in the Sentinel workspace.</li>
+      <li><b>Set the observation period in the time-range picker</b>, above the
+        query editor. Thirty days is a reasonable screening window; ninety is
+        better before retiring a policy. Retention limits what you can ask for:
+        the tables only hold what the workspace was configured to keep.</li>
+      <li><b>Paste one query and run it.</b> Use the copy buttons below, then
+        <i>Run</i>. Export results with <i>Export &rarr; CSV</i> if you are
+        attaching them to a review.</li>
+    </ol>
+
+    <div class="callout callout-warn">
+      <strong>Do not add a <code>TimeGenerated</code> filter.</strong> Every
+      query below deliberately omits one. Basic, Auxiliary, Bronze, federated,
+      and data lake tables require the time range to come from the query
+      interface, and adding <code>| where TimeGenerated &gt; ago(30d)</code>
+      fails there with <i>"Bronze Logs table query is missing time range"</i>.
+      Use the picker instead. Filtering is what is restricted, so
+      <code>min()</code> and <code>max()</code> of
+      <code>TimeGenerated</code> inside <code>summarize</code> remain safe.
+    </div>
+
+    <h3>1. Which policies are actually used</h3>
+    <p class="muted">One row per policy. Use it to screen for retirement
+      candidates before acting on the consolidation findings in this report.</p>
+    <div class="query-head">
+      <div>
+        <strong>Policy usage, per policy</strong>
+        <div class="muted">Table: <code>SigninLogs</code></div>
+      </div>
+      <button type="button" class="cmp-btn" data-query-copy="usageQuery">Copy query</button>
+    </div>
+    <pre id="usageQuery" class="query-code"><code>SigninLogs
+| mv-expand Policy = ConditionalAccessPolicies
+| extend
+    PolicyId = tostring(Policy.id),
+    PolicyName = tostring(Policy.displayName),
+    Result = tostring(Policy.result)
+| where isnotempty(PolicyId)
+| summarize
+    Evaluated = count(),
+    Success = countif(Result in ("success", "reportOnlySuccess")),
+    Failure = countif(Result in ("failure", "reportOnlyFailure")),
+    UserActionRequired = countif(Result == "reportOnlyInterrupted"),
+    NotApplied = countif(Result in ("notApplied", "reportOnlyNotApplied")),
+    AppliedUsers = dcountif(UserId, Result in (
+        "success",
+        "failure",
+        "reportOnlySuccess",
+        "reportOnlyFailure",
+        "reportOnlyInterrupted"
+    )),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by PolicyName, PolicyId
+| extend Applied = Success + Failure + UserActionRequired
+| extend AppliedPercent = round(100.0 * Applied / Evaluated, 2)
+| project
+    PolicyName,
+    PolicyId,
+    Evaluated,
+    Applied,
+    AppliedPercent,
+    AppliedUsers,
+    Success,
+    Failure,
+    UserActionRequired,
+    NotApplied,
+    FirstSeen,
+    LastSeen
+| order by Applied asc, NotApplied desc, PolicyName asc</code></pre>
+    <div id="usageQueryStatus" class="muted query-status"></div>
+    <div class="callout callout-warn" style="margin-top:14px">
+      <strong>Interpretation.</strong> Success includes enforced and report-only
+      success. Failure includes enforced and report-only failure. User action
+      required is the report-only interrupted result. Applied is the sum of
+      those three categories. Not applied means the policy was evaluated but
+      its assignments or conditions did not match that sign-in.
+      A zero <b>Applied</b> count means no observed impact during the selected
+      period, not proof that the policy is safe to remove: break-glass,
+      seasonal, and incident-response policies are expected to sit at zero.
+    </div>
+    <p class="muted">For retirement screening, <b>AppliedUsers</b> is the useful
+      extra signal: it prevents a frequently signing-in user from making a
+      narrowly used policy look broadly adopted. App, client, location, device,
+      and risk breakdowns are better used during a follow-up investigation than
+      in the first unused-policy screening query.</p>
+
+    <h3>2. Sign-ins where no policy applied at all</h3>
+    <p class="muted">The inverse view: not "is this policy dead" but "was this
+      sign-in unprotected". Every row is traffic that Conditional Access
+      evaluated and left ungoverned.</p>
+    <div class="query-head">
+      <div>
+        <strong>Coverage gap: no policy applied</strong>
+        <div class="muted">Table: <code>SigninLogs</code></div>
+      </div>
+      <button type="button" class="cmp-btn" data-query-copy="gapNoneQuery">Copy query</button>
+    </div>
+    <pre id="gapNoneQuery" class="query-code"><code>SigninLogs
+| extend CAPs = iff(array_length(ConditionalAccessPolicies) == 0,
+                    dynamic([{"result": "none"}]), ConditionalAccessPolicies)
+| mv-apply Policy = CAPs on (
+    summarize AppliedCount = countif(tostring(Policy.result) in ("success", "failure"))
+)
+| where AppliedCount == 0
+| summarize
+    Signins = count(),
+    Apps = dcount(AppDisplayName),
+    FirstSeen = min(TimeGenerated),
+    LastSeen = max(TimeGenerated)
+    by UserPrincipalName, AppDisplayName, ConditionalAccessStatus
+| order by Signins desc</code></pre>
+    <div id="gapNoneQueryStatus" class="muted query-status"></div>
+    <div class="callout callout-warn" style="margin-top:14px">
+      <strong>Why the <code>iff</code> is there.</strong> When no policy is
+      evaluated at all, <code>ConditionalAccessPolicies</code> is an empty
+      array, and <code>mv-apply</code> and <code>mv-expand</code> silently drop
+      those rows. Those are exactly the sign-ins this query exists to find, so
+      the empty array is replaced with a placeholder before expansion. A query
+      written without it reports a smaller gap than the tenant really has.
+      Report-only results are excluded from <code>AppliedCount</code> on
+      purpose: a report-only match enforces nothing.
+    </div>
+
+    <h3>3. Sign-ins where no policy required MFA</h3>
+    <p class="muted">Narrower and usually more actionable: the sign-in may have
+      matched a policy, but none that imposed a multifactor grant.</p>
+    <div class="query-head">
+      <div>
+        <strong>Coverage gap: no MFA grant applied</strong>
+        <div class="muted">Table: <code>SigninLogs</code></div>
+      </div>
+      <button type="button" class="cmp-btn" data-query-copy="gapMfaQuery">Copy query</button>
+    </div>
+    <pre id="gapMfaQuery" class="query-code"><code>SigninLogs
+| where ResultType == 0
+| extend CAPs = iff(array_length(ConditionalAccessPolicies) == 0,
+                    dynamic([{"result": "none"}]), ConditionalAccessPolicies)
+| mv-apply Policy = CAPs on (
+    summarize MfaApplied = countif(
+        tostring(Policy.result) in ("success", "failure")
+        and (tostring(Policy.enforcedGrantControls) has "mfa"
+          or tostring(Policy.enforcedGrantControls) has "multifactor"))
+)
+| where MfaApplied == 0
+| summarize
+    Signins = count(),
+    LastSeen = max(TimeGenerated)
+    by UserPrincipalName, AppDisplayName, AuthenticationRequirement,
+       ClientAppUsed, IPAddress
+| order by Signins desc</code></pre>
+    <div id="gapMfaQueryStatus" class="muted query-status"></div>
+    <div class="callout callout-warn" style="margin-top:14px">
+      <strong>Read <code>AuthenticationRequirement</code> before concluding
+      anything.</strong> This query finds sign-ins no Conditional Access policy
+      required MFA for. It does not mean MFA never happened: per-user MFA,
+      security defaults, or a token that already carried a multifactor claim can
+      all satisfy MFA without a policy grant. Rows showing
+      <code>singleFactorAuthentication</code> are the genuine exposure. Add
+      <code>| where AuthenticationRequirement == "singleFactorAuthentication"</code>
+      to isolate them. <code>ResultType == 0</code> limits the result to
+      successful sign-ins, so failed attempts do not inflate the count.
+    </div>
+
+    <h3>Scope and limitations</h3>
+    <ul class="cmp-help">
+      <li><b>Interactive sign-ins only.</b> <code>SigninLogs</code> excludes
+        non-interactive, service principal, and managed identity activity.
+        Union <code>AADNonInteractiveUserSignInLogs</code> for a fuller
+        picture, but expect a much larger result set.</li>
+      <li><b>Absence of evidence.</b> These queries describe the observation
+        window only. A policy or gap outside it is invisible here.</li>
+      <li><b>Personal data.</b> Queries 2 and 3 return user principal names and
+        IP addresses. They are deliberately not part of the CAPVisualizer safe
+        export, which stays name-free. Handle their output under the tenant's
+        own data rules.</li>
+    </ul>
+  </div>
+</div>
+
 <footer>
-  <div>Generated by CAPVisualizer (MIT, community project - not affiliated with Microsoft). Read-only. See DISCLAIMER.md.</div>
+  <div>Generated by CAPVisualizer <code>v__TOOL_VERSION__</code> (<code>__TOOL_COMMIT__</code>) (MIT, community project - not affiliated with Microsoft). Read-only. See DISCLAIMER.md.</div>
   <div class="muted" style="margin-top:6px">Assessed against the CISA SCuBA Microsoft 365 Secure Configuration Baseline
     (<code>MS.AAD.*</code>, public domain / CC0 1.0). References: NIST SP 800-53 (public domain)
     and MITRE ATT&CK&reg; (&copy; The MITRE Corporation, <span class="nowrap">attack.mitre.org</span>).
@@ -249,6 +502,8 @@ __STYLES__
 
 <script>
 window.__CAP_DATA__ = __DATA_JSON__;
+window.__CAP_SAFE__ = __SAFE_JSON__;
+window.__CAP_SNAPSHOT__ = "__SNAPSHOT__";
 </script>
 <script>
 __APP_JS__

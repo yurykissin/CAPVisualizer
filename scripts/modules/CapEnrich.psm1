@@ -108,13 +108,39 @@ function Get-CapRoleAssignmentEnrichment {
 .SYNOPSIS
     Active directory-role assignments (principal -> role) plus PIM-eligible
     assignments where readable. Requires RoleManagement.Read.Directory (or
-    Directory.Read.All). Each returns { principalId, roleTemplateId, roleName,
-    assignmentType }.
+    Directory.Read.All). Each assignment keeps both the tenant-specific
+    roleDefinitionId and the cross-tenant roleTemplateId.
 #>
     [CmdletBinding()]
-    param()
+    param([switch]$IncludeStatus)
 
     $assignments = [System.Collections.Generic.List[object]]::new()
+    $warnings = [System.Collections.Generic.List[string]]::new()
+    $activeComplete = $true
+    $eligibleComplete = $true
+    $definitionsComplete = $true
+    $definitionsById = @{}
+    $definitionsByTemplate = @{}
+
+    try {
+        $definitions = @(Invoke-CapGraphGet -Uri 'roleManagement/directory/roleDefinitions?$select=id,templateId,displayName,isBuiltIn')
+        foreach ($d in $definitions) {
+            $id = "$($d.PSObject.Properties['id'].Value)"
+            $templateId = "$($d.PSObject.Properties['templateId'].Value)"
+            $record = [ordered]@{
+                id          = $id
+                templateId  = $templateId
+                displayName = "$($d.PSObject.Properties['displayName'].Value)"
+                isBuiltIn   = [bool]$d.PSObject.Properties['isBuiltIn'].Value
+            }
+            if ($id) { $definitionsById[$id] = $record }
+            if ($templateId) { $definitionsByTemplate[$templateId] = $record }
+        }
+    }
+    catch {
+        $definitionsComplete = $false
+        $warnings.Add("Role definitions unavailable: $($_.Exception.Message)")
+    }
 
     # Active role assignments via directoryRoles + members.
     $roles = @(Invoke-CapGraphGet -Uri 'directoryRoles?$select=id,displayName,roleTemplateId')
@@ -122,35 +148,61 @@ function Get-CapRoleAssignmentEnrichment {
         $roleId = $r.PSObject.Properties['id'].Value
         $tpl    = $r.PSObject.Properties['roleTemplateId'].Value
         $name   = $r.PSObject.Properties['displayName'].Value
+        $definitionId = if ($definitionsByTemplate.ContainsKey("$tpl")) {
+            "$($definitionsByTemplate["$tpl"]['id'])"
+        } else { $null }
         try {
             $members = @(Invoke-CapGraphGet -Uri "directoryRoles/$roleId/members?`$select=id")
             foreach ($m in $members) {
                 $assignments.Add([ordered]@{
                     principalId    = "$($m.PSObject.Properties['id'].Value)"
+                    roleDefinitionId = $definitionId
                     roleTemplateId = "$tpl"
                     roleName       = "$name"
                     assignmentType = 'active'
                 })
             }
         }
-        catch { }
+        catch {
+            $activeComplete = $false
+            $warnings.Add("Active members unavailable for role '$name' ($tpl): $($_.Exception.Message)")
+        }
     }
 
     # PIM-eligible assignments (best effort; requires RoleEligibilitySchedule read).
     try {
         $eligible = @(Invoke-CapGraphGet -Uri 'roleManagement/directory/roleEligibilityScheduleInstances?$select=principalId,roleDefinitionId')
         foreach ($e in $eligible) {
+            $definitionId = "$($e.PSObject.Properties['roleDefinitionId'].Value)"
+            $definition = if ($definitionsById.ContainsKey($definitionId)) { $definitionsById[$definitionId] } else { $null }
+            if (-not $definition) {
+                $eligibleComplete = $false
+                $warnings.Add("PIM assignment references unmapped role definition '$definitionId'.")
+            }
             $assignments.Add([ordered]@{
                 principalId    = "$($e.PSObject.Properties['principalId'].Value)"
-                roleTemplateId = "$($e.PSObject.Properties['roleDefinitionId'].Value)"
-                roleName       = $null
+                roleDefinitionId = $definitionId
+                roleTemplateId = $(if ($definition) { "$($definition['templateId'])" } else { $null })
+                roleName       = $(if ($definition) { "$($definition['displayName'])" } else { $null })
                 assignmentType = 'eligible'
             })
         }
     }
-    catch { }
+    catch {
+        $eligibleComplete = $false
+        $warnings.Add("PIM-eligible assignments unavailable: $($_.Exception.Message)")
+    }
 
-    return @($assignments)
+    if (-not $IncludeStatus) { return @($assignments) }
+    return [ordered]@{
+        data                    = @($assignments)
+        completeness            = $(if ($activeComplete -and $eligibleComplete -and $definitionsComplete) { 'complete' } else { 'partial' })
+        activeComplete          = $activeComplete
+        eligibleComplete        = $eligibleComplete
+        roleDefinitionsComplete = $definitionsComplete
+        warnings                = @($warnings)
+        groupEligibilityExpanded= $false
+    }
 }
 
 function Get-CapUserEnrichment {
@@ -248,7 +300,7 @@ function Get-CapEnrichment {
     $enrichment = [ordered]@{
         collectedUtc   = (Get-Date).ToUniversalTime().ToString('o')
         groups         = _EnrichTry -Name 'groups'          -Script { Get-CapGroupEnrichment -GroupIds $GroupIds }
-        roleAssignments= _EnrichTry -Name 'roleAssignments' -Script { Get-CapRoleAssignmentEnrichment }
+        roleAssignments= _EnrichTry -Name 'roleAssignments' -Script { Get-CapRoleAssignmentEnrichment -IncludeStatus }
         users          = _EnrichTry -Name 'users'           -Script { Get-CapUserEnrichment -IncludeSignInActivity }
         mfaCapability  = _EnrichTry -Name 'mfaCapability'    -Script { Get-CapMfaCapabilityEnrichment }
     }
@@ -257,6 +309,16 @@ function Get-CapEnrichment {
     # lacking AuditLog.Read.All) so at least account state is captured.
     if (-not $enrichment.users.available) {
         $enrichment.users = _EnrichTry -Name 'users (no signInActivity)' -Script { Get-CapUserEnrichment }
+    }
+
+    if ($enrichment.roleAssignments.available -and $enrichment.roleAssignments.data -is [System.Collections.IDictionary] -and
+        $enrichment.roleAssignments.data.Contains('data')) {
+        $roleResult = $enrichment.roleAssignments.data
+        $enrichment.roleAssignments.data = @($roleResult['data'])
+        foreach ($key in 'completeness', 'activeComplete', 'eligibleComplete', 'roleDefinitionsComplete',
+                         'warnings', 'groupEligibilityExpanded') {
+            $enrichment.roleAssignments[$key] = $roleResult[$key]
+        }
     }
 
     $avail = @($enrichment.Keys | Where-Object { $_ -ne 'collectedUtc' -and $enrichment[$_].available })

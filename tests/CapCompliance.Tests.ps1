@@ -46,13 +46,15 @@ Describe 'Control evaluation against the fixture' {
     It 'passes MS.AAD.1.1 (CA002 blocks legacy auth)' {
         $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.1.1' })[0]
         $c.result | Should -Be 'pass'
-        $c.evidence | Should -Contain 'CA002 - Block legacy authentication'
+        # Evidence cites policy ids, not names: names never leave the tenant.
+        $c.evidence | Should -Contain 'aaaaaaaa-0000-0000-0000-000000000002'
     }
 
     It 'passes MS.AAD.2.1 (CA003 blocks high-risk users)' {
         $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.2.1' })[0]
         $c.result | Should -Be 'pass'
-        $c.evidence | Should -Contain 'CA003 - Block high risk users'
+        # Evidence cites policy ids, not names: names never leave the tenant.
+        $c.evidence | Should -Contain 'aaaaaaaa-0000-0000-0000-000000000003'
     }
 
     It 'fails MS.AAD.2.3 (no high sign-in-risk block in the fixture)' {
@@ -68,7 +70,8 @@ Describe 'Control evaluation against the fixture' {
     It 'passes MS.AAD.3.2 (CA001 requires MFA for all users)' {
         $c = @($script:Result.controls | Where-Object { $_.id -eq 'MS.AAD.3.2' })[0]
         $c.result | Should -Be 'pass'
-        $c.evidence | Should -Contain 'CA001 - Require MFA for all users'
+        # Evidence cites policy ids, not names: names never leave the tenant.
+        $c.evidence | Should -Contain 'aaaaaaaa-0000-0000-0000-000000000001'
     }
 
     It 'fails MS.AAD.3.6 (no phishing-resistant strength for privileged roles in the fixture)' {
@@ -107,5 +110,15 @@ Describe 'Compliance summary' {
         $s.fail  | Should -Be (@($script:Result.controls | Where-Object { $_.result -eq 'fail' }).Count)
         $s.manual | Should -BeGreaterThan 0
         $s.passRate | Should -BeGreaterThan 0
+    }
+
+    Describe 'Baseline provenance' {
+        It 'pins the source and preserves official control revisions' {
+            $script:Result.baselineVersion | Should -Be '1.6'
+            $script:Result.sourceCommit | Should -Match '^[0-9a-f]{40}$'
+            $script:Result.source | Should -Match $script:Result.sourceCommit
+            @($script:Result.controls | Where-Object { -not $_.sourceControlId }).Count | Should -Be 0
+            @($script:Result.controls | Where-Object id -eq 'MS.AAD.3.2')[0].sourceControlId | Should -Be 'MS.AAD.3.2v2'
+        }
     }
 }

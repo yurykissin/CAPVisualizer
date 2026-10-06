@@ -1,0 +1,193 @@
+{
+  "$comment": [
+    "What may leave the tenant inside a shareable export, and in what form.",
+    "",
+    "This is an allowlist. A section that is not listed here is not exported, and",
+    "within a listed section a field that is not listed is not copied. Nothing is",
+    "removed by pattern matching, so a new analysis field added upstream is absent",
+    "by default rather than shipped by accident.",
+    "",
+    "Two exposure levels:",
+    "  full      - one record per finding, ids and all",
+    "  aggregate - counts only, no per-object ids",
+    "",
+    "The dividing line for findings is what the record is about. A finding about a",
+    "Conditional Access policy is what the reviewer plans against, and its ids are",
+    "policy references that mean nothing outside the tenant. A finding about a",
+    "person is different: 2,646 records naming which individuals cannot perform MFA",
+    "is a ranked target list, and it tells a planner nothing that the single number",
+    "does not. Person-scoped checks are therefore aggregated, and anything not",
+    "classified is aggregated too."
+  ],
+  "schemaVersion": "1.0",
+  "defaultFindingExposure": "aggregate",
+  "sections": {
+    "consolidation": {
+      "summary": [
+        "total",
+        "enforced",
+        "reportOnly",
+        "disabled",
+        "exactDuplicateClusters",
+        "overlapClusters",
+        "mergeCandidateClusters",
+        "deadWeightCount",
+        "completenessGaps",
+        "estimatedTarget",
+        "estimatedReduction"
+      ],
+      "duplicates.exact": [
+        "controlSig",
+        "appSig",
+        "members"
+      ],
+      "duplicates.overlap": [
+        "controlSig",
+        "appSig",
+        "members"
+      ],
+      "duplicates.merge": [
+        "controlSig",
+        "appSig",
+        "members"
+      ],
+      "duplicates.members": [
+        "id",
+        "state",
+        "reportOnly"
+      ],
+      "deadWeight": [
+        "id",
+        "state",
+        "reportOnly",
+        "reasons"
+      ],
+      "completeness": [
+        "control",
+        "present",
+        "coverage",
+        "enforcedCount",
+        "broadCount",
+        "narrowCount",
+        "severity",
+        "detail",
+        "recommendation"
+      ],
+      "exclusionConcentration": [
+        "id",
+        "type",
+        "policyCount",
+        "policies"
+      ],
+      "unreadShapes": [
+        "path",
+        "count",
+        "policyIds"
+      ]
+    },
+    "compliance": {
+      "$scalars": [
+        "baseline",
+        "baselineVersion"
+      ],
+      "summary": [
+        "total",
+        "pass",
+        "fail",
+        "manual",
+        "notApplicable",
+        "automatable",
+        "passRate"
+      ],
+      "controls": [
+        "id",
+        "checkId",
+        "statement",
+        "criticality",
+        "scope",
+        "result",
+        "rationale",
+        "evidence",
+        "nist",
+        "mitre"
+      ]
+    },
+    "audit": {
+      "summary": [
+        "total",
+        "bySeverity"
+      ],
+      "issues": [
+        "checkId",
+        "severity",
+        "category",
+        "title",
+        "detail",
+        "policyId",
+        "evidence"
+      ],
+      "exemptionExposure": [
+        "id",
+        "type",
+        "policyCount",
+        "excludedFromPolicies"
+      ]
+    },
+    "findings": {
+      "summary": [
+        "total",
+        "bySeverity"
+      ],
+      "findings": [
+        "id",
+        "checkId",
+        "title",
+        "severity",
+        "impact",
+        "likelihood",
+        "riskScore",
+        "logic",
+        "threat",
+        "remediation",
+        "references",
+        "affectedObjects"
+      ],
+      "aggregated": [
+        "checkId",
+        "title",
+        "severity",
+        "impact",
+        "likelihood",
+        "riskScore",
+        "logic",
+        "threat",
+        "remediation",
+        "references",
+        "count"
+      ]
+    }
+  },
+  "findingChecks": {
+    "app-include-exclude-overlap": "full",
+    "platform-include-exclude-overlap": "full",
+    "principal-include-exclude-overlap": "full",
+    "legacy-auth-not-blocked": "full",
+    "combined-risk-conditions": "full",
+    "critical-policy-inactive": "full",
+    "enabled-no-controls": "full",
+    "privileged-via-excluded-group": "full",
+    "privileged-user-exempt": "full",
+    "ownerless-exclusion-group": "full",
+    "user-not-mfa-capable": "aggregate",
+    "inactive-privileged-account": "aggregate",
+    "disabled-privileged-account": "aggregate"
+  },
+  "droppedFields": {
+    "$comment": "Listed only to record why they are absent; the allowlist is what actually excludes them.",
+    "displayName": "Masked to the object id anyway, so it carries no information the id does not, and keeping the key invites a future writer to populate it.",
+    "policyName": "Same as displayName.",
+    "description": "Per-instance generated prose. For person-scoped checks it interpolates a per-person alias token, which is the target list this classification exists to prevent.",
+    "summary": "Per-instance generated prose. The static catalogue text in logic, threat and remediation carries the same meaning without interpolation.",
+    "topRisk": "Derived from the full finding list including the aggregated ones, so it would reintroduce a person-scoped record through the summary."
+  }
+}

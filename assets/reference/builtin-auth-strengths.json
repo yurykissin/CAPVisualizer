@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "Microsoft's built-in Conditional Access authentication strengths.",
+    "",
+    "These three exist in every tenant with the same ids and the same names, so",
+    "they carry no tenant information and must not be masked. Their names also",
+    "appear verbatim inside CISA SCuBA control statements, and masking them there",
+    "rewrites the standard's own text and then trips the leak detector.",
+    "",
+    "A tenant can create custom strengths. Those are tenant data, get a tenant",
+    "specific id, and are masked normally."
+  ],
+  "source": "https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-strengths",
+  "strengths": [
+    { "id": "00000000-0000-0000-0000-000000000002", "name": "Multifactor authentication" },
+    { "id": "00000000-0000-0000-0000-000000000003", "name": "Passwordless MFA" },
+    { "id": "00000000-0000-0000-0000-000000000004", "name": "Phishing-resistant MFA" }
+  ]
+}

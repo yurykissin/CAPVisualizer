@@ -126,7 +126,7 @@ function Test-CapPolicyContradictions {
     if ($ur.Count -and $sr.Count) {
         $issues.Add((_AuIssue 'combined-risk-conditions' 'medium' 'design' `
             'User risk and sign-in risk configured in the same policy' `
-            "This policy conditions on both user risk ($($ur -join ', ')) and sign-in risk ($($sr -join ', ')). Entra combines the two risk conditions with OR under a single grant control, so the recommended distinct responses cannot be applied - secure password change for user risk versus multifactor authentication for sign-in risk. Split into two separate policies." `
+            "This policy conditions on both user risk ($($ur -join ', ')) and sign-in risk ($($sr -join ', ')). Conditional Access combines assignments with AND, so the policy applies only when both risk conditions match. Microsoft recommends separate policies because user risk and sign-in risk require distinct responses - risk remediation or secure password change for user risk, and multifactor authentication or reauthentication for sign-in risk." `
             $p.id $p.displayName ([ordered]@{ userRisk = $ur; signInRisk = $sr })))
     }
 
@@ -225,7 +225,7 @@ function Get-CapExemptionExposure {
             if (-not $exposure.ContainsKey($id)) {
                 $exposure[$id] = [ordered]@{ id = $id; type = $ex.type; displayName = $(if ($nameMap.ContainsKey($id)) { $nameMap[$id] } else { $null }); policies = [System.Collections.Generic.List[string]]::new() }
             }
-            $exposure[$id].policies.Add($p.displayName)
+            $exposure[$id].policies.Add($p.id)
         }
 
         # Privileged principals excluded from a broad protective policy.

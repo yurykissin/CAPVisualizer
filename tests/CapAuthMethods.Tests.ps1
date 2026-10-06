@@ -57,8 +57,8 @@ Describe 'Summary rollup' {
     }
 
     It 'counts users still registered for SMS/voice (telephony) MFA' {
-        $script:Result.summary.smsVoiceUsers | Should -Be 2
-        $script:Result.summary.adminsSmsVoice | Should -Be 1
+        $script:Result.summary.telephonyRegisteredUsers | Should -Be 2
+        $script:Result.summary.adminsTelephonyRegistered | Should -Be 1
     }
 
     It 'produces a method breakdown sorted by count' {
@@ -84,28 +84,22 @@ Describe 'Gap findings' {
         $g[0].severity | Should -Be 'high'
     }
 
-    It 'flags MFA-capable-but-not-registered users' {
-        $g = @($script:Result.gaps | Where-Object { $_.id -eq 'user-mfa-capable-not-registered' })
-        @($g).Count | Should -Be 1
-        @($g[0].users).Count | Should -Be 1
-    }
-
     It 'flags SSPR-capable-but-not-registered users' {
         $g = @($script:Result.gaps | Where-Object { $_.id -eq 'user-sspr-not-registered' })
         @($g).Count | Should -Be 1
         $g[0].severity | Should -Be 'low'
     }
 
-    It 'flags an admin still using SMS/voice MFA as high' {
-        $g = @($script:Result.gaps | Where-Object { $_.id -eq 'admin-uses-sms-voice-mfa' })
+    It 'flags an admin with SMS/voice registered as high' {
+        $g = @($script:Result.gaps | Where-Object { $_.id -eq 'admin-telephony-registered' })
         @($g).Count | Should -Be 1
         $g[0].severity | Should -Be 'high'
         $g[0].count | Should -Be 1
         @($g[0].users).userPrincipalName | Should -Contain 'olddba@contoso.com'
     }
 
-    It 'flags a non-admin still using SMS/voice MFA as medium' {
-        $g = @($script:Result.gaps | Where-Object { $_.id -eq 'user-uses-sms-voice-mfa' })
+    It 'flags a non-admin with SMS/voice registered as medium' {
+        $g = @($script:Result.gaps | Where-Object { $_.id -eq 'user-telephony-registered' })
         @($g).Count | Should -Be 1
         $g[0].severity | Should -Be 'medium'
         @($g[0].users).userPrincipalName | Should -Contain 'bob@contoso.com'
@@ -129,12 +123,12 @@ Describe 'Per-user rows' {
         $dba.hasPhishResistant | Should -BeFalse
     }
 
-    It 'derives usesTelephonyMfa from registered methods' {
+    It 'derives hasTelephonyRegistration from registered methods' {
         $dba = @($script:Result.users | Where-Object { $_.userPrincipalName -eq 'olddba@contoso.com' })[0]
-        $dba.usesTelephonyMfa | Should -BeTrue
+        $dba.hasTelephonyRegistration | Should -BeTrue
         $dba.telephonyMethods | Should -Contain 'mobilePhone'
         $bg = @($script:Result.users | Where-Object { $_.userPrincipalName -eq 'breakglass@contoso.com' })[0]
-        $bg.usesTelephonyMfa | Should -BeFalse
+        $bg.hasTelephonyRegistration | Should -BeFalse
     }
 
     It 'does not expose raw method secrets, only method identifiers' {

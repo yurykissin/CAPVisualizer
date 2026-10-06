@@ -6,11 +6,15 @@ pack mapped to public **CISA SCuBA** Microsoft Entra ID control identifiers
 part of `Invoke-CapVisualizer.ps1` (`analysis/compliance.json`) and drives the
 viewer's **Compliance** tab.
 
-## Controls (full MS.AAD baseline)
+![Compliance tab](images/04-compliance.png)
 
-The pack enumerates the **entire** public CISA SCuBA MS.AAD baseline (34
-controls), not only the Conditional Access subset, so the report reflects every
-recommended control. Each control carries a `scope`:
+## Controls (bundled MS.AAD reference pack)
+
+The bundled pack contains 34 CISA SCuBA MS.AAD control identifiers, including
+controls outside Conditional Access. It is pinned to baseline **1.6** and records
+the exact ScubaGear source commit, retrieval date, and official revision for
+each control (`sourceControlId`, such as `MS.AAD.3.2v2`). These values are
+reported in `analysis/compliance.json`. Each control carries a `scope`:
 
 - `conditional-access` - evaluated automatically from the read-only CA export
   (result `pass` / `fail`).
@@ -39,7 +43,7 @@ Conditional Access.
 
 ## Result model
 
-Per control: `{ id, statement, criticality, scope, result, rationale,
+Per control: `{ id, sourceControlId, statement, criticality, scope, result, rationale,
 evidence[], nist[], mitre[] }` where `result` is `pass` / `fail` / `manual`.
 Evidence lists the policies that satisfy the control. The summary reports
 pass/fail/manual counts, the number of `automatable` controls, and a pass rate
@@ -51,8 +55,11 @@ The baseline lives in
 `assets/reference/baselines/cisa-scuba-aad.json` and supplies each control's text,
 criticality, and standards references. Evaluation predicates live in
 `CapCompliance.psm1` keyed by `checkId`, so a new control that reuses an existing
-check can be added to the pack **without code changes**. The pack is versioned
-(`baselineVersion`) so baselines can evolve independently.
+check can be added to the pack **without code changes**. The pack is versioned (`baselineVersion`) so its revision is visible and can
+evolve independently. Refreshing the pack is a separate maintenance action; the
+tool does not download baseline updates at runtime. Maintainers can run
+`scripts/Test-CapBaselineCurrency.ps1` to compare the packaged revisions with
+upstream; tenant collection remains offline from this maintenance check.
 
 ## Independence
 

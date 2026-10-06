@@ -94,7 +94,8 @@ Describe 'Exemption exposure' {
     It 'aggregates the break-glass group exclusion from CA001' {
         $bg = @($script:Audit.exemptionExposure | Where-Object { $_.id -eq '33333333-3333-3333-3333-333333333333' })
         $bg.Count | Should -Be 1
-        $bg[0].excludedFromPolicies | Should -Contain 'CA001 - Require MFA for all users'
+        # Exclusions cite policy ids, not names: names never leave the tenant.
+        $bg[0].excludedFromPolicies | Should -Contain 'aaaaaaaa-0000-0000-0000-000000000001'
     }
 
     It 'flags the privileged (GA) user reachable via the excluded break-glass group' {

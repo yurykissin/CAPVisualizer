@@ -18,7 +18,7 @@
     Suppress the console summary (still writes files and sets the exit code).
 
 .EXAMPLE
-    ./Invoke-CapTest.ps1 -FromJson ./export.json -JUnitPath ./results.xml
+    ./Invoke-CapTest.ps1 -FromJson ./output/20261005-120000/raw/export.json -JUnitPath ./results.xml
 #>
 [CmdletBinding()]
 param(
@@ -34,7 +34,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $modules = Join-Path $PSScriptRoot 'modules'
-foreach ($m in 'CapCommon', 'CapExport', 'CapNormalize', 'CapScope', 'CapWhatIf', 'CapAudit', 'CapFindings', 'CapCompliance', 'CapTest') {
+foreach ($m in 'CapCommon', 'CapExport', 'CapNormalize', 'CapScope', 'CapAudit', 'CapFindings', 'CapCompliance', 'CapTest') {
     Import-Module (Join-Path $modules "$m.psm1") -Force
 }
 

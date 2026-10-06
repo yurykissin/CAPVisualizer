@@ -107,4 +107,19 @@ Describe 'Findings summary' {
         $script:Result.summary.total | Should -Be (@($script:Result.findings).Count)
         $script:Result.summary.bySeverity['high'] | Should -Be (@($script:Result.findings | Where-Object { $_.severity -eq 'high' }).Count)
     }
+
+    It 'surfaces partial role-assignment coverage instead of silently omitting it' {
+        $partial = @{
+            users = @{ data = @() }; groups = @{ data = @() }; mfaCapability = @{ data = @() }
+            roleAssignments = @{
+                data = @(); completeness = 'partial'; activeComplete = $true; eligibleComplete = $false
+                roleDefinitionsComplete = $true; groupEligibilityExpanded = $false
+                warnings = @('PIM eligibility denied')
+            }
+        }
+        $result = Invoke-CapFindings -NormalizedPolicies $script:Normalized -Enrichment $partial -AuditResult @{ issues = @() }
+        $result.coverage.roleAssignments.completeness | Should -Be 'partial'
+        $result.coverage.roleAssignments.eligibleComplete | Should -BeFalse
+        $result.coverage.roleAssignments.warnings | Should -Contain 'PIM eligibility denied'
+    }
 }

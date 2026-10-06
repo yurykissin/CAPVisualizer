@@ -18,6 +18,55 @@ $ErrorActionPreference = 'Stop'
 $script:CapGraphV1   = 'https://graph.microsoft.com/v1.0'
 $script:CapGraphBeta = 'https://graph.microsoft.com/beta'
 
+function Get-CapToolProvenance {
+    [CmdletBinding()]
+    param()
+
+    $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+    $versionPath = Join-Path $root 'VERSION'
+    $version = if (Test-Path -LiteralPath $versionPath) {
+        (Get-Content -LiteralPath $versionPath -Raw).Trim()
+    } else { 'unknown' }
+    $commit = $null
+    $dirty = $null
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($git -and (Test-Path -LiteralPath (Join-Path $root '.git'))) {
+        try {
+            $commit = (& $git.Source -C $root rev-parse --short=12 HEAD 2>$null).Trim()
+            $dirty = [bool](& $git.Source -C $root status --porcelain --untracked-files=no 2>$null)
+        }
+        catch { }
+    }
+    return [ordered]@{
+        version = $version
+        commit  = $commit
+        dirty   = $dirty
+    }
+}
+
+function Get-CapRequiredScopes {
+    [CmdletBinding()]
+    param(
+        [string[]]$RequestedScopes = @('Policy.Read.All'),
+        [switch]$ResolveNames,
+        [switch]$IncludeDirectory
+    )
+
+    $scopes = [System.Collections.Generic.List[string]]::new()
+    foreach ($scope in @($RequestedScopes)) {
+        if ($scope -and -not ($scopes -contains $scope)) { $scopes.Add($scope) }
+    }
+    if (($ResolveNames -or $IncludeDirectory) -and -not ($scopes -contains 'Directory.Read.All')) {
+        $scopes.Add('Directory.Read.All')
+    }
+    if ($IncludeDirectory) {
+        foreach ($scope in 'RoleManagement.Read.Directory', 'AuditLog.Read.All', 'UserAuthenticationMethod.Read.All') {
+            if (-not ($scopes -contains $scope)) { $scopes.Add($scope) }
+        }
+    }
+    return @($scopes)
+}
+
 function Write-CapLog {
     [CmdletBinding()]
     param(
@@ -72,13 +121,22 @@ function Connect-CapGraph {
     read-only Policy.Read.All.
 
 .PARAMETER TenantId
-    Tenant id (GUID or domain). Required for app-based auth.
+    Tenant id (GUID or domain). Required for app-based auth. Optional for
+    interactive sign-in, where it pins which tenant to authenticate against -
+    useful when the signed-in identity is a guest or admin in several.
 
 .PARAMETER ClientId
     App registration (client) id for app-based auth.
 
 .PARAMETER CertificateThumbprint
     Thumbprint of a certificate in the local store for app-based auth.
+
+.PARAMETER CertificatePath
+    Path to a PFX file containing the certificate and private key. Intended for
+    platforms where certificate-store private-key persistence is unavailable.
+
+.PARAMETER CertificatePassword
+    Optional SecureString password for the PFX file.
 
 .PARAMETER ClientSecret
     Client secret (SecureString) for app-based auth. Certificate is preferred.
@@ -98,16 +156,25 @@ function Connect-CapGraph {
         [Parameter(ParameterSetName = 'Interactive')]
         [switch]$UseDeviceCode,
 
+        [Parameter(ParameterSetName = 'Interactive')]
         [Parameter(Mandatory, ParameterSetName = 'AppCert')]
+        [Parameter(Mandatory, ParameterSetName = 'AppCertFile')]
         [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
         [string]$TenantId,
 
         [Parameter(Mandatory, ParameterSetName = 'AppCert')]
+        [Parameter(Mandatory, ParameterSetName = 'AppCertFile')]
         [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
         [string]$ClientId,
 
         [Parameter(Mandatory, ParameterSetName = 'AppCert')]
         [string]$CertificateThumbprint,
+
+        [Parameter(Mandatory, ParameterSetName = 'AppCertFile')]
+        [string]$CertificatePath,
+
+        [Parameter(ParameterSetName = 'AppCertFile')]
+        [System.Security.SecureString]$CertificatePassword,
 
         [Parameter(Mandatory, ParameterSetName = 'AppSecret')]
         [System.Security.SecureString]$ClientSecret
@@ -124,13 +191,31 @@ function Connect-CapGraph {
             Connect-MgGraph -TenantId $TenantId -ClientId $ClientId `
                 -CertificateThumbprint $CertificateThumbprint -NoWelcome -ErrorAction Stop
         }
+        'AppCertFile' {
+            $resolvedCertificatePath = (Resolve-Path -LiteralPath $CertificatePath -ErrorAction Stop).Path
+            $certificate = if ($CertificatePassword) {
+                Get-PfxCertificate -LiteralPath $resolvedCertificatePath -Password $CertificatePassword -ErrorAction Stop
+            }
+            else {
+                Get-PfxCertificate -LiteralPath $resolvedCertificatePath -NoPromptForPassword -ErrorAction Stop
+            }
+            if (-not $certificate.HasPrivateKey) {
+                throw "Certificate file does not contain an accessible private key: $resolvedCertificatePath"
+            }
+            Write-CapLog "Connecting to Graph (app + certificate file) tenant $TenantId" 'INFO'
+            Connect-MgGraph -TenantId $TenantId -ClientId $ClientId `
+                -Certificate $certificate -NoWelcome -ErrorAction Stop
+        }
         'AppSecret' {
             Write-CapLog "Connecting to Graph (app + secret) tenant $TenantId" 'INFO'
             $cred = [System.Management.Automation.PSCredential]::new($ClientId, $ClientSecret)
             Connect-MgGraph -TenantId $TenantId -ClientSecretCredential $cred -NoWelcome -ErrorAction Stop
         }
         default {
-            Write-CapLog "Connecting to Graph (interactive) scopes: $($Scopes -join ', ')" 'INFO'
+            $tenantSuffix = if ($TenantId) { " tenant $TenantId" } else { '' }
+            Write-CapLog "Connecting to Graph (interactive)$tenantSuffix scopes: $($Scopes -join ', ')" 'INFO'
+            $tenantArg = @{}
+            if ($TenantId) { $tenantArg['TenantId'] = $TenantId }
             if ($UseDeviceCode) {
                 # Opt-in device-code flow for headless / SSH sessions (no browser).
                 # More phishing-prone than the browser flow, so it is not the default.
@@ -141,7 +226,7 @@ function Connect-CapGraph {
                 $deviceUrl = 'https://microsoft.com/devicelogin'
                 Write-CapLog "Device-code sign-in - a one-time code will be shown below. Sign-in page: $deviceUrl" 'INFO'
                 Open-CapBrowser -Url $deviceUrl
-                Connect-MgGraph -Scopes $Scopes -UseDeviceAuthentication -NoWelcome -ErrorAction Stop |
+                Connect-MgGraph -Scopes $Scopes @tenantArg -UseDeviceAuthentication -NoWelcome -ErrorAction Stop |
                     ForEach-Object {
                         Write-Host ''
                         Write-Host "  >> $_" -ForegroundColor Yellow
@@ -152,7 +237,7 @@ function Connect-CapGraph {
                 # Default: system-browser authorization-code flow (PKCE). This is
                 # the Microsoft-recommended interactive flow - a single, SSO-aware
                 # browser prompt and not susceptible to device-code phishing.
-                Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction Stop
+                Connect-MgGraph -Scopes $Scopes @tenantArg -NoWelcome -ErrorAction Stop
             }
         }
     }
@@ -408,34 +493,38 @@ function Get-CapServicePrincipalMap {
 function Get-CapWellKnownAppMap {
 <#
 .SYNOPSIS
-    Static fallback names for well-known first-party Microsoft app ids that may
-    be referenced by CA policies but not present as tenant service principals.
+    Names for well-known first-party Microsoft app ids that may be referenced by
+    CA policies but are not present as tenant service principals.
+
+.DESCRIPTION
+    Reads assets/reference/microsoft-first-party-apps.json, the single source
+    shared with the name dictionary so the two lists cannot drift. Falls back to
+    a small built-in set if the pack is missing or unreadable.
 #>
+    $pack = Join-Path $PSScriptRoot '../../assets/reference/microsoft-first-party-apps.json'
+    if (Test-Path -LiteralPath $pack) {
+        try {
+            $data = Get-Content -LiteralPath $pack -Raw | ConvertFrom-Json -Depth 10 -AsHashtable
+            $map = @{}
+            foreach ($a in @($data['apps'])) {
+                if ($a['id'] -and $a['name']) { $map[[string]$a['id']] = [string]$a['name'] }
+            }
+            if ($map.Count -gt 0) { return $map }
+        }
+        catch { }
+    }
+
     return @{
         '00000002-0000-0ff1-ce00-000000000000' = 'Office 365 Exchange Online'
         '00000003-0000-0ff1-ce00-000000000000' = 'Office 365 SharePoint Online'
         '00000003-0000-0000-c000-000000000000' = 'Microsoft Graph'
-        '00000004-0000-0ff1-ce00-000000000000' = 'Skype for Business Online'
-        '00000005-0000-0ff1-ce00-000000000000' = 'Microsoft Yammer'
-        '00000006-0000-0ff1-ce00-000000000000' = 'Microsoft Office 365 Portal'
-        '00000007-0000-0ff1-ce00-000000000000' = 'Microsoft Exchange Online Protection'
-        '00000009-0000-0000-c000-000000000000' = 'Power BI Service'
-        '0000000c-0000-0000-c000-000000000000' = 'Microsoft App Access Panel'
         '797f4846-ba00-4fd7-ba43-dac1f8f63013' = 'Windows Azure Service Management API'
         'c44b4083-3bb0-49c1-b47d-974e53cbdf3c' = 'Microsoft Azure Portal'
-        '04b07795-8ddb-461a-bbee-02f9e1bf7b46' = 'Microsoft Azure CLI'
-        '05a65629-4c1b-48c1-a78b-804c4abdd4af' = 'Microsoft Azure CLI (legacy)'
-        '1950a258-227b-4e31-a9cf-717495945fc2' = 'Microsoft Azure PowerShell'
-        '1fec8e78-bce4-4aaf-ab1b-5451cc387264' = 'Microsoft Teams'
         'd3590ed6-52b3-4102-aeff-aad2292ab01c' = 'Microsoft Office'
-        '871c010f-5e61-4fb1-83ac-98610a7e9110' = 'Microsoft Power BI'
-        '00000007-0000-0000-c000-000000000000' = 'Microsoft Dataverse'
-        '3090ab82-f1c1-4cdf-af2c-5d7a6f3e2cc7' = 'Microsoft Defender for Cloud Apps'
-        '74bcdadc-2fdc-4bb3-8459-76d06952a0e9' = 'Microsoft Intune Web Company Portal'
-        '89bee1f7-5e6e-4d8a-9f3d-ecd601259da7' = 'Office 365 (portal.office.com)'
     }
 }
 
 Export-ModuleMember -Function Write-CapLog, Connect-CapGraph, Invoke-CapGraphGet, `
     ConvertTo-CapHashtable, Get-CapFileSha256, Save-CapJson, Get-CapDirectoryNameMap, `
-    Get-CapRoleTemplateMap, Get-CapServicePrincipalMap, Get-CapWellKnownAppMap, Open-CapBrowser
+    Get-CapRoleTemplateMap, Get-CapServicePrincipalMap, Get-CapWellKnownAppMap, Open-CapBrowser, `
+    Get-CapToolProvenance, Get-CapRequiredScopes

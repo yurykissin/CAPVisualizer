@@ -31,6 +31,22 @@ Describe 'Resolve-CapPrincipalContext' {
         $ctx = Resolve-CapPrincipalContext -PrincipalId $script:BreakGlass -Enrichment $null
         $ctx.warnings.Count | Should -BeGreaterThan 0
     }
+    It 'does not treat a PIM-eligible assignment as active role membership' {
+        $eligibleOnly = [ordered]@{
+            groups = [ordered]@{ available = $true; data = @() }
+            users = [ordered]@{ available = $true; data = @() }
+            roleAssignments = [ordered]@{
+                available = $true
+                data = @([ordered]@{
+                    principalId = $script:NoMfaUser
+                    roleTemplateId = '62e90394-69f5-4237-9190-012177145e10'
+                    assignmentType = 'eligible'
+                })
+            }
+        }
+        $ctx = Resolve-CapPrincipalContext -PrincipalId $script:NoMfaUser -Enrichment $eligibleOnly
+        $ctx.roleTemplateIds | Should -Not -Contain '62e90394-69f5-4237-9190-012177145e10'
+    }
 }
 
 Describe 'Resolve-CapScope for the break-glass admin' {

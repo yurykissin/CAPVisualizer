@@ -1,5 +1,5 @@
 {
-  "_comment": "Starter CAPVisualizer assertion pack. Declarative expectations evaluated offline against an export by CapTest.psm1 / Invoke-CapTest.ps1. Independent DSL (not Pester). Assertion types: compliance (a baseline control result), findingThreshold (no findings at/above a severity), whatif (a simulated sign-in outcome). The compliance assertions cover every Conditional-Access-automatable CISA SCuBA MS.AAD control; tune or remove any that do not apply to your tenant.",
+  "_comment": "Starter CAPVisualizer assertion pack. Declarative expectations evaluated offline against an export by CapTest.psm1 / Invoke-CapTest.ps1. Independent DSL (not Pester). Assertion types: compliance (a baseline control result) and findingThreshold (no findings at/above a severity). The compliance assertions cover every Conditional-Access-automatable CISA SCuBA MS.AAD control; tune or remove any that do not apply to your tenant.",
   "schemaVersion": "1.0",
   "name": "CAPVisualizer starter assertions",
   "assertions": [

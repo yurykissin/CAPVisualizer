@@ -71,8 +71,17 @@ function Get-CapPolicyFingerprint {
     $appSig += "|exc=$(_CsJoin $apps.excludeAppIds)"
 
     $u = $p.conditions.users
-    $targetSig = "all=$($u.includeAll);guest=$($u.includeGuests);u=$(_CsJoin $u.includeUsers);grp=$(_CsJoin $u.includeGroups);rol=$(_CsJoin $u.includeRoles)" +
-                 "|exu=$(_CsJoin $u.excludeUsers);exg=$(_CsJoin $u.excludeGroups);exr=$(_CsJoin $u.excludeRoles)"
+    $gIn  = "$($u.includeGuests)" + $(if ($u.includeGuestTypes) { ":$(_CsJoin $u.includeGuestTypes)" } else { '' }) +
+            $(if ($u.includeGuestTenantMode) { "@$($u.includeGuestTenantMode)" } else { '' }) +
+            $(if ($u.includeGuestTenants) { "/$(_CsJoin $u.includeGuestTenants)" } else { '' })
+    $gEx  = "$($u.excludeGuests)" + $(if ($u.excludeGuestTypes) { ":$(_CsJoin $u.excludeGuestTypes)" } else { '' }) +
+            $(if ($u.excludeGuestTenantMode) { "@$($u.excludeGuestTenantMode)" } else { '' }) +
+            $(if ($u.excludeGuestTenants) { "/$(_CsJoin $u.excludeGuestTenants)" } else { '' })
+    # Guest scope belongs in the fingerprint. Without the types and the external
+    # tenant list, two policies delegating access to two different partner
+    # organisations look like the same policy.
+    $targetSig = "all=$($u.includeAll);guest=$gIn;u=$(_CsJoin $u.includeUsers);grp=$(_CsJoin $u.includeGroups);rol=$(_CsJoin $u.includeRoles)" +
+                 "|exu=$(_CsJoin $u.excludeUsers);exg=$(_CsJoin $u.excludeGroups);exr=$(_CsJoin $u.excludeRoles);exguest=$gEx"
 
     $plat = if ($null -ne $p.conditions.platforms) { _CsJoin $p.conditions.platforms.effective } else { 'any' }
     $cli  = if ($p.conditions.clientApps.isAll) { 'all' } else { _CsJoin $p.conditions.clientApps.effective }
@@ -175,12 +184,22 @@ function Get-CapDeadWeight {
     param([Parameter(Mandatory)]$NormalizedPolicies)
 
     $retirePattern = '(?i)\b(test|check|chk|leave\s*disabled|deprecat|obsolete|old|do\s*not\s*use|dnu|delete|remove|temp|poc|demo)\b|(^|\s)xx|_x$'
+    # A name that says "DO NOT DELETE" is the strongest possible statement that a
+    # policy must be kept, and the bare word 'delete' above matches inside it. Left
+    # unguarded, the toolchain recommends deleting exactly the policies whose names
+    # exist to prevent that, which is how two managed-provider policies ended up in
+    # a customer's deletion list. Suppress the name signal whenever the match is
+    # negated. 'do not use' stays a retire signal: it means the policy is out of
+    # service, not that it must be preserved.
+    $keepPattern = '(?i)\bdo\s*not\s*(delete|remove|modify|touch|change|disable|alter|edit)\b|\bdon''t\s*(delete|remove|modify|touch|change|disable)\b'
     $items = [System.Collections.Generic.List[object]]::new()
     foreach ($p in @($NormalizedPolicies)) {
         $reasons = [System.Collections.Generic.List[string]]::new()
         if (-not $p.enforced -and -not $p.reportOnly) { [void]$reasons.Add('disabled - enforces nothing') }
         if ($p.reportOnly) { [void]$reasons.Add('report-only - telemetry only, not enforced') }
-        if ($p.displayName -match $retirePattern) { [void]$reasons.Add('name suggests a test/temporary/retire policy') }
+        if ($p.displayName -match $retirePattern -and $p.displayName -notmatch $keepPattern) {
+            [void]$reasons.Add('name suggests a test/temporary/retire policy')
+        }
         if ($reasons.Count) {
             $items.Add([ordered]@{
                 id          = $p.id
@@ -207,10 +226,57 @@ function Test-CapBaselineCompleteness {
     $pols = @($NormalizedPolicies)
     $enforced = @($pols | Where-Object { $_.enforced })
 
+    # A control is only a tenant control if something broad is in scope. An
+    # enabled policy that names three individuals is a pilot, not protection,
+    # and reporting it as present is how a real gap gets signed off as covered.
+    #   tenant   - all users are in scope
+    #   targeted - groups, roles or the guest selector; breadth is a directory
+    #              fact this tool cannot see offline, so it is credited
+    #   narrow   - a handful of named users only
+    $scopeOf = {
+        param($p)
+        $u = $p.conditions.users
+        if ($u.includeAll) { return 'tenant' }
+        if (@($u.includeGroups).Count -or @($u.includeRoles).Count -or $u.includeGuests) { return 'targeted' }
+        if (@($u.includeUsers).Count) { return 'narrow' }
+        return 'none'
+    }
+
     $results = [System.Collections.Generic.List[object]]::new()
-    $add = {
-        param($control, $present, $severity, $detail, $recommendation)
-        $results.Add([ordered]@{ control = $control; present = [bool]$present; severity = $severity; detail = $detail; recommendation = $recommendation })
+
+    # Adds a control whose presence is qualified by the scope of the policies
+    # that implement it. 'present' stays a plain boolean for existing consumers,
+    # it is simply no longer satisfied by a narrowly scoped implementation.
+    $addScoped = {
+        param($control, $matched, $severity, $detail, $recommendation)
+        $m = @($matched)
+        $scopes = @($m | ForEach-Object { & $scopeOf $_ })
+        $broad = @($m | Where-Object { (& $scopeOf $_) -in @('tenant', 'targeted') })
+        $narrow = $m.Count - $broad.Count
+        $coverage = if (-not $m.Count) { 'none' }
+        elseif ($scopes -contains 'tenant') { 'tenant' }
+        elseif ($broad.Count) { 'targeted' }
+        else { 'narrow' }
+
+        $note = ''
+        if ($coverage -eq 'narrow') {
+            $note = " Every implementing policy targets named individuals only, so this is a pilot rather than a tenant control and is reported as a gap."
+        }
+        elseif ($narrow -gt 0) {
+            $note = " $narrow of them target named individuals only and do not count towards coverage."
+        }
+
+        $results.Add([ordered]@{
+            control        = $control
+            present        = [bool]($coverage -in @('tenant', 'targeted'))
+            coverage       = $coverage
+            enforcedCount  = $m.Count
+            broadCount     = $broad.Count
+            narrowCount    = $narrow
+            severity       = $severity
+            detail         = ($detail + $note)
+            recommendation = $recommendation
+        })
     }
 
     # Graph stores conditions.authenticationFlows.transferMethods as a comma-joined
@@ -222,45 +288,45 @@ function Test-CapBaselineCompleteness {
     }
 
     $blocksDeviceCode = @($enforced | Where-Object { $_.grant.block -and ((& $flowTokens $_) -contains 'deviceCodeFlow') })
-    & $add 'Block device-code flow' ($blocksDeviceCode.Count -gt 0) 'high' `
+    & $addScoped 'Block device-code flow' $blocksDeviceCode 'high' `
         "$($blocksDeviceCode.Count) enforced policy(ies) block device-code flow (Authentication Flows condition)." `
         'Add an enabled Block policy with the Authentication Flows = device code flow condition, targeting all users, excluding break-glass and any Teams/Poly device resource-account group + the Device Registration Service.'
 
     $controlsTransfer = @($enforced | Where-Object { (& $flowTokens $_) -contains 'authenticationTransfer' })
-    & $add 'Control authentication transfer' ($controlsTransfer.Count -gt 0) 'medium' `
+    & $addScoped 'Control authentication transfer' $controlsTransfer 'medium' `
         "$($controlsTransfer.Count) enforced policy(ies) reference the authentication-transfer flow." `
         'Add a policy that governs the authentication-transfer flow (Authentication Flows condition).'
 
     $azureMgmtMfa = @($enforced | Where-Object {
             $_.grant.requireMfa -and ($_.conditions.applications.includeAll -or (@($_.conditions.applications.includeAppIds) -contains $script:CapAzureMgmtAppId))
         })
-    & $add 'MFA for Azure management' ($azureMgmtMfa.Count -gt 0) 'high' `
+    & $addScoped 'MFA for Azure management' $azureMgmtMfa 'high' `
         "$($azureMgmtMfa.Count) enforced policy(ies) require MFA covering the Azure management API ($script:CapAzureMgmtAppId or All apps)." `
         'Require MFA (ideally phishing-resistant) for the Windows Azure Service Management API / Microsoft Admin Portals.'
 
     $userRisk = @($enforced | Where-Object { @($_.conditions.userRisk).Count -and $_.grant.hasControls })
-    & $add 'User-risk policy' ($userRisk.Count -gt 0) 'high' `
+    & $addScoped 'User-risk policy' $userRisk 'high' `
         "$($userRisk.Count) enforced policy(ies) act on user risk levels." `
         'Add a high user-risk policy (require secure password change / block). Requires Entra ID Protection (P2).'
 
     $signInRisk = @($enforced | Where-Object { @($_.conditions.signInRisk).Count -and $_.grant.hasControls })
-    & $add 'Sign-in-risk policy' ($signInRisk.Count -gt 0) 'high' `
+    & $addScoped 'Sign-in-risk policy' $signInRisk 'high' `
         "$($signInRisk.Count) enforced policy(ies) act on sign-in risk levels." `
         'Add a high sign-in-risk policy (require MFA / block). Requires Entra ID Protection (P2).'
 
     $authStrength = @($enforced | Where-Object { $_.grant.authStrengthId })
     $adminStrength = @($authStrength | Where-Object { @($_.conditions.users.includeRoles).Count })
-    & $add 'Phishing-resistant strength for admins' ($adminStrength.Count -gt 0) 'high' `
+    & $addScoped 'Phishing-resistant strength for admins' $adminStrength 'high' `
         "$($authStrength.Count) enforced policy(ies) use an authentication-strength control, $($adminStrength.Count) of them scoped to directory roles." `
         'Require a phishing-resistant authentication strength for privileged directory roles.'
 
     $secReg = @($enforced | Where-Object { @($_.conditions.applications.userActions) -contains $script:CapRegSecInfoAction })
-    & $add 'Secure security-info registration' ($secReg.Count -gt 0) 'medium' `
+    & $addScoped 'Secure security-info registration' $secReg 'medium' `
         "$($secReg.Count) enforced policy(ies) target the register-security-info user action." `
         'Add a policy on the "Register security information" user action (trusted network / compliant device).'
 
     $tokenProt = @($enforced | Where-Object { $_.hasSession })
-    & $add 'Token protection / session hardening' ($tokenProt.Count -gt 0) 'info' `
+    & $addScoped 'Token protection / session hardening' $tokenProt 'info' `
         "$($tokenProt.Count) enforced policy(ies) apply session controls (token protection cannot be fully confirmed offline - verify in portal)." `
         'Pilot token protection (sign-in session token binding) for Exchange/SharePoint on Windows; enable Continuous Access Evaluation.'
 
@@ -277,7 +343,8 @@ function Get-CapExclusionConcentration {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$NormalizedPolicies,
-        [hashtable]$NameMap = @{}
+        [hashtable]$NameMap = @{},
+        $UnreadShapes = @()
     )
 
     $acc = @{}   # id -> { id, type, policies[] }
@@ -294,7 +361,7 @@ function Get-CapExclusionConcentration {
             if (-not $acc.ContainsKey($id)) {
                 $acc[$id] = [ordered]@{ id = $id; type = $ex.type; displayName = $(if ($NameMap.ContainsKey($id)) { $NameMap[$id] } else { $null }); policies = [System.Collections.Generic.List[string]]::new() }
             }
-            $acc[$id].policies.Add($p.displayName)
+            $acc[$id].policies.Add($p.id)
         }
     }
 
@@ -317,7 +384,8 @@ function Invoke-CapConsolidate {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$NormalizedPolicies,
-        [hashtable]$NameMap = @{}
+        [hashtable]$NameMap = @{},
+        $UnreadShapes = @()
     )
 
     $pols = @($NormalizedPolicies)
@@ -364,6 +432,14 @@ function Invoke-CapConsolidate {
         deadWeight            = @($deadWeight)
         completeness          = @($completeness)
         exclusionConcentration= @($exclusion)
+        # Condition data present in the export that the model does not read.
+        # Carried alongside the verdicts rather than logged and forgotten,
+        # because it is the one thing that says how far the verdicts can be
+        # trusted. Path and count only: a sample value can be a device filter
+        # rule, which is tenant data.
+        unreadShapes = @(@($UnreadShapes) | ForEach-Object {
+            [ordered]@{ path = $_.path; count = $_.count; policyIds = @($_.policyIds) }
+        })
     }
 }
 
