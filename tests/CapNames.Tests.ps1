@@ -307,26 +307,51 @@ Describe 'Test-CapNameLeak' {
 
         It 'still flags a short name that appears as a standalone value' {
             foreach ($leak in @(
-                '"owner": "Bill"'
-                '"n": "box"'
-                '"n": "mDi"'
-                'policy excludes Bill from MFA'
-                'escalate to Bill, then review'
-                'contact (Bill) urgently'
+                'Bill'
+                'box'
+                'mDi'
             )) {
-                @(Test-CapNameLeak -Dictionary $script:ShortDict -InputObject @{ x = $leak }).Count |
-                    Should -BeGreaterThan 0 -Because "'$leak' is a genuine leak"
+                @(Test-CapNameLeak -Dictionary $script:ShortDict -InputObject @{ owner = $leak }).Count |
+                    Should -BeGreaterThan 0 -Because "'$leak' is a genuine whole-value leak"
             }
         }
 
-        It 'still matches a long name inside a larger word' {
-            # Names at or above the masking threshold keep unbounded matching,
-            # because the masker substitutes them anywhere in free text.
+        It 'does not flag short names in prose that the masker deliberately preserves' {
+            foreach ($prose in @(
+                'policy excludes Bill from MFA'
+                'escalate to Bill, then review'
+                'contact (Bill) urgently'
+                'checks over the full export, including data withheld from this file'
+            )) {
+                $d = @{ entries = @{ 'OBJ-1' = @{ name = 'Bill' }; 'OBJ-2' = @{ name = 'data' } } }
+                $safe = ConvertTo-CapSafeObject -Dictionary $d -InputObject @{ x = $prose }
+                $safe.x | Should -Be $prose
+                @(Test-CapNameLeak -Dictionary $d -InputObject $safe).Count | Should -Be 0
+            }
+        }
+
+        It 'uses the same whole-word boundaries as the masker for long names' {
             $d = @{ kind='nameDictionary'; snapshot='s'; count=1
                     entries=[ordered]@{ 'OBJ-9' = @{ name='Contoso'; type='object' } }
                     idAliases=@{}; pseudonymized=$false }
             @(Test-CapNameLeak -Dictionary $d -InputObject @{ x = 'host CONTOSOFIN07 reported' }).Count |
+                Should -Be 0
+            @(Test-CapNameLeak -Dictionary $d -InputObject @{ x = 'host Contoso reported.' }).Count |
                 Should -BeGreaterThan 0
+        }
+
+        It 'does not reject a safe bundle for abuse inside abused or data in its notice' {
+            $d = @{ entries = @{
+                'OBJECT-001' = @{ name = 'abuse' }
+                'OBJECT-002' = @{ name = 'data' }
+            }; idAliases = @{}; snapshot = 'collision'; count = 2 }
+            $source = @{ policies = @(); note = 'Unmonitored, and unlikely to be noticed if abused.' }
+            { New-CapSafeReviewBundle -SafeExport $source -Dictionary $d -Snapshot 'collision' } |
+                Should -Not -Throw
+            foreach ($name in @('abuse', 'data')) {
+                @(Test-CapNameLeak -Dictionary $d -InputObject @{ owner = $name }).Count |
+                    Should -BeGreaterThan 0
+            }
         }
     }
 }

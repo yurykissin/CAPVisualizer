@@ -552,13 +552,12 @@ try {
     # GUID shape, then persist the augmented dictionary before the manifest.
     $null = Add-CapIdAliases -Dictionary $dictionary -Source $bundleSource
     $policyOnlyBundle = New-CapPolicyOnlyExport -Export $bundleSource -Snapshot $stamp -Analysis $safeAnalysis
-    $safeBundle = New-CapSafeReviewBundle -SafeExport $policyOnlyBundle -Dictionary $dictionary -Snapshot $stamp
-    $analysisNote = if ($safeBundle.Contains('consolidation') -or $safeBundle.Contains('compliance')) { ', with the deterministic analysis included' } else { '' }
-    Write-CapLog "Shareable export ready: $(@($safeBundle.policies).Count) policies, no tenant id or display names$analysisNote (use 'Export safely' in the report)." 'OK'
-
     if (-not $NoNames) {
         Save-CapJson -InputObject $dictionary -Path (Join-Path $snapshot 'raw/names.json')
     }
+    $safeBundle = New-CapSafeReviewBundle -SafeExport $policyOnlyBundle -Dictionary $dictionary -Snapshot $stamp
+    $analysisNote = if ($safeBundle.Contains('consolidation') -or $safeBundle.Contains('compliance')) { ', with the deterministic analysis included' } else { '' }
+    Write-CapLog "Shareable export ready: $(@($safeBundle.policies).Count) policies, no tenant id or display names$analysisNote (use 'Export safely' in the report)." 'OK'
 
     $csvRows = @($friendly | ForEach-Object { ConvertTo-CapCsvRow -Friendly $_ })
     if ($csvRows) { $csvRows | Export-Csv -Path (Join-Path $snapshot 'report/policies.csv') -NoTypeInformation -Encoding UTF8 }
