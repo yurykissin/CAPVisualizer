@@ -1832,20 +1832,18 @@ function Test-CapNameLeak {
     #
     # Names are split by length, mirroring exactly what the masker guarantees:
     #
-    #   >= CapMinTextNameLength : substituted anywhere in free text, so the test
-    #                             matches anywhere too, including inside a word.
+    #   >= CapMinTextNameLength : substituted at _CapBoundaryOk boundaries in
+    #                             free text, never inside a larger word.
     #   <  CapMinTextNameLength : substituted only as a whole value, because
     #                             masking "IT" or "All" inside prose would
-    #                             corrupt it. The test is delimiter-anchored to
-    #                             match, otherwise a tenant that happens to name
+    #                             corrupt it. The test requires a whole JSON
+    #                             string value or key, otherwise a tenant that happens to name
     #                             an object "User", "Bill" or "box" collides with
     #                             Microsoft's own constants ("User.Read.All",
     #                             "Billing Administrator", "MailboxSettings...",
     #                             "urn:user:registerdevice") and every bundle is
-    #                             rejected on false positives. Word characters,
-    #                             dots and colons all count as "part of a larger
-    #                             identifier" so structured constants are skipped
-    #                             while a standalone value stays detectable.
+    #                             rejected on false positives. A word in prose
+    #                             is not a whole value, even if space-delimited.
     $tokenByName = [System.Collections.Hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
     $leakNames = [System.Collections.Generic.List[string]]::new()
     $shortNames = [System.Collections.Generic.List[string]]::new()
@@ -1875,6 +1873,15 @@ function Test-CapNameLeak {
                     $hit = $m.Value
                     $token = $tokenByName[$hit]
                     if (-not $token) { continue }
+                    if ($hit.Length -lt $script:CapMinTextNameLength) {
+                        $end = $m.Index + $m.Length
+                        if ($m.Index -eq 0 -or $end -ge $doc.Text.Length) { continue }
+                        if ($doc.Text[$m.Index - 1] -ne '"' -or $doc.Text[$end] -ne '"') { continue }
+                        if ($m.Index -gt 1 -and $doc.Text[$m.Index - 2] -eq '\') { continue }
+                    }
+                    elseif (-not (_CapBoundaryOk -Text $doc.Text -Index $m.Index -Length $m.Length)) {
+                        continue
+                    }
                     $violations.Add([ordered]@{
                         source  = $doc.Source
                         kind    = 'name'

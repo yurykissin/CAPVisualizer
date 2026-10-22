@@ -153,6 +153,24 @@ The folder also contains `cap-safe-review-<snapshot>.json` - the same single
 file the **Export safely** button produces, so either route gives a reviewer an
 interchangeable artifact.
 
+### Incomplete runs
+
+Collection and analysis files are written before the shareable bundle is
+verified. A verification error therefore leaves a partial snapshot, not a
+successful export: the HTML and manifest may be missing. Do not share the raw
+or report folders as a substitute for the verified bundle.
+
+The local `raw/names.json` dictionary is saved before bundle verification
+(unless `-NoNames` is used), so a rejected bundle does not discard the names
+needed for an offline rerun. Use `Invoke-CapVisualizer.ps1 -FromJson` with the
+saved `raw/export.json`, `-Names` pointing to that dictionary, and a separate
+`-OutputRoot` to preserve the original snapshot.
+
+Name verification follows the same boundaries as masking: long names are
+matched at whole-word boundaries, and short names only as whole string values
+or keys. A name such as `abuse` inside `abused`, or a short name such as `data`
+in explanatory prose, is not evidence that a maskable value escaped.
+
 ## What gets masked
 
 - Display names of policies, users, groups, roles, applications and service
